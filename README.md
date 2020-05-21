@@ -1,9 +1,9 @@
 # genSpring
-Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard code in mem auth system.
+Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard coded, in mem, auth system.
 Tested with SQLite but code was brought over from Struts version for MySQL and SQLServer that will probably work.
 
 # Setup
-Basically set you options in /genSpring/src/main/resources/genSpring.properties
+Basically set your options in /genSpring/src/main/resources/genSpring.properties
 
 db.url=jdbc:sqlite:L:/SpringTools4.6.1/workspace/watchlistDB.sqlite
 db.driver=org.sqlite.JDBC

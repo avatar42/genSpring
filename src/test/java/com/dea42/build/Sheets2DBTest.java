@@ -13,8 +13,9 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
 
-import org.apache.log4j.Logger;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.dea42.common.Utils;
 
@@ -24,7 +25,7 @@ import com.dea42.common.Utils;
  */
 public class Sheets2DBTest {
 	public static final String propKey = "sheettest";
-	private static final Logger LOGGER = Logger.getLogger(Sheets2DBTest.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DBTest.class.getName());
 
 	/**
 	 * Test method for {@link com.dea42.build.Sheets2DB#columnNumberToLetter(int)}.

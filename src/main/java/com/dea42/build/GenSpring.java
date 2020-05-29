@@ -25,7 +25,8 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -44,7 +45,7 @@ import com.dea42.common.Utils;
  */
 
 public class GenSpring {
-	private static final Logger LOGGER = Logger.getLogger(GenSpring.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String propKey = "genSpring";
 
 	private boolean useDouble = false;

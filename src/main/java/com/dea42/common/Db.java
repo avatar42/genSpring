@@ -17,7 +17,8 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
 
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Title: DB <br>
@@ -30,7 +31,7 @@ import org.apache.log4j.Logger;
  * @version 1.0
  */
 public class Db {
-	private static final Logger LOGGER = Logger.getLogger(Db.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Db.class.getName());
 
 	/**
 	 * Get connection to display / log utils

@@ -23,7 +23,8 @@ import java.util.ResourceBundle;
 import java.util.StringTokenizer;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -63,7 +64,7 @@ import com.google.api.services.sheets.v4.model.ValueRange;
  *
  */
 public class Sheets2DB {
-	private static final Logger LOGGER = Logger.getLogger(Sheets2DB.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DB.class.getName());
 	public static long ONE_DAY_MILS = 86400000l;
 
 	private static final String APPLICATION_NAME = "Google Sheets 2 DB";
@@ -437,7 +438,7 @@ public class Sheets2DB {
 				}
 			}
 		}
-		LOGGER.debug(wantedCols);
+		LOGGER.debug(wantedCols.toString());
 		return wantedCols;
 	}
 
@@ -503,7 +504,7 @@ public class Sheets2DB {
 							}
 							colNum++;
 						}
-						LOGGER.debug(row);
+						LOGGER.debug(row.toString());
 					} else if (rowId > frozenRowCount && rowId <= rowCount) {
 						Map<Object, Object> rowMap = new HashMap<Object, Object>();
 						rowsData.put(rowId, rowMap);
@@ -576,7 +577,7 @@ public class Sheets2DB {
 								}
 							}
 						}
-						LOGGER.debug(rowMap);
+						LOGGER.debug(rowMap.toString());
 					}
 					rowId++;
 				}
@@ -636,8 +637,8 @@ public class Sheets2DB {
 		} catch (IOException e) {
 			LOGGER.error("Failed to get link fields for " + tabName, e);
 		}
-		LOGGER.debug(maxFieldLenghts);
-		LOGGER.debug(fieldTypes);
+		LOGGER.debug(maxFieldLenghts.toString());
+		LOGGER.debug(fieldTypes.toString());
 
 		String tableName = Utils.tabToStr(renames, tabName);
 		// Drop old table if there is one

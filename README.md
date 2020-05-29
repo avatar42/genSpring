@@ -1,7 +1,7 @@
 # genSpring
 Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard coded, in mem, auth system.
 Tested with SQLite but code was brought over from Struts version for MySQL and SQLServer that will probably work.
-Note for safety reasons it will overwrite existing files so just delete the files you want to regen and run the tools again.
+Note for safety reasons it will not overwrite existing files so just delete the files you want to regen and run the tools again.
 
 # Setup
 Basically set your options in /genSpring/src/main/resources/genSpring.properties 
@@ -15,7 +15,7 @@ db.name= <br>
  
  
 ## top folder for output / new project root 
-genSpring.outdir=../gen 
+genSpring.outdir=../Watchlist 
 ## used if not empty. Current year added to end.
 genSpring.Copyright=Copyright (c) 2001- 
 ## ignored if blank

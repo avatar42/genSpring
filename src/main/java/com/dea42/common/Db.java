@@ -10,7 +10,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
 
@@ -99,14 +98,20 @@ public class Db {
 		s_loaded = false;
 	}
 
-	private String getProp(ResourceBundle bundle, String key, String defaultVal) {
-		try {
-			return bundle.getString(key);
-		} catch (MissingResourceException e) {
-			LOGGER.warn(key + " undefined in " + config + " using " + defaultVal);
-		}
+	public boolean isSQLite() {
+		return s_dbDriver.contains("sqlite");
+	}
 
-		return defaultVal;
+	public boolean isMySQL() {
+		return s_dbDriver.contains("mysql");
+	}
+
+	public boolean isSqlserver() {
+		return s_dbDriver.contains("sqlserver");
+	}
+
+	public boolean isDb2() {
+		return s_dbDriver.contains("db2");
 	}
 
 	/**
@@ -118,9 +123,9 @@ public class Db {
 	public void init(String config) {
 		if (!s_loaded) {
 			ResourceBundle bundle = ResourceBundle.getBundle(config);
-			s_dbDriver = getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
-			s_dbDriver2 = getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
-			s_dbPool = getProp(bundle, "db.pool", null);
+			s_dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
+			s_dbDriver2 = Utils.getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
+			s_dbPool = Utils.getProp(bundle, "db.pool", null);
 			LOGGER.info("db.pool =" + s_dbPool);
 
 			if (s_dbPool != null) {
@@ -141,10 +146,10 @@ public class Db {
 				for (String key : bundle.keySet()) {
 					LOGGER.info(key + "=" + bundle.getString(key));
 				}
-				s_dbUser = getProp(bundle, "db.user", null);
-				s_dbPass = getProp(bundle, "db.password", null);
-				s_dbName = getProp(bundle, "db.name", null);
-				s_dbUrl = getProp(bundle, "db.url", null);
+				s_dbUser = Utils.getProp(bundle, "db.user", null);
+				s_dbPass = Utils.getProp(bundle, "db.password", null);
+				s_dbName = Utils.getProp(bundle, "db.name", null);
+				s_dbUrl = Utils.getProp(bundle, "db.url", null);
 				s_loaded = true;
 			} else {
 				s_loaded = true;
@@ -172,7 +177,7 @@ public class Db {
 				}
 				if (ds == null) {
 					connection = doConnect();
-					LOGGER.error(config + ".getConnection(" + calledBy + ')' + s_dbUrl + "=" + s_openCount);
+					LOGGER.info(config + ".getConnection(" + calledBy + ')' + s_dbUrl + "=" + s_openCount);
 				} else {
 					try {
 						connection = ds.getConnection();
@@ -180,7 +185,7 @@ public class Db {
 						// if connection is stale might get error so grab again.
 						connection = ds.getConnection();
 					}
-					LOGGER.error(config + ".getConnection(" + calledBy + ")" + s_dbPool + "=" + s_openCount);
+					LOGGER.info(config + ".getConnection(" + calledBy + ")" + s_dbPool + "=" + s_openCount);
 				}
 				s_openCount++;
 				s_totalCount++;
@@ -366,7 +371,7 @@ public class Db {
 		} catch (SQLException ex) {
 			LOGGER.error("Unable to close connection to DB");
 		}
-		LOGGER.error("close(" + calledBy + ')' + s_openCount);
+		LOGGER.info("close(" + calledBy + ')' + s_openCount);
 	}
 
 	/**

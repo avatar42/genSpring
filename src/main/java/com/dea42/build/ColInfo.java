@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.sql.Types;
 
 /**
  * Title: ColInfo <br>
@@ -29,24 +30,17 @@ public class ColInfo implements Serializable {
 	private String type;
 	// the java.sql.Types value
 	private int stype;
-	// TODO: remove
-	private String jType;
 	private String gsName;
 	private int length;
 	/**
 	 * This column is the primary key
 	 */
 	private boolean pk = false;
-	/**
-	 * 2nd key of combo prime key (for Views)
-	 */
-	private boolean sk = false;
 	private String defaultVal;
 	private String constraint;
 	private boolean numeric = false;
 	private boolean date = false;
 
-	// todo: add support for this
 	private boolean required = false;
 
 	private String foreignTable;
@@ -55,6 +49,11 @@ public class ColInfo implements Serializable {
 	private int colScale;
 	private int colPrecision;
 
+	/**
+	 * If true can not be null
+	 * 
+	 * @return
+	 */
 	public boolean isRequired() {
 		return required;
 	}
@@ -63,8 +62,23 @@ public class ColInfo implements Serializable {
 		this.required = required;
 	}
 
+	/**
+	 * is date type
+	 * 
+	 * @return
+	 */
 	public boolean isDate() {
 		return date;
+	}
+
+	/**
+	 * return true if a String type
+	 * 
+	 * @return
+	 */
+	public boolean isString() {
+		return stype == Types.VARCHAR || stype == Types.NVARCHAR || stype == Types.LONGNVARCHAR
+				|| stype == Types.LONGVARCHAR || stype == Types.BLOB || stype == Types.CHAR || stype == Types.SQLXML;
 	}
 
 	/**
@@ -83,36 +97,40 @@ public class ColInfo implements Serializable {
 		this.numeric = numeric;
 	}
 
-	public String getvName() {
-		return vName;
-	}
-
-	public void setvName(String vName) {
-		this.vName = vName;
-	}
-
-	public boolean isSk() {
-		return sk;
-	}
-
-	public void setSk(boolean sk) {
-		this.sk = sk;
-	}
-
+	/**
+	 * get field number (DB order)
+	 * 
+	 * @return
+	 */
 	public int getfNum() {
 		return fNum;
 	}
 
+	/**
+	 * set field number (DB order)
+	 * 
+	 * @param fNum
+	 */
 	public void setfNum(int fNum) {
 		this.fNum = fNum;
 	}
 
 	private int fNum;
 
+	/**
+	 * Get the base getter/setter name
+	 * 
+	 * @return
+	 */
 	public String getGsName() {
 		return gsName;
 	}
 
+	/**
+	 * Get the base getter/setter name
+	 * 
+	 * @param gsName
+	 */
 	public void setGsName(String gsName) {
 		this.gsName = gsName;
 	}
@@ -131,24 +149,6 @@ public class ColInfo implements Serializable {
 	public void setColName(String colName) {
 		this.colName = colName;
 		constName = colName.toUpperCase();
-	}
-
-	/**
-	 * GetName SQL used to create
-	 * 
-	 * @return String
-	 * @deprecated
-	 */
-	public String getjType() {
-		return jType;
-	}
-
-	/**
-	 * @param jType
-	 * @deprecated
-	 */
-	public void setjType(String jType) {
-		this.jType = jType;
 	}
 
 	/**
@@ -245,6 +245,11 @@ public class ColInfo implements Serializable {
 		return defaultVal;
 	}
 
+	/**
+	 * name of constraint assoc with this column if there is one
+	 * 
+	 * @param constraint
+	 */
 	public void setConstraint(String constraint) {
 		this.constraint = constraint;
 	}
@@ -294,26 +299,22 @@ public class ColInfo implements Serializable {
 		this.constName = constName;
 	}
 
+	/**
+	 * get java.sql.Types type
+	 * 
+	 * @return
+	 */
 	public int getStype() {
 		return stype;
 	}
 
+	/**
+	 * Set java.sql.Types type
+	 * 
+	 * @param stype
+	 */
 	public void setStype(int stype) {
 		this.stype = stype;
-	}
-
-	@Override
-	public String toString() {
-		StringBuilder builder = new StringBuilder();
-		builder.append("ColInfo [colName=").append(colName).append(", constName=").append(constName).append(", vName=")
-				.append(vName).append(", type=").append(type).append(", stype=").append(stype).append(", jType=")
-				.append(jType).append(", gsName=").append(gsName).append(", length=").append(length).append(", pk=")
-				.append(pk).append(", sk=").append(sk).append(", defaultVal=").append(defaultVal)
-				.append(", constraint=").append(constraint).append(", numeric=").append(numeric).append(", date=")
-				.append(date).append(", required=").append(required).append(", foreignTable=").append(foreignTable)
-				.append(", foreignCol=").append(foreignCol).append(", colScale=").append(colScale)
-				.append(", colPrecision=").append(colPrecision).append(", fNum=").append(fNum).append("]");
-		return builder.toString();
 	}
 
 }

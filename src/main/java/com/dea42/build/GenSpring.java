@@ -19,10 +19,12 @@ import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.zip.DataFormatException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -43,8 +45,8 @@ import com.dea42.common.Utils;
  *          <br>
  *          See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
  */
-
 public class GenSpring {
+	private static final String strVal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890abcdefghijklmnopqrstuvwzyz";
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String propKey = "genSpring";
 
@@ -99,7 +101,7 @@ public class GenSpring {
 	 * 
 	 * @param list
 	 */
-	private void genIndex(List<String> clsNames) {
+	private void genIndex(Set<String> set) {
 		Path p = createFile("/src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
@@ -110,11 +112,38 @@ public class GenSpring {
 				ps.println("    <title>watchlist | Home</title>");
 				ps.println("</head>");
 				ps.println("<body>");
-				for (String clsName : clsNames) {
+				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("    	<a href=\"/" + fieldName + "s\">" + clsName + "</a><br>");
 				}
 				ps.println("    	<a href=\"/api/\">/api/</a><br>");
+				ps.println("    	<a href=\"/login\">Login</a><br>");
+				ps.println("</body>");
+				ps.println("</html>");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	private void genApiIndex(Set<String> set) {
+		Path p = createFile("/src/main/resources/templates/api_index.html");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("<!DOCTYPE html>");
+				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
+				ps.println("<head>");
+				ps.println("    <meta charset=\"UTF-8\"/>");
+				ps.println("    <title>watchlist | API Home</title>");
+				ps.println("</head>");
+				ps.println("<body>");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("    	<a href=\"/api/" + fieldName + "s\">" + clsName + "</a><br>");
+				}
+				ps.println("    	<a href=\"/\">Home</a><br>");
 				ps.println("    	<a href=\"/login\">Login</a><br>");
 				ps.println("</body>");
 				ps.println("</html>");
@@ -150,12 +179,16 @@ public class GenSpring {
 		writeWebApp();
 		writeSecurityConfiguration();
 
-		List<String> clsNames = new ArrayList<String>();
+		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {
-			clsNames.add(genFiles(tableName));
+			String clsName = Utils.tabToStr(renames, tableName);
+			colsInfo.put(clsName, genFiles(tableName));
 		}
-		writeApiController(clsNames);
-		genIndex(clsNames);
+		writeApiController(colsInfo.keySet());
+		writeApiControllerTest(colsInfo);
+		writeAppControllerTest(colsInfo.keySet());
+		genIndex(colsInfo.keySet());
+		genApiIndex(colsInfo.keySet());
 		writeWebAppTest();
 	}
 
@@ -166,14 +199,14 @@ public class GenSpring {
 	 * @param tableName
 	 * @throws Exception
 	 */
-	public String genFiles(String tableName) throws Exception {
+	public Map<String, ColInfo> genFiles(String tableName) throws Exception {
 
 		String fakePK = null;
 		String pkCol = null;
 		TreeMap<String, ColInfo> namList = new TreeMap<String, ColInfo>();
 		String className = null;
 		String create = "";
-		HashMap<String, ColInfo> cols = new HashMap<String, ColInfo>(100);
+		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(100);
 
 		Db db = new Db(propKey + ".genFiles()", propKey);
 		Connection conn = db.getConnection(propKey + ".genFiles()");
@@ -337,12 +370,13 @@ public class GenSpring {
 		writeService(className, pkinfo);
 		writeListPage(className, namList, pkinfo);
 		writeObjController(className, pkinfo);
+		writeObjControllerTest(className, pkinfo, namList);
 		writeEditPage(className, namList, pkinfo);
 
-		return className;
+		return cols;
 	}
 
-	private void writeApiController(List<String> clsNames) {
+	private void writeApiController(Set<String> set) {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + "/ApiController.java";
@@ -355,18 +389,31 @@ public class GenSpring {
 				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RestController;");
-				for (String clsName : clsNames) {
+				for (String clsName : set) {
 					ps.println("import " + basePkg + ".entity." + clsName + ";");
 					ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				}
 				ps.println("");
 				ps.println("import java.util.List;");
-				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: ApiController <br>");
+				ps.println(" * Description: Api REST Controller. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@RestController");
 				ps.println("@RequestMapping(\"/api\")");
 				ps.println("public class ApiController {");
 				ps.println("");
-				for (String clsName : clsNames) {
+				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("    @Autowired");
 					ps.println("    private " + clsName + "Services " + fieldName + "Services;");
@@ -376,13 +423,153 @@ public class GenSpring {
 //			ps.println("        super();");
 //			ps.println("        this." + fieldName + "Services = " + fieldName + "Services;");
 				ps.println("    }");
-				for (String clsName : clsNames) {
+				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("");
 					ps.println("    @GetMapping(\"/" + fieldName + "s\")");
 					ps.println("    public List<" + clsName + "> getAll" + clsName + "s(){");
 					ps.println("        return this." + fieldName + "Services.listAll();");
 					ps.println("    }");
+				}
+				ps.println("}");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	private void writeApiControllerTest(Map<String, Map<String, ColInfo>> colsInfo) {
+		Set<String> set = colsInfo.keySet();
+		String pkgNam = basePkg + ".controller";
+		String relPath = pkgNam.replace('.', '/');
+		String outFile = "/src/test/java/" + relPath + "/ApiControllerTest.java";
+		Path p = createFile(outFile);
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
+				ps.println("import static org.mockito.BDDMockito.given;");
+				ps.println(
+						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
+				ps.println("");
+				ps.println("import java.util.ArrayList;");
+				ps.println("import java.util.List;");
+				ps.println("");
+				ps.println("import org.junit.Before;");
+				ps.println("import org.junit.Test;");
+				ps.println("import org.junit.runner.RunWith;");
+				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
+				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
+				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
+				ps.println("import org.springframework.test.web.servlet.MockMvc;");
+				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
+				ps.println("import org.springframework.web.context.WebApplicationContext;");
+				ps.println("");
+				for (String clsName : set) {
+					ps.println("import " + basePkg + ".entity." + clsName + ";");
+					ps.println("import " + basePkg + ".service." + clsName + "Services;");
+				}
+				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: ApiControllerTest <br>");
+				ps.println(" * Description: Api REST Controller Test. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
+				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
+				ps.println("@WebMvcTest(ApiController.class)");
+				ps.println("public class ApiControllerTest {");
+				ps.println("	private MockMvc mockMvc;");
+				ps.println("");
+				ps.println("	@Autowired");
+				ps.println("	private WebApplicationContext webApplicationContext;");
+				ps.println("");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("    @MockBean");
+					ps.println("    private " + clsName + "Services " + fieldName + "Service;");
+				}
+				ps.println("");
+				ps.println("	@Before()");
+				ps.println("	public void setup() {");
+				ps.println("		// Init MockMvc Object and build");
+				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
+				ps.println("	}");
+				ps.println("");
+				ps.println("    public ApiControllerTest(){");
+				ps.println("    }");
+				for (String clsName : set) {
+					Map<String, ColInfo> namList = colsInfo.get(clsName);
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("");
+					ps.println("	/**");
+					ps.println("	 * Test method for");
+					ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#getAll" + clsName
+							+ "s(org.springframework.ui.Model)}.");
+					ps.println("	 */");
+					ps.println("	@Test");
+					ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
+					ps.println("		List<" + clsName + "> list = new ArrayList<>();");
+					ps.println("		" + clsName + " o = new " + clsName + "();");
+					ps.println("		o.setId(1);");
+					Iterator<String> it = namList.keySet().iterator();
+					while (it.hasNext()) {
+						String name = it.next();
+						ColInfo info = (ColInfo) namList.get(name);
+						if (info.isString()) {
+							int endIndex = info.getLength();
+							if (endIndex > 0) {
+								if (endIndex > strVal.length())
+									endIndex = strVal.length() - 1;
+								ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
+										+ "\");");
+							}
+						}
+					}
+					ps.println("		list.add(o);");
+					ps.println("");
+					ps.println("		given(" + fieldName + "Service.listAll()).willReturn(list);");
+					ps.println("");
+					ps.println("		this.mockMvc.perform(get(\"/api/" + fieldName
+							+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+					it = namList.keySet().iterator();
+					while (it.hasNext()) {
+						String name = it.next();
+						ColInfo info = (ColInfo) namList.get(name);
+						if (info.isString()) {
+							int endIndex = info.getLength();
+							if (endIndex > 0) {
+								if (endIndex > strVal.length())
+									endIndex = strVal.length() - 1;
+								ps.println("				.andExpect(content().string(containsString(\""
+										+ strVal.substring(0, endIndex) + "\")))");
+							}
+						}
+						ps.print("				.andExpect(content().string(containsString(\"" + info.getVName()
+								+ "\")))");
+						if (it.hasNext()) {
+							ps.println("");
+						} else {
+							ps.println(";");
+						}
+					}
+					ps.println("	}");
+					ps.println("");
 				}
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
@@ -413,6 +600,20 @@ public class GenSpring {
 						"import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;");
 				ps.println("import org.springframework.security.crypto.password.NoOpPasswordEncoder;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: SecurityConfiguration <br>");
+				ps.println(" * Description: Class for confguring app security. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@Configuration");
 				ps.println("@EnableWebSecurity");
 				ps.println("public class SecurityConfiguration extends WebSecurityConfigurerAdapter{");
@@ -462,6 +663,20 @@ public class GenSpring {
 				ps.println("import org.springframework.boot.SpringApplication;");
 				ps.println("import org.springframework.boot.autoconfigure.SpringBootApplication;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: WebAppApplication <br>");
+				ps.println(" * Description: The boot start class. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@SpringBootApplication");
 				ps.println("public class WebAppApplication {");
 				ps.println("");
@@ -491,13 +706,24 @@ public class GenSpring {
 				ps.println("import org.springframework.boot.test.context.SpringBootTest;");
 				ps.println("import org.springframework.test.context.junit4.SpringRunner;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: WebAppApplicationTest <br>");
+				ps.println(" * Description: Quick test that build works and config loads. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@RunWith(SpringRunner.class)");
 				ps.println("@SpringBootTest");
 				ps.println("public class WebAppApplicationTest {");
 				ps.println("");
-				ps.println("	/**");
-				ps.println("	* Quick test that build works and config loads");
-				ps.println("	*/");
 				ps.println("	@Test");
 				ps.println("	public void contextLoads() {");
 				ps.println("	}");
@@ -525,6 +751,20 @@ public class GenSpring {
 				ps.println("import org.springframework.stereotype.Controller;");
 				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: AppController <br>");
+				ps.println(" * Description: Class main web Controller. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@Controller");
 				ps.println("public class AppController {");
 				ps.println("");
@@ -537,6 +777,12 @@ public class GenSpring {
 				ps.println("    public String getIndex(){");
 				ps.println("        return \"index\";");
 				ps.println("    }");
+				ps.println("");
+				ps.println("    @GetMapping(\"/api/\")");
+				ps.println("    public String getApiIndex(){");
+				ps.println("        return \"api_index\";");
+				ps.println("    }");
+				ps.println("");
 				ps.println("}");
 				ps.println("");
 				LOGGER.warn("Wrote:" + p.toString());
@@ -615,6 +861,20 @@ public class GenSpring {
 				ps.println("import org.springframework.stereotype.Repository;");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: " + clsName + "Repository <br>");
+				ps.println(" * Description: Class for the " + clsName + " Repository. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@Repository");
 				ps.println("public interface " + clsName + "Repository extends JpaRepository<" + clsName + ", "
 						+ pkinfo.getType() + ">{");
@@ -694,37 +954,43 @@ public class GenSpring {
 		}
 	}
 
+	private Set<String> getListKeys(String clsName, TreeMap<String, ColInfo> namList) throws DataFormatException {
+		Set<String> set = namList.keySet();
+		List<String> listCols = Utils.getPropList(bundle, clsName + ".list");
+		if (listCols == null) {
+			set = namList.keySet();
+		} else {
+			set = listCols.stream().collect(Collectors.toSet());
+			// validate list against DB data
+			Object[] names = set.toArray();
+			for (Object name : names) {
+				ColInfo info = (ColInfo) namList.get(name);
+				if (info == null) {
+					info = (ColInfo) namList.get(((String) name).toLowerCase());
+					if (info != null) {
+						set.remove(name);
+						set.add(((String) name).toLowerCase());
+						LOGGER.warn(name + " not in " + clsName + ".list but " + ((String) name).toLowerCase()
+								+ " was so using it instead");
+					} else {
+						throw new DataFormatException(
+								name + " in " + clsName + ".list columns but no info found for it in " + namList);
+					}
+				}
+			}
+		}
+
+		return set;
+	}
+
 	private void writeListPage(String clsName, TreeMap<String, ColInfo> namList, ColInfo pkinfo) {
 		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 		String outFile = "/src/main/resources/templates/" + fieldName + "s.html";
-		Set<String> set = namList.keySet();
-		List<String> listCols = Utils.getPropList(bundle, clsName + ".list");
 
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				if (listCols == null) {
-					set = namList.keySet();
-				} else {
-					set = listCols.stream().collect(Collectors.toSet());
-					// validate list against DB data
-					Object[] names = set.toArray();
-					for (Object name : names) {
-						ColInfo info = (ColInfo) namList.get(name);
-						if (info == null) {
-							info = (ColInfo) namList.get(((String) name).toLowerCase());
-							if (info != null) {
-								set.remove(name);
-								set.add(((String) name).toLowerCase());
-								LOGGER.warn(name + " not in " + clsName + ".list but " + ((String) name).toLowerCase()
-										+ " was so using it instead");
-							} else {
-								throw new NullPointerException(name + " in " + clsName
-										+ ".list columns but no info found for it in " + namList);
-							}
-						}
-					}
-				}
+				Set<String> set = getListKeys(clsName, namList);
 				ps.println("<!DOCTYPE html>");
 				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
 				ps.println("<head>");
@@ -758,7 +1024,8 @@ public class GenSpring {
 					if (namList.containsKey(name + "link")) {
 						ColInfo infoLnk = (ColInfo) namList.get(name + "link");
 						ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
-								+ "}}\"><span th:text=\"${" + fieldName + "." + info.getVName() + "}\"></span></a></td>");
+								+ "}}\"><span th:text=\"${" + fieldName + "." + info.getVName()
+								+ "}\"></span></a></td>");
 
 					} else {
 						ps.println(
@@ -777,6 +1044,369 @@ public class GenSpring {
 				ps.println("");
 				ps.println("</body>");
 				ps.println("</html>");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	private void writeAppControllerTest(Set<String> set) {
+		String pkgNam = basePkg + ".controller";
+		String relPath = pkgNam.replace('.', '/');
+		String outFile = "/src/test/java/" + relPath + "/AppControllerTest.java";
+		Path p = createFile(outFile);
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
+				ps.println(
+						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
+				ps.println("");
+				ps.println("import org.junit.Before;");
+				ps.println("import org.junit.Test;");
+				ps.println("import org.junit.runner.RunWith;");
+				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
+				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
+				ps.println("import org.springframework.test.web.servlet.MockMvc;");
+				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
+				ps.println("import org.springframework.web.context.WebApplicationContext;");
+				ps.println("");
+				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
+				ps.println("@WebMvcTest(AppController.class)");
+				ps.println("public class AppControllerTest {");
+				ps.println("	private MockMvc mockMvc;");
+				ps.println("");
+				ps.println("	@Autowired");
+				ps.println("	private WebApplicationContext webApplicationContext;");
+				ps.println("");
+				ps.println("	@Before()");
+				ps.println("	public void setup() {");
+				ps.println("		// Init MockMvc Object and build");
+				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller.AppController#getLoginPage()}.");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testGetLoginPage() throws Exception {");
+				ps.println("		this.mockMvc.perform(get(\"/login\")).andExpect(status().isOk())");
+				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
+				ps.println("				.andExpect(content().string(containsString(\"Password:\")))");
+				ps.println("				.andExpect(content().string(containsString(\"User Name:\")));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller.AppController#getIndex()}.");
+				ps.println("	 * ");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testGetIndex() throws Exception {");
+				ps.println(
+						"		this.mockMvc.perform(get(\"/\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+				ps.println("				.andExpect(content().string(containsString(\"Home\")))");
+				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
+				ps.println("				.andExpect(content().string(containsString(\"/api/\")))");
+				Iterator<String> it = set.iterator();
+				while (it.hasNext()) {
+					ps.print("				.andExpect(content().string(containsString(\"" + it.next() + "\")))");
+					if (it.hasNext())
+						ps.println("");
+					else
+						ps.println(";");
+				}
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller.ApiController#getApiIndex()}.");
+				ps.println("	 * ");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testGetApiIndex() throws Exception {");
+				ps.println(
+						"		this.mockMvc.perform(get(\"/api/\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+				ps.println("				.andExpect(content().string(containsString(\"API Home\")))");
+				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
+				it = set.iterator();
+				while (it.hasNext()) {
+					String clsName = it.next();
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.print("				.andExpect(content().string(containsString(\"" + fieldName + "\")))");
+					if (it.hasNext())
+						ps.println("");
+					else
+						ps.println(";");
+				}
+				ps.println("	}");
+				ps.println("");
+				ps.println("}");
+				ps.println("");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	private void writeObjControllerTest(String clsName, ColInfo pkinfo, TreeMap<String, ColInfo> namList) {
+		String pkgNam = basePkg + ".controller";
+		String relPath = pkgNam.replace('.', '/');
+		String outFile = "/src/test/java/" + relPath + '/' + clsName + "ControllerTest.java";
+		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+		Path p = createFile(outFile);
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				Set<String> set = getListKeys(clsName, namList);
+				ps.println("package " + pkgNam + ';');
+				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
+				ps.println("import static org.mockito.BDDMockito.given;");
+				ps.println(
+						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
+				ps.println(
+						"import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
+				ps.println("");
+				ps.println("import java.util.ArrayList;");
+				ps.println("import java.util.List;");
+				ps.println("");
+				ps.println("import org.junit.Before;");
+				ps.println("import org.junit.Test;");
+				ps.println("import org.junit.runner.RunWith;");
+				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
+				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
+				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
+				ps.println("import org.springframework.test.web.servlet.MockMvc;");
+				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
+				ps.println("import org.springframework.web.context.WebApplicationContext;");
+				ps.println("");
+				ps.println("import com.dea42.watchlist.entity." + clsName + ";");
+				ps.println("import com.dea42.watchlist.service." + clsName + "Services;");
+				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: " + clsName + "ControllerTest <br>");
+				ps.println(" * Description: Class for testing the " + clsName + "Controller. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
+				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
+				ps.println("@WebMvcTest(" + clsName + "Controller.class)");
+				ps.println("public class " + clsName + "ControllerTest {");
+				ps.println("	@MockBean");
+				ps.println("	private " + clsName + "Services " + fieldName + "Service;");
+				ps.println("");
+				ps.println("	private MockMvc mockMvc;");
+				ps.println("");
+				ps.println("	@Autowired");
+				ps.println("	private WebApplicationContext webApplicationContext;");
+				ps.println("");
+				ps.println("	@Before()");
+				ps.println("	public void setup() {");
+				ps.println("		// Init MockMvc Object and build");
+				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#getAll" + clsName
+						+ "s(org.springframework.ui.Model)}.");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
+				ps.println("		List<" + clsName + "> list = new ArrayList<>();");
+				ps.println("		" + clsName + " o = new " + clsName + "();");
+				ps.println("		o.setId(1);");
+				Iterator<String> it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isString()) {
+						int endIndex = info.getLength();
+						if (endIndex > 0) {
+							if (endIndex > strVal.length())
+								endIndex = strVal.length() - 1;
+							ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
+									+ "\");");
+						}
+					}
+				}
+				ps.println("		list.add(o);");
+				ps.println("");
+				ps.println("		given(" + fieldName + "Service.listAll()).willReturn(list);");
+				ps.println("");
+				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
+						+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+				ps.println("				.andExpect(content().string(containsString(\"<h1>" + clsName
+						+ " List</h1>\")))");
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isString()) {
+						int endIndex = info.getLength();
+						if (endIndex > 0) {
+							if (endIndex > strVal.length())
+								endIndex = strVal.length() - 1;
+							ps.println("				.andExpect(content().string(containsString(\""
+									+ strVal.substring(0, endIndex) + "\")))");
+						}
+					}
+					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
+							+ "\")))");
+					if (it.hasNext()) {
+						ps.println("");
+					} else {
+						ps.println(";");
+					}
+				}
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#showNew" + clsName
+						+ "Page(org.springframework.ui.Model)}.");
+				ps.println("	 * ");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testShowNew" + clsName + "Page() throws Exception {");
+				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
+						+ "s/new\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+				ps.println("				.andExpect(content().string(containsString(\"<h1>Create New " + clsName
+						+ "</h1>\")))");
+				set = namList.keySet();
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
+							+ "\")))");
+					if (it.hasNext()) {
+						ps.println("");
+					} else {
+						ps.println(";");
+					}
+				}
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#save" + clsName
+						+ "(com.dea42.watchlist.entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testSave" + clsName + "Cancel() throws Exception {");
+				ps.println("		this.mockMvc.perform(post(\"/" + fieldName
+						+ "s/save\").param(\"action\", \"cancel\").with(user(\"user\").roles(\"ADMIN\")))");
+				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
+						+ fieldName + "s\"));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#save" + clsName
+						+ "(com.dea42.watchlist.entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testSave" + clsName + "Save() throws Exception {");
+				ps.println("		this.mockMvc.perform(post(\"/" + fieldName
+						+ "s/save\").param(\"action\", \"save\").with(user(\"user\").roles(\"ADMIN\")))");
+				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
+						+ fieldName + "s\"));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#showEdit" + clsName
+						+ "Page(java.lang.Integer)}.");
+				ps.println("	 * ");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testShowEdit" + clsName + "Page() throws Exception {");
+				ps.println("		" + clsName + " o = new " + clsName + "();");
+				ps.println("		o.setId(1);");
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isString()) {
+						int endIndex = info.getLength();
+						if (endIndex > 0) {
+							if (endIndex > strVal.length())
+								endIndex = strVal.length() - 1;
+							ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
+									+ "\");");
+						}
+					}
+				}
+				ps.println("");
+				ps.println("		given(" + fieldName + "Service.get(1)).willReturn(o);");
+				ps.println("");
+				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
+						+ "s/edit/1\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isString()) {
+						int endIndex = info.getLength();
+						if (endIndex > 0) {
+							if (endIndex > strVal.length())
+								endIndex = strVal.length() - 1;
+							ps.println("				.andExpect(content().string(containsString(\""
+									+ strVal.substring(0, endIndex) + "\")))");
+						}
+					}
+					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
+							+ "\")))");
+					if (it.hasNext()) {
+						ps.println("");
+					} else {
+						ps.println(";");
+					}
+				}
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Test method for");
+				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#delete" + clsName
+						+ "(java.lang.Integer)}.");
+				ps.println("	 */");
+				ps.println("	@Test");
+				ps.println("	public void testDelete" + clsName + "() throws Exception {");
+				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
+						+ "s/delete/1\").with(user(\"user\").roles(\"ADMIN\")))");
+				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
+						+ fieldName + "s\"));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("}");
+				ps.println("");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -809,6 +1439,20 @@ public class GenSpring {
 				ps.println("import com.dea42.watchlist.entity." + clsName + ";");
 				ps.println("import com.dea42.watchlist.service." + clsName + "Services;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: " + clsName + "Controller <br>");
+				ps.println(" * Description: Class for  " + clsName + "Controller. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@Controller");
 				ps.println("@RequestMapping(\"/" + fieldName + "s\")");
 				ps.println("public class " + clsName + "Controller {");
@@ -892,6 +1536,20 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: " + clsName + "Services <br>");
+				ps.println(" * Description: Class for the " + clsName + "Services. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("@Service");
 				ps.println("public class " + clsName + "Services {");
 				ps.println("    @Autowired");
@@ -979,6 +1637,20 @@ public class GenSpring {
 				ps.println("import org.hibernate.dialect.function.VarArgsSQLFunction;");
 				ps.println("import org.hibernate.type.StringType;");
 				ps.println("");
+				ps.println("/**");
+				ps.println(" * Title: SQLiteDialect <br>");
+				ps.println(" * Description: Dialect Class for SQLite. <br>");
+				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Copyright: " + tmp + year + "<br>");
+				}
+				tmp = Utils.getProp(bundle, "genSpring.Company", "");
+				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+					ps.println(" * Company: " + tmp + "<br>");
+				}
+				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
+				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
+				ps.println(" */");
 				ps.println("public class SQLiteDialect extends Dialect {");
 				ps.println("");
 				ps.println("    public SQLiteDialect() {");

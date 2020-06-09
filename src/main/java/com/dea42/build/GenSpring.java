@@ -4,9 +4,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
@@ -54,7 +58,14 @@ public class GenSpring {
 	private boolean beanToString = false;
 	private ResourceBundle bundle = null;
 	private ResourceBundle renames = ResourceBundle.getBundle("rename");
+	private String srcGroupId = "com.dea42";
+	private String srcArtifactId = "genspring";
+	private String srcPkg;
+	private String srcPath;
+	private String baseGroupId;
+	private String baseArtifactId;
 	private String basePkg;
+	private String basePath;
 	private String baseDir;
 	private int year = 2001;
 	private String schema = null;
@@ -66,7 +77,13 @@ public class GenSpring {
 		bundle = ResourceBundle.getBundle(propKey);
 		baseDir = Utils.getProp(bundle, propKey + ".outdir");
 		schema = Utils.getProp(bundle, propKey + ".schema");
-		basePkg = Utils.getProp(bundle, propKey + ".pkg") + '.' + Utils.getProp(bundle, propKey + ".module");
+		baseGroupId = Utils.getProp(bundle, propKey + ".pkg");
+		baseArtifactId = Utils.getProp(bundle, propKey + ".module");
+		basePkg = baseGroupId + '.' + baseArtifactId;
+		basePath = basePkg.replace('.', '/');
+
+		srcPkg = srcGroupId + '.' + srcArtifactId;
+		srcPath = srcPkg.replace('.', '/');
 		File outDir = new File(baseDir);
 		if (!outDir.exists()) {
 			if (!outDir.mkdirs()) {
@@ -105,21 +122,14 @@ public class GenSpring {
 		Path p = createFile("/src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("<!DOCTYPE html>");
-				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("    <meta charset=\"UTF-8\"/>");
-				ps.println("    <title>watchlist | Home</title>");
-				ps.println("</head>");
-				ps.println("<body>");
+				ps.println(htmlHeader("Home"));
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.println("    	<a href=\"/" + fieldName + "s\">" + clsName + "</a><br>");
+					ps.println("    	<a th:href=\"@{/" + fieldName + "s}\">" + clsName + "</a><br>");
 				}
-				ps.println("    	<a href=\"/api/\">/api/</a><br>");
-				ps.println("    	<a href=\"/login\">Login</a><br>");
-				ps.println("</body>");
-				ps.println("</html>");
+				ps.println("    	<a th:href=\"@{/api/}\">/api/</a><br>");
+				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
+				htmlFooter();
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -132,27 +142,73 @@ public class GenSpring {
 		Path p = createFile("/src/main/resources/templates/api_index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("<!DOCTYPE html>");
-				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("    <meta charset=\"UTF-8\"/>");
-				ps.println("    <title>watchlist | API Home</title>");
-				ps.println("</head>");
-				ps.println("<body>");
+				ps.println(htmlHeader("API Home"));
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.println("    	<a href=\"/api/" + fieldName + "s\">" + clsName + "</a><br>");
+					ps.println("    	<a th:href=\"@{/api/" + fieldName + "s}\">" + clsName + "</a><br>");
 				}
-				ps.println("    	<a href=\"/\">Home</a><br>");
-				ps.println("    	<a href=\"/login\">Login</a><br>");
-				ps.println("</body>");
-				ps.println("</html>");
+				ps.println("    	<a th:href=\"@{/}\">Home</a><br>");
+				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
+				htmlFooter();
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
+	}
+
+	public void copyCommon() throws IOException {
+		String pathString = "static";
+		int beginIndex = pathString.length();
+		Files.walkFileTree(Paths.get(pathString), new FileVisitor<Path>() {
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				String relDir = dir.toString().substring(beginIndex).replace('\\', '/').replace(srcPath, basePath);
+				Path target = Paths.get(baseDir + relDir);
+				Files.createDirectories(target);
+
+				System.out.println("preVisitDirectory: " + dir + "->" + target);
+				return FileVisitResult.CONTINUE;
+			}
+
+			/**
+			 * Copy file into new tree converting package / paths as needed
+			 */
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				System.out.println("visitFile: " + file);
+				String data = new String(Files.readAllBytes(file));
+				data = data.replace(srcPkg, basePkg);
+				data = data.replace(srcGroupId, baseGroupId);
+				data = data.replace(srcArtifactId, baseArtifactId);
+
+				String outFile = file.toString().substring(beginIndex).replace('\\', '/').replace(srcPath, basePath);
+				Path p = createFile(outFile);
+				if (p != null) {
+					try {
+						Files.write(p, data.getBytes(), StandardOpenOption.APPEND);
+						LOGGER.warn("Wrote:" + p.toString());
+					} catch (Exception e) {
+						LOGGER.error("failed to create " + p, e);
+					}
+				}
+
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+				System.out.println("visitFileFailed: " + file);
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+				System.out.println("postVisitDirectory: " + dir);
+				return FileVisitResult.CONTINUE;
+			}
+		});
 	}
 
 	/**
@@ -162,22 +218,9 @@ public class GenSpring {
 	 * @throws Exception
 	 */
 	public void genProject(List<String> tableNames) throws Exception {
-		Path p = Paths.get(baseDir + "/src/main/java");
-		Files.createDirectories(p);
-		p = Paths.get(baseDir + "/src/main/resources/templates");
-		Files.createDirectories(p);
-		p = Paths.get(baseDir + "/src/test/java");
-		Files.createDirectories(p);
-		p = Paths.get(baseDir + "/src/test/resources");
-		Files.createDirectories(p);
+		copyCommon();
 
-		writePom();
 		writeAppProps();
-		writeCss();
-		writeLoginHtml();
-		writeAppController();
-		writeWebApp();
-		writeSecurityConfiguration();
 
 		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {
@@ -189,7 +232,6 @@ public class GenSpring {
 		writeAppControllerTest(colsInfo.keySet());
 		genIndex(colsInfo.keySet());
 		genApiIndex(colsInfo.keySet());
-		writeWebAppTest();
 	}
 
 	/**
@@ -311,7 +353,7 @@ public class GenSpring {
 			}
 
 			if (info.getColName() != null && info.getType() != null && info.getType().length() > 0) {
-				LOGGER.info("storing:" + info.getVName());
+				LOGGER.info("storing:" + info);
 				cols.put(info.getConstName(), info);
 				namList.put(info.getVName(), info);
 			}
@@ -419,9 +461,7 @@ public class GenSpring {
 					ps.println("    private " + clsName + "Services " + fieldName + "Services;");
 				}
 				ps.println("");
-				ps.println("    public ApiController(){");// + clsName + "Services " + fieldName + "Services){");
-//			ps.println("        super();");
-//			ps.println("        this." + fieldName + "Services = " + fieldName + "Services;");
+				ps.println("    public ApiController(){");
 				ps.println("    }");
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
@@ -519,7 +559,7 @@ public class GenSpring {
 					ps.println("");
 					ps.println("	/**");
 					ps.println("	 * Test method for");
-					ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#getAll" + clsName
+					ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#getAll" + clsName
 							+ "s(org.springframework.ui.Model)}.");
 					ps.println("	 */");
 					ps.println("	@Test");
@@ -580,266 +620,34 @@ public class GenSpring {
 		}
 	}
 
-	private void writeSecurityConfiguration() {
-		String pkgNam = basePkg;
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + "/SecurityConfiguration.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
-				ps.println("import org.springframework.context.annotation.Configuration;");
-				ps.println(
-						"import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;");
-				ps.println("import org.springframework.security.config.annotation.web.builders.HttpSecurity;");
-				ps.println(
-						"import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;");
-				ps.println(
-						"import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;");
-				ps.println("import org.springframework.security.crypto.password.NoOpPasswordEncoder;");
-				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: SecurityConfiguration <br>");
-				ps.println(" * Description: Class for confguring app security. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("@Configuration");
-				ps.println("@EnableWebSecurity");
-				ps.println("public class SecurityConfiguration extends WebSecurityConfigurerAdapter{");
-				ps.println("    @Override");
-				ps.println("    protected void configure(HttpSecurity http) throws Exception {");
-				ps.println("        http.authorizeRequests().antMatchers(\"/\", \"/api/*\").permitAll()");
-				ps.println("                .anyRequest().authenticated()");
-				ps.println("                .and()");
-				ps.println("                .formLogin()");
-				ps.println("                .loginPage(\"/login\")");
-				ps.println("                .permitAll()");
-				ps.println("                .and()");
-				ps.println("                .logout()");
-				ps.println("                .permitAll();");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    @Autowired");
-				ps.println("    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception{");
-				ps.println("		//TODO: replace this with real auth system");
-				ps.println("        auth.inMemoryAuthentication()");
-				ps.println("                .passwordEncoder(NoOpPasswordEncoder.getInstance())");
-				ps.println("                .withUser(\"user\").password(\"password\").roles(\"USER\");");
-				ps.println("    }");
-				ps.println("");
-				ps.println("}");
-				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
-
 	/**
-	 * Create main web app starter class
+	 * gen HTML header for page
+	 * 
+	 * @param title
+	 * @return
 	 */
-	private void writeWebApp() {
-		String pkgNam = basePkg;
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + "/WebAppApplication.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import org.springframework.boot.SpringApplication;");
-				ps.println("import org.springframework.boot.autoconfigure.SpringBootApplication;");
-				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: WebAppApplication <br>");
-				ps.println(" * Description: The boot start class. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("@SpringBootApplication");
-				ps.println("public class WebAppApplication {");
-				ps.println("");
-				ps.println("	public static void main(String[] args) {");
-				ps.println("		SpringApplication.run(WebAppApplication.class, args);");
-				ps.println("	}");
-				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
+	private String htmlHeader(String title) {
+		StringBuilder sb = new StringBuilder();
+
+		sb.append("<!DOCTYPE html>");
+		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
+		sb.append("<head>");
+		sb.append("    <meta charset=\"UTF-8\"/>");
+		sb.append("    <title>" + Utils.getProp(bundle, propKey + ".module") + " | " + title + "</title>");
+		sb.append("    <link th:href=\"@{/css/site.css}\" rel=\"stylesheet\"/>");
+		sb.append("</head>");
+		sb.append("<body>");
+
+		return sb.toString();
 	}
 
-	private void writeWebAppTest() {
-		String pkgNam = basePkg;
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + "/WebAppApplicationTest.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import org.junit.Test;");
-				ps.println("import org.junit.runner.RunWith;");
-				ps.println("import org.springframework.boot.test.context.SpringBootTest;");
-				ps.println("import org.springframework.test.context.junit4.SpringRunner;");
-				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: WebAppApplicationTest <br>");
-				ps.println(" * Description: Quick test that build works and config loads. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("@RunWith(SpringRunner.class)");
-				ps.println("@SpringBootTest");
-				ps.println("public class WebAppApplicationTest {");
-				ps.println("");
-				ps.println("	@Test");
-				ps.println("	public void contextLoads() {");
-				ps.println("	}");
-				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
+	private String htmlFooter() {
+		StringBuilder sb = new StringBuilder();
 
-	/**
-	 * create login controller
-	 */
-	private void writeAppController() {
-		String pkgNam = basePkg + ".controller";
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + "/AppController.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import org.springframework.stereotype.Controller;");
-				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
-				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: AppController <br>");
-				ps.println(" * Description: Class main web Controller. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("@Controller");
-				ps.println("public class AppController {");
-				ps.println("");
-				ps.println("    @GetMapping(\"/login\")");
-				ps.println("    public String getLoginPage(){");
-				ps.println("        return \"login\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    @GetMapping(\"/\")");
-				ps.println("    public String getIndex(){");
-				ps.println("        return \"index\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    @GetMapping(\"/api/\")");
-				ps.println("    public String getApiIndex(){");
-				ps.println("        return \"api_index\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("}");
-				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
+		sb.append("</body>");
+		sb.append("</html>");
 
-	/**
-	 * gen simple css file for site
-	 */
-	private void writeCss() {
-		Path p = createFile("/src/main/resources/static/css/site.css");
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("body{");
-				ps.println("    background-color: gray;");
-				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
-
-	/**
-	 * Create basic login page
-	 */
-	private void writeLoginHtml() {
-		Path p = createFile("/src/main/resources/templates/login.html");
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("<!DOCTYPE html>");
-				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("    <meta charset=\"UTF-8\"/>");
-				ps.println("    <title>" + Utils.getProp(bundle, propKey + ".module") + " | Login</title>");
-				ps.println("</head>");
-				ps.println("<body>");
-				ps.println("    <form th:action=\"@{/login}\" method=\"post\">");
-				ps.println("        <div>");
-				ps.println("            <label>User Name: <input type=\"text\" name=\"username\"/></label>");
-				ps.println("            <label>Password: <input type=\"password\" name=\"password\"/></label>");
-				ps.println("        </div>");
-				ps.println("        <div><input type=\"submit\" value=\"Login\"/></div>");
-				ps.println("    </form>");
-				ps.println("</body>");
-				ps.println("</html>");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
+		return sb.toString();
 	}
 
 	/**
@@ -897,14 +705,7 @@ public class GenSpring {
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("<!DOCTYPE html>");
-				ps.println("<html xmlns=\"http://www.w3.org/1999/xhtml\"");
-				ps.println("	xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("<meta charset=\"utf-8\" />");
-				ps.println("<title>Edit " + clsName + "</title>");
-				ps.println("</head>");
-				ps.println("<body>");
+				ps.println(htmlHeader("Edit " + clsName));
 				ps.println("	<div align=\"center\">");
 				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " == 0}\">Create New "
 						+ clsName + "</h1>");
@@ -915,7 +716,7 @@ public class GenSpring {
 						+ fieldName + "}\"");
 				ps.println("			method=\"post\">");
 				ps.println("");
-				ps.println("			<table border=\"1\" cellpadding=\"10\">");
+				ps.println("			<table >");
 				ps.println("				<tr th:if=\"${" + fieldName + "." + pkinfo.getVName()
 						+ " > 0}\">				");
 				ps.println("					<td>" + pkinfo.getColName() + ":</td>");
@@ -944,8 +745,7 @@ public class GenSpring {
 				ps.println("			</table>");
 				ps.println("		</form>");
 				ps.println("	</div>");
-				ps.println("</body>");
-				ps.println("</html>");
+				htmlFooter();
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -991,18 +791,10 @@ public class GenSpring {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> set = getListKeys(clsName, namList);
-				ps.println("<!DOCTYPE html>");
-				ps.println("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("    <meta charset=\"UTF-8\"/>");
-				ps.println("    <title>" + Utils.getProp(bundle, propKey + ".module") + " | " + clsName
-						+ " List View</title>");
-				ps.println("    <link th:href=\"@{/css/site.css}\" rel=\"stylesheet\"/>");
-				ps.println("</head>");
-				ps.println("<body>");
+				ps.println(htmlHeader(clsName + " List View"));
 				ps.println("	<div align=\"center\">");
 				ps.println("		<h1>" + clsName + " List</h1>");
-				ps.println("		<a href=\"/" + fieldName + "s/new\">Create New " + clsName + "</a> <br />");
+				ps.println("		<a th:href=\"@{/" + fieldName + "s/new}\">Create New " + clsName + "</a> <br />");
 				ps.println("		<br />");
 				ps.println("");
 				ps.println("	    <table>");
@@ -1042,8 +834,7 @@ public class GenSpring {
 				ps.println("	    </table>");
 				ps.println("    </div>");
 				ps.println("");
-				ps.println("</body>");
-				ps.println("</html>");
+				htmlFooter();
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -1094,7 +885,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller.AppController#getLoginPage()}.");
+				ps.println("	 * {@link " + basePkg + ".controller.AppController#getLoginPage()}.");
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testGetLoginPage() throws Exception {");
@@ -1106,7 +897,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller.AppController#getIndex()}.");
+				ps.println("	 * {@link " + basePkg + ".controller.AppController#getIndex()}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
 				ps.println("	 */");
@@ -1129,7 +920,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller.ApiController#getApiIndex()}.");
+				ps.println("	 * {@link " + basePkg + ".controller.ApiController#getApiIndex()}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
 				ps.println("	 */");
@@ -1196,8 +987,8 @@ public class GenSpring {
 				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
 				ps.println("import org.springframework.web.context.WebApplicationContext;");
 				ps.println("");
-				ps.println("import com.dea42.watchlist.entity." + clsName + ";");
-				ps.println("import com.dea42.watchlist.service." + clsName + "Services;");
+				ps.println("import " + basePkg + ".entity." + clsName + ";");
+				ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				ps.println("");
 				ps.println("/**");
 				ps.println(" * Title: " + clsName + "ControllerTest <br>");
@@ -1232,7 +1023,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#getAll" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#getAll" + clsName
 						+ "s(org.springframework.ui.Model)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
@@ -1287,7 +1078,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#showNew" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#showNew" + clsName
 						+ "Page(org.springframework.ui.Model)}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
@@ -1315,8 +1106,8 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#save" + clsName
-						+ "(com.dea42.watchlist.entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#save" + clsName + "("
+						+ basePkg + ".entity." + clsName + ", java.lang.String)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Cancel() throws Exception {");
@@ -1328,8 +1119,8 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#save" + clsName
-						+ "(com.dea42.watchlist.entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#save" + clsName + "("
+						+ basePkg + ".entity." + clsName + ", java.lang.String)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Save() throws Exception {");
@@ -1341,7 +1132,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#showEdit" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#showEdit" + clsName
 						+ "Page(java.lang.Integer)}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
@@ -1394,7 +1185,7 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link com.dea42.watchlist.controller." + clsName + "Controller#delete" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#delete" + clsName
 						+ "(java.lang.Integer)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
@@ -1436,8 +1227,8 @@ public class GenSpring {
 				ps.println("import org.springframework.web.bind.annotation.RequestParam;");
 				ps.println("import org.springframework.web.servlet.ModelAndView;");
 				ps.println("");
-				ps.println("import com.dea42.watchlist.entity." + clsName + ";");
-				ps.println("import com.dea42.watchlist.service." + clsName + "Services;");
+				ps.println("import " + basePkg + ".entity." + clsName + ";");
+				ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				ps.println("");
 				ps.println("/**");
 				ps.println(" * Title: " + clsName + "Controller <br>");
@@ -1600,312 +1391,15 @@ public class GenSpring {
 				ps.println(
 						"spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl");
 				if (dbUrl.contains("sqlite")) {
-					String pkgNam = basePkg + ".db";
-					ps.println("## SQLite");
-					ps.println("spring.jpa.database-platform=" + pkgNam + ".SQLiteDialect");
+					ps.println("## SQLite also needs");
+					ps.println("spring.jpa.database-platform=" + basePkg + ".db.SQLiteDialect");
 					ps.println("spring.datasource.driver-class-name = org.sqlite.JDBC");
-					writeSQLiteDialect(pkgNam);
-				} else {
-					ps.println("#spring.datasource.url=jdbc:mysql://localhost:3306/watchlist");
-					ps.println("#spring.datasource.username=" + Utils.getProp(bundle, "user", null));
-					ps.println("#spring.datasource.password=" + Utils.getProp(bundle, "password", null));
 				}
 				ps.println("spring.datasource.url=" + dbUrl);
+				ps.println("spring.datasource.username=" + Utils.getProp(bundle, "user", null));
+				ps.println("spring.datasource.password=" + Utils.getProp(bundle, "password", null));
 				ps.println("");
 				ps.println("logging.level.root=INFO");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
-
-	private void writeSQLiteDialect(String pkgNam) {
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + "/SQLiteDialect.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ";");
-				ps.println("");
-				ps.println("import java.sql.Types;");
-				ps.println("");
-				ps.println("import org.hibernate.dialect.Dialect;");
-				ps.println("import org.hibernate.dialect.function.SQLFunctionTemplate;");
-				ps.println("import org.hibernate.dialect.function.StandardSQLFunction;");
-				ps.println("import org.hibernate.dialect.function.VarArgsSQLFunction;");
-				ps.println("import org.hibernate.type.StringType;");
-				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: SQLiteDialect <br>");
-				ps.println(" * Description: Dialect Class for SQLite. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("public class SQLiteDialect extends Dialect {");
-				ps.println("");
-				ps.println("    public SQLiteDialect() {");
-				ps.println("        registerColumnType(Types.BIT, \"integer\");");
-				ps.println("        registerColumnType(Types.TINYINT, \"tinyint\");");
-				ps.println("        registerColumnType(Types.SMALLINT, \"smallint\");");
-				ps.println("        registerColumnType(Types.INTEGER, \"integer\");");
-				ps.println("        registerColumnType(Types.BIGINT, \"bigint\");");
-				ps.println("        registerColumnType(Types.FLOAT, \"float\");");
-				ps.println("        registerColumnType(Types.REAL, \"real\");");
-				ps.println("        registerColumnType(Types.DOUBLE, \"double\");");
-				ps.println("        registerColumnType(Types.NUMERIC, \"numeric\");");
-				ps.println("        registerColumnType(Types.DECIMAL, \"decimal\");");
-				ps.println("        registerColumnType(Types.CHAR, \"char\");");
-				ps.println("        registerColumnType(Types.VARCHAR, \"varchar\");");
-				ps.println("        registerColumnType(Types.LONGVARCHAR, \"longvarchar\");");
-				ps.println("        registerColumnType(Types.DATE, \"date\");");
-				ps.println("        registerColumnType(Types.TIME, \"time\");");
-				ps.println("        registerColumnType(Types.TIMESTAMP, \"timestamp\");");
-				ps.println("        registerColumnType(Types.BINARY, \"blob\");");
-				ps.println("        registerColumnType(Types.VARBINARY, \"blob\");");
-				ps.println("        registerColumnType(Types.LONGVARBINARY, \"blob\");");
-				ps.println("        // registerColumnType(Types.NULL, \"null\");");
-				ps.println("        registerColumnType(Types.BLOB, \"blob\");");
-				ps.println("        registerColumnType(Types.CLOB, \"clob\");");
-				ps.println("        registerColumnType(Types.BOOLEAN, \"integer\");");
-				ps.println("");
-				ps.println(
-						"        registerFunction(\"concat\", new VarArgsSQLFunction(StringType.INSTANCE, \"\", \"||\", \"\"));");
-				ps.println(
-						"        registerFunction(\"mod\", new SQLFunctionTemplate(StringType.INSTANCE, \"?1 % ?2\"));");
-				ps.println(
-						"        registerFunction(\"substr\", new StandardSQLFunction(\"substr\", StringType.INSTANCE));");
-				ps.println(
-						"        registerFunction(\"substring\", new StandardSQLFunction(\"substr\", StringType.INSTANCE));");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsIdentityColumns() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    /*");
-				ps.println("  public boolean supportsInsertSelectIdentity() {");
-				ps.println("    return true; // As specify in NHibernate dialect");
-				ps.println("  }");
-				ps.println("     */");
-				ps.println("    public boolean hasDataTypeInIdentityColumn() {");
-				ps.println("        return false; // As specify in NHibernate dialect");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    /*");
-				ps.println("  public String appendIdentitySelectToInsert(String insertString) {");
-				ps.println(
-						"    return new StringBuffer(insertString.length()+30). // As specify in NHibernate dialect");
-				ps.println("      append(insertString).");
-				ps.println("      append(\"; \").append(getIdentitySelectString()).");
-				ps.println("      toString();");
-				ps.println("  }");
-				ps.println("     */");
-				ps.println("    public String getIdentityColumnString() {");
-				ps.println("        // return \"integer primary key autoincrement\";");
-				ps.println("        return \"integer\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getIdentitySelectString() {");
-				ps.println("        return \"select last_insert_rowid()\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsLimit() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    protected String getLimitString(String query, boolean hasOffset) {");
-				ps.println("        return new StringBuffer(query.length() + 20).");
-				ps.println("                append(query).");
-				ps.println("                append(hasOffset ? \" limit ? offset ?\" : \" limit ?\").");
-				ps.println("                toString();");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsTemporaryTables() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getCreateTemporaryTableString() {");
-				ps.println("        return \"create temporary table if not exists\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean dropTemporaryTableAfterUse() {");
-				ps.println("        return false;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsCurrentTimestampSelection() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean isCurrentTimestampSelectStringCallable() {");
-				ps.println("        return false;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getCurrentTimestampSelectString() {");
-				ps.println("        return \"select current_timestamp\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsUnionAll() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean hasAlterTable() {");
-				ps.println("        return false; // As specify in NHibernate dialect");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean dropConstraints() {");
-				ps.println("        return false;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getAddColumnString() {");
-				ps.println("        return \"add column\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getForUpdateString() {");
-				ps.println("        return \"\";");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsOuterJoinForUpdate() {");
-				ps.println("        return false;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getDropForeignKeyString() {");
-				ps.println(
-						"        throw new UnsupportedOperationException(\"No drop foreign key syntax supported by SQLiteDialect\");");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getAddForeignKeyConstraintString(String constraintName,");
-				ps.println("            String[] foreignKey, String referencedTable, String[] primaryKey,");
-				ps.println("            boolean referencesPrimaryKey) {");
-				ps.println(
-						"        throw new UnsupportedOperationException(\"No add foreign key syntax supported by SQLiteDialect\");");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public String getAddPrimaryKeyConstraintString(String constraintName) {");
-				ps.println(
-						"        throw new UnsupportedOperationException(\"No add primary key syntax supported by SQLiteDialect\");");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsIfExistsBeforeTableName() {");
-				ps.println("        return true;");
-				ps.println("    }");
-				ps.println("");
-				ps.println("    public boolean supportsCascadeDelete() {");
-				ps.println("        return false;");
-				ps.println("    }");
-				ps.println("}");
-				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
-
-	/**
-	 * create pom.xml
-	 */
-	private void writePom() {
-		String dbUrl = Utils.getProp(bundle, "db.url", "");
-		Path p = createFile("/pom.xml");
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("<project xmlns=\"http://maven.apache.org/POM/4.0.0\"");
-				ps.println("	xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"");
-				ps.println("	xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 ");
-				ps.println("		http://maven.apache.org/xsd/maven-4.0.0.xsd\">");
-				ps.println("	<modelVersion>4.0.0</modelVersion>");
-				ps.println("	<groupId>" + Utils.getProp(bundle, propKey + ".pkg") + "</groupId>");
-				ps.println("	<artifactId>" + Utils.getProp(bundle, propKey + ".module") + "</artifactId>");
-				ps.println("	<version>0.0.1-SNAPSHOT</version>");
-				ps.println("	<packaging>jar</packaging>");
-				ps.println("");
-				ps.println("	<parent>");
-				ps.println("		<groupId>org.springframework.boot</groupId>");
-				ps.println("		<artifactId>spring-boot-starter-parent</artifactId>");
-				ps.println("		<version>2.1.3.RELEASE</version>");
-				ps.println("	</parent>");
-				ps.println("");
-				ps.println("	<dependencies>");
-				ps.println("		<dependency>");
-				ps.println("			<groupId>org.springframework.boot</groupId>");
-				ps.println("			<artifactId>spring-boot-starter-web</artifactId>");
-				ps.println("		</dependency>");
-				ps.println("		<dependency>");
-				ps.println("			<groupId>org.springframework.boot</groupId>");
-				ps.println("			<artifactId>spring-boot-starter-data-jpa</artifactId>");
-				ps.println("		</dependency>");
-				ps.println("		<dependency>");
-				ps.println("			<groupId>org.springframework.boot</groupId>");
-				ps.println("			<artifactId>spring-boot-starter-thymeleaf</artifactId>");
-				ps.println("		</dependency>");
-				ps.println("		<dependency>");
-				ps.println("			<groupId>com.fasterxml.jackson.dataformat</groupId>");
-				ps.println("			<artifactId>jackson-dataformat-xml</artifactId>");
-				ps.println("		</dependency>");
-				ps.println("		<dependency>");
-				ps.println("			<groupId>org.springframework.boot</groupId>");
-				ps.println("			<artifactId>spring-boot-starter-security</artifactId>");
-				ps.println("		</dependency>");
-				ps.println("");
-				ps.println("		<dependency>");
-				ps.println("    		<groupId>org.springframework.boot</groupId>");
-				ps.println("    		<artifactId>spring-boot-devtools</artifactId>");
-				ps.println("		</dependency>");
-
-				// TODO: Spring init adds these but are they needed?
-				if (dbUrl.contains("sqlite")) {
-					ps.println("		<dependency>");
-					ps.println("			<groupId>org.xerial</groupId>");
-					ps.println("			<artifactId>sqlite-jdbc</artifactId>");
-					ps.println("			<scope>runtime</scope>");
-					ps.println("		</dependency>");
-				} else if (dbUrl.contains("sqlite")) {
-					ps.println("		<dependency>");
-					ps.println("			<groupId>mysql</groupId>");
-					ps.println("			<artifactId>mysql-connector-java</artifactId>");
-					ps.println("			<scope>runtime</scope>");
-					ps.println("		</dependency>");
-				} else if (dbUrl.contains("sqlserver")) {
-					ps.println("		<dependency>");
-					ps.println("			<groupId>com.microsoft.sqlserver</groupId>");
-					ps.println("			<artifactId>mssql-jdbc</artifactId>");
-					ps.println("			<scope>runtime</scope>");
-					ps.println("		</dependency>");
-				} else if (dbUrl.contains("h2")) {
-					ps.println("		<dependency>");
-					ps.println("			<groupId>com.h2database</groupId>");
-					ps.println("			<artifactId>h2</artifactId>");
-					ps.println("		</dependency>");
-					ps.println("");
-				}
-				ps.println("		<dependency>");
-				ps.println("			<groupId>org.springframework.boot</groupId>");
-				ps.println("			<artifactId>spring-boot-starter-test</artifactId>");
-				ps.println("			<scope>test</scope>");
-				ps.println("		</dependency>");
-				ps.println("");
-				ps.println("	</dependencies>");
-				ps.println("");
-				ps.println("	<build>");
-				ps.println("		<plugins>");
-				ps.println("			<plugin>");
-				ps.println("				<groupId>org.springframework.boot</groupId>");
-				ps.println("				<artifactId>spring-boot-maven-plugin</artifactId>");
-				ps.println("			</plugin>");
-				ps.println("		</plugins>");
-				ps.println("	</build>");
-				ps.println("</project>");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);

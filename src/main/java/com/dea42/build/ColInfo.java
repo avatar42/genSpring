@@ -317,4 +317,17 @@ public class ColInfo implements Serializable {
 		this.stype = stype;
 	}
 
+	@Override
+	public String toString() {
+		StringBuilder builder = new StringBuilder();
+		builder.append("ColInfo [colName=").append(colName).append(", constName=").append(constName).append(", vName=")
+				.append(vName).append(", type=").append(type).append(", stype=").append(stype).append(", gsName=")
+				.append(gsName).append(", length=").append(length).append(", pk=").append(pk).append(", defaultVal=")
+				.append(defaultVal).append(", constraint=").append(constraint).append(", numeric=").append(numeric)
+				.append(", date=").append(date).append(", required=").append(required).append(", foreignTable=")
+				.append(foreignTable).append(", foreignCol=").append(foreignCol).append(", colScale=").append(colScale)
+				.append(", colPrecision=").append(colPrecision).append(", fNum=").append(fNum).append("]");
+		return builder.toString();
+	}
+
 }

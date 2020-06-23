@@ -7,7 +7,8 @@
 	<groupId>com.dea42</groupId>
 	<artifactId>genSpring</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>Citrus Integration Test</name>
+	<name>GenSpring</name>
+	<description>Spring Boot app generator</description>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

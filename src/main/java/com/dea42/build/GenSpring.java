@@ -1684,7 +1684,8 @@ public class GenSpring {
 						} else if (db.getDbUrl().indexOf("sqlite") > -1) {
 							String name = rs.getString("name").toLowerCase();
 							if (!name.startsWith("old_") && !name.startsWith("sqlite_sequence")
-									&& !name.startsWith("Providers")) {
+									&& !name.equals("providers") && !name.equals("account")
+									&& !name.equals("hibernate_sequence")) {
 								tableNames.add(name);
 							}
 						} else if (db.getDbUrl().indexOf("sqlserver") > -1) {

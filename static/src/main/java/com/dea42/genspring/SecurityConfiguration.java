@@ -11,32 +11,25 @@ import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 /**
  * Title: SecurityConfiguration <br>
  * Description: Class for confguring app security. <br>
+ * 
  * @author Gened by com.dea42.build.GenSpring<br>
  * @version 1.0<br>
  */
 @Configuration
 @EnableWebSecurity
-public class SecurityConfiguration extends WebSecurityConfigurerAdapter{
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http.authorizeRequests().antMatchers("/", "/api/*").permitAll()
-                .anyRequest().authenticated()
-                .and()
-                .formLogin()
-                .loginPage("/login")
-                .permitAll()
-                .and()
-                .logout()
-                .permitAll();
-    }
+public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http.authorizeRequests().antMatchers("/resources/*", "/js/*", "/css/*", "/", "/api/*", "/error", "/*.html")
+				.permitAll().anyRequest().authenticated().and().formLogin().loginPage("/login").permitAll().and()
+				.logout().permitAll();
+	}
 
-    @Autowired
-    public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception{
-		//TODO: replace this with real auth system
-        auth.inMemoryAuthentication()
-                .passwordEncoder(NoOpPasswordEncoder.getInstance())
-                .withUser("user").password("password").roles("USER");
-    }
+	@Autowired
+	public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+		// TODO: replace this with real auth system
+		auth.inMemoryAuthentication().passwordEncoder(NoOpPasswordEncoder.getInstance()).withUser("user")
+				.password("password").roles("USER");
+	}
 
 }
-

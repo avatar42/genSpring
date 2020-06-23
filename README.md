@@ -39,6 +39,7 @@ tableNames if given only generates files for those tables. If not given generate
 
 # Output from generator
 For example with a DB containing the tables Networks and Shows would generate the files <br>
+#TODO: update files list
 ./pom.xml <br>
 ./src/main/java/com/dea42/watchlist/controller/ApiController.java <br>
 ./src/main/java/com/dea42/watchlist/controller/AppController.java <br>
@@ -52,19 +53,38 @@ For example with a DB containing the tables Networks and Shows would generate th
 ./src/main/java/com/dea42/watchlist/SecurityConfiguration.java <br>
 ./src/main/java/com/dea42/watchlist/service/NetworksServices.java <br>
 ./src/main/java/com/dea42/watchlist/service/ShowsServices.java <br>
+./src/main/java/com/dea42/watchlist/ServletInitializer.java <br>
 ./src/main/java/com/dea42/watchlist/WebAppApplication.java <br>
 ./src/main/resources/application.properties <br>
-./src/main/resources/static/css/site.css <br>
+./src/main/resources/log4j2.xml <br>
+./src/main/resources/resources/css/bootstrap.min.css <br>
+./src/main/resources/resources/css/site.css <br>
+./src/main/resources/resources/js/bootstrap.min.js <br>
+./src/main/resources/resources/js/jquery.min.js <br>
+./src/main/resources/templates/api_index.html <br>
 ./src/main/resources/templates/edit_networks.html **(edit / create page)** <br>
-./src/main/resources/templates/edit_shows.html <br>
+./src/main/resources/templates/edit_shows.html **(edit / create page)** <br>
 ./src/main/resources/templates/index.html **(links to list pages plus /api and /login)** <br>
-./src/main/resources/templates/login.html <br>
+./src/main/resources/templates/login.html ** login page**<br>
 ./src/main/resources/templates/networkss.html **(list page)** <br>
-./src/main/resources/templates/showss.html <br>
+./src/main/resources/templates/showss.html **(list page)** <br>
+./src/main/webapp/favicon.ico ** sample site icon**<br>
+./src/main/webapp/optView.html ** sample static web page**<br>
+./src/main/webapp/Players.html ** sample static web page**<br>
+./src/main/webapp/resources/sheet.css ** css file for Google sheet tabs exported as HTML**<br>
+./src/test/java/com/dea42/watchlist/controller/ApiControllerTest.java <br>
+./src/test/java/com/dea42/watchlist/controller/AppControllerTest.java <br>
+./src/test/java/com/dea42/watchlist/controller/NetworksControllerTest.java <br>
+./src/test/java/com/dea42/watchlist/controller/ShowsControllerTest.java <br>
+./src/test/java/com/dea42/watchlist/selenium/SeleniumBase.java ** base test class **<br>
+./src/test/java/com/dea42/watchlist/selenium/SmokeIT.java ** integration tests against app server **<br>
+./src/test/java/com/dea42/watchlist/selenium/SmokeTest.java ** integration tests against Spring Boot **<br>
 ./src/test/java/com/dea42/watchlist/WebAppApplicationTest.java <br>
  <br>
 and the folder <br>
 ./src/test/resources <br>
+ 
+ Use the integration maven profile to run test of a cargo deployed version of the app
  
 # Running the web app
 - Import generated project as existing maven project

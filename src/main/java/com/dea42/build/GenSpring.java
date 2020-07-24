@@ -165,6 +165,123 @@ public class GenSpring {
 		}
 	}
 
+	private void writeNav(Set<String> set) {
+		Path p = createFile("/src/main/resources/templates/fragments/header.html");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("<!DOCTYPE html>");
+				ps.println("<html xmlns:th=\"http://www.thymeleaf.org\">");
+				ps.println("<head>");
+				ps.println("<link rel=\"stylesheet\" media=\"screen\"");
+				ps.println("	th:href=\"@{/resources/css/bootstrap.min.css}\" />");
+				ps.println("</head>");
+				ps.println("<body>");
+				ps.println("	<div th:fragment=\"header\">");
+				ps.println("		<nav class=\"navbar navbar-inverse navbar-fixed-top\">");
+				ps.println("			<div class=\"container\">");
+				ps.println("				<div class=\"navbar-header\">");
+				ps.println(
+						"					<button type=\"button\" class=\"navbar-toggle\" data-toggle=\"collapse\"");
+				ps.println("						data-target=\".nav-collapse\">");
+				ps.println(
+						"						<span class=\"icon-bar\"></span> <span class=\"icon-bar\"></span> <span");
+				ps.println("							class=\"icon-bar\"></span>");
+				ps.println("					</button>");
+				ps.println(
+						"					<a class=\"navbar-brand\" th:href=\"@{/}\" th:text=\"#{app.name}\"></a>");
+				ps.println("				</div>");
+				ps.println("				<div class=\"navbar-collapse collapse\">");
+				ps.println("					<ul class=\"nav navbar-nav\">");
+				ps.println("						<li id=\"guiMenu\" class=\"dropdown\"><a href=\"#\"");
+				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
+				ps.println(
+						"								th:text=\"#{header.gui}\"></span> <b class=\"caret\"></b> </a>");
+				ps.println("							<ul class=\"dropdown-menu\">");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("								<li th:classappend=\"${module == '" + fieldName
+							+ "' ? 'active' : ''}\">");
+					ps.println("    								<a id=\"guiItem" + clsName + "\" th:href=\"@{/"
+							+ fieldName + "s}\" th:text=\"#{class." + clsName + "}\"></a></li>");
+				}
+				ps.println("							</ul></li>");
+				ps.println("						<li id=\"restMenu\" class=\"dropdown\"><a href=\"#\"");
+				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
+				ps.println(
+						"								th:text=\"#{header.restApi}\"></span> <b class=\"caret\"></b></a>");
+				ps.println("							<ul class=\"dropdown-menu\">");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("								<li th:classappend=\"${module == '" + fieldName
+							+ "' ? 'active' : ''}\">");
+					ps.println("    								<a id=\"apiItem" + clsName + "\" th:href=\"@{/api/"
+							+ fieldName + "s}\" th:text=\"#{class." + clsName + "}\"></a></li>");
+				}
+				ps.println("							</ul></li>");
+				ps.println("					</ul>");
+				ps.println("					<ul class=\"nav navbar-nav navbar-right\">");
+				ps.println("						<li id=\"langMenu\" class=\"dropdown\"><a href=\"#\"");
+				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
+				ps.println(
+						"								th:text=\"#{lang.change}\"></span> <b class=\"caret\"></b></a>");
+				ps.println("							<ul class=\"dropdown-menu\">");
+				ps.println("								<li th:classappend=\"'active'\"><a");
+				ps.println(
+						"									th:href=\"@{/international?lang=en}\" th:text=\"#{lang.en}\"></a></li>");
+				ps.println("								<li th:classappend=\"'active'\"><a");
+				ps.println(
+						"									th:href=\"@{/international?lang=fr}\" th:text=\"#{lang.fr}\"></a></li>");
+				ps.println("								<li th:classappend=\"'active'\"><a");
+				ps.println(
+						"									th:href=\"@{/international?lang=de}\" th:text=\"#{lang.de}\"></a></li>");
+				ps.println("							</ul></li>");
+				ps.println("					</ul>");
+				ps.println("					<ul class=\"nav navbar-nav navbar-right\">");
+				ps.println("						<li th:if=\"${#authorization.expression('!isAuthenticated()')}\">");
+				ps.println("							<a th:href=\"@{/login}\"> <span");
+				ps.println(
+						"								class=\"glyphicon glyphicon-log-in\" aria-hidden=\"true\"></span>&nbsp;<span");
+				ps.println("								th:text=\"#{signin.signin}\"></span>");
+				ps.println("						</a>");
+				ps.println("");
+				ps.println("						</li>");
+				ps.println("						<li th:if=\"${#authorization.expression('isAuthenticated()')}\">");
+				ps.println("							<a th:href=\"@{#}\" onclick=\"$('#form').submit();\"> <span");
+				ps.println(
+						"								class=\"glyphicon glyphicon-log-out\" aria-hidden=\"true\"></span>&nbsp;<span");
+				ps.println("								th:text=\"#{signin.logout}\"></span>");
+				ps.println("						</a>");
+				ps.println(
+						"							<form style=\"visibility: hidden\" id=\"form\" method=\"post\"");
+				ps.println("								action=\"#\" th:action=\"@{/logout}\"></form>");
+				ps.println("						</li>");
+				ps.println("					</ul>");
+				ps.println("				</div>");
+				ps.println("				<!--/.nav-collapse -->");
+				ps.println("			</div>");
+				ps.println("		</nav>");
+				ps.println("		<br>");
+				ps.println("		<div class=\"container\">");
+				ps.println("			<!-- /* Handle the flash message in container */-->");
+				ps.println("			<th:block th:if=\"${message != null}\">");
+				ps.println("				<!-- /* The message code is returned from the @Controller */ -->");
+				ps.println("				<div");
+				ps.println(
+						"					th:replace=\"fragments/alert :: alert (type=${#strings.toLowerCase(message.type)}, message=#{${message.message}(${#authentication.name})})\">&nbsp;</div>");
+				ps.println("			</th:block>");
+				ps.println("		</div>");
+				ps.println("	</div>");
+				ps.println("	<!-- End of header -->");
+				ps.println("</body>");
+				ps.println("</html>");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
 	public void copyCommon() throws IOException {
 		String pathString = "static";
 		int beginIndex = pathString.length();
@@ -237,6 +354,7 @@ public class GenSpring {
 		}
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
+		writeNav(colsInfo.keySet());
 		writeIndex(colsInfo.keySet());
 		writeApiIndex(colsInfo.keySet());
 		updateMsgProps(colsInfo);

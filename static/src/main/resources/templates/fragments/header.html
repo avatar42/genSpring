@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+<link rel="stylesheet" media="screen"
+	th:href="@{/resources/css/bootstrap.min.css}" />
+</head>
+<body>
+	<div th:fragment="header">
+		<nav class="navbar navbar-inverse navbar-fixed-top">
+			<div class="container">
+				<div class="navbar-header">
+					<button type="button" class="navbar-toggle" data-toggle="collapse"
+						data-target=".nav-collapse">
+						<span class="icon-bar"></span> <span class="icon-bar"></span> <span
+							class="icon-bar"></span>
+					</button>
+					<a class="navbar-brand" th:href="@{/}" th:text="#{app.name}"></a>
+				</div>
+				<div class="navbar-collapse collapse">
+					<ul class="nav navbar-nav">
+						<li id="guiMenu" class="dropdown"><a href="#"
+							class="dropdown-toggle" data-toggle="dropdown"><span
+								th:text="#{header.gui}"></span> <b class="caret"></b> </a>
+							<ul class="dropdown-menu">
+								<li th:classappend="${module == 'networks' ? 'active' : ''}"><a
+									th:href="@{/networkss}" th:text="#{class.Networks}"></a></li>
+								<li th:classappend="${module == 'shows' ? 'active' : ''}"><a
+									th:href="@{/showss}" th:text="#{class.Shows}"></a></li>
+								<li th:classappend="${module == 'roamiosp' ? 'active' : ''}"><a
+									th:href="@{/roamiosps}" th:text="#{class.Roamiosp}"></a></li>
+								<li th:classappend="${module == 'cablecard' ? 'active' : ''}"><a
+									th:href="@{/cablecards}" th:text="#{class.Cablecard}"></a></li>
+								<li th:classappend="${module == 'roamionpl' ? 'active' : ''}"><a
+									th:href="@{/roamionpls}" th:text="#{class.Roamionpl}"></a></li>
+								<li th:classappend="${module == 'ota' ? 'active' : ''}"><a
+									th:href="@{/otas}" th:text="#{class.Ota}"></a></li>
+								<li th:classappend="${module == 'roamiotodo' ? 'active' : ''}"><a
+									th:href="@{/roamiotodos}" th:text="#{class.Roamiotodo}"></a></li>
+							</ul></li>
+						<li id="restMenu" class="dropdown"><a href="#"
+							class="dropdown-toggle" data-toggle="dropdown"><span
+								th:text="#{header.restApi}"></span> <b class="caret"></b></a>
+							<ul class="dropdown-menu">
+								<li th:classappend="${module == 'networks' ? 'active' : ''}"><a
+									th:href="@{/api/networkss}" th:text="#{class.Networks}"></a></li>
+								<li th:classappend="${module == 'shows' ? 'active' : ''}"><a
+									th:href="@{/api/showss}" th:text="#{class.Shows}"></a></li>
+								<li th:classappend="${module == 'roamiosp' ? 'active' : ''}"><a
+									th:href="@{/api/roamiosps}" th:text="#{class.Roamiosp}"></a></li>
+								<li th:classappend="${module == 'cablecard' ? 'active' : ''}"><a
+									th:href="@{/api/cablecards}" th:text="#{class.Cablecard}"></a></li>
+								<li th:classappend="${module == 'roamionpl' ? 'active' : ''}"><a
+									th:href="@{/api/roamionpls}" th:text="#{class.Roamionpl}"></a></li>
+								<li th:classappend="${module == 'ota' ? 'active' : ''}"><a
+									th:href="@{/api/otas}" th:text="#{class.Ota}"></a></li>
+								<li th:classappend="${module == 'roamiotodo' ? 'active' : ''}"><a
+									th:href="@{/api/roamiotodos}" th:text="#{class.Roamiotodo}"></a></li>
+							</ul></li>
+					</ul>
+					<ul class="nav navbar-nav navbar-right">
+						<li id="langMenu" class="dropdown"><a href="#"
+							class="dropdown-toggle" data-toggle="dropdown"><span
+								th:text="#{lang.change}"></span> <b class="caret"></b></a>
+							<ul class="dropdown-menu">
+								<li th:classappend="'active'"><a
+									th:href="@{/international?lang=en}" th:text="#{lang.en}"></a></li>
+								<li th:classappend="'active'"><a
+									th:href="@{/international?lang=fr}" th:text="#{lang.fr}"></a></li>
+								<li th:classappend="'active'"><a
+									th:href="@{/international?lang=de}" th:text="#{lang.de}"></a></li>
+							</ul></li>
+					</ul>
+					<ul class="nav navbar-nav navbar-right">
+						<li th:if="${#authorization.expression('!isAuthenticated()')}">
+							<a th:href="@{/login}"> <span
+								class="glyphicon glyphicon-log-in" aria-hidden="true"></span>&nbsp;<span
+								th:text="#{signin.signin}"></span>
+						</a>
+
+						</li>
+						<li th:if="${#authorization.expression('isAuthenticated()')}">
+							<a th:href="@{#}" onclick="$('#form').submit();"> <span
+								class="glyphicon glyphicon-log-out" aria-hidden="true"></span>&nbsp;<span
+								th:text="#{signin.logout}"></span>
+						</a>
+							<form style="visibility: hidden" id="form" method="post"
+								action="#" th:action="@{/logout}"></form>
+						</li>
+					</ul>
+				</div>
+				<!--/.nav-collapse -->
+			</div>
+		</nav>
+		<br>
+		<div class="container">
+			<!-- /* Handle the flash message in container */-->
+			<th:block th:if="${message != null}">
+				<!-- /* The message code is returned from the @Controller */ -->
+				<div
+					th:replace="fragments/alert :: alert (type=${#strings.toLowerCase(message.type)}, message=#{${message.message}(${#authentication.name})})">&nbsp;</div>
+			</th:block>
+		</div>
+	</div>
+	<!-- End of header -->
+</body>
+</html>

@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.dea42</groupId>
 	<artifactId>genspring</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 	<packaging>war</packaging>
 
 	<parent>
@@ -95,6 +95,12 @@
 			<artifactId>h2</artifactId>
 		</dependency>
 
+		<!-- Utilities -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>28.0-jre</version>
+		</dependency>
 		<!-- Test dependencies -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -126,12 +132,22 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>false</filtering>
+				<excludes>
+					<!-- those resources are processed by the i18n-maven-plugin -->
+					<exclude>i18n/**</exclude>
+				</excludes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>com.dea42.watchlist.WebAppApplication</mainClass>
+					<mainClass>com.dea42.genspring.WebAppApplication</mainClass>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -153,8 +169,8 @@
 							</zipUrlInstaller> -->
 					</container>
 					<!-- <deployables> <deployable> <groupId>org.codehaus.cargo</groupId> 
-						<artifactId>simple-war</artifactId> <type>war</type> <location>${project.build.directory}/watchlist-0.0.1-SNAPSHOT.war</location> 
-						<properties> <context>watchlist</context> </properties> </deployable> </deployables> -->
+						<artifactId>simple-war</artifactId> <type>war</type> <location>${project.build.directory}/genspring-0.0.1-SNAPSHOT.war</location> 
+						<properties> <context>genspring</context> </properties> </deployable> </deployables> -->
 					<configuration>
 						<properties>
 							<cargo.servlet.port>8089</cargo.servlet.port>

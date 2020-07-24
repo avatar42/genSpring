@@ -1,46 +1,23 @@
 package com.dea42.genspring.controller;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
+import org.springframework.test.web.servlet.ResultActions;
+
+import com.dea42.genspring.MockBase;
+import com.dea42.genspring.entity.Account;
+import com.dea42.genspring.form.SignupForm;
+import com.dea42.genspring.utils.Message;
+import com.google.common.collect.ImmutableMap;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @WebMvcTest(AppController.class)
-public class AppControllerTest {
-	private MockMvc mockMvc;
-
-	@Autowired
-	private WebApplicationContext webApplicationContext;
-
-	@Before()
-	public void setup() {
-		// Init MockMvc Object and build
-		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();
-	}
-
-	/**
-	 * Test method for
-	 * {@link com.dea42.genspring.controller.AppController#getLoginPage()}.
-	 */
-	@Test
-	public void testGetLoginPage() throws Exception {
-		this.mockMvc.perform(get("/login")).andExpect(status().isOk())
-				.andExpect(content().string(containsString("Login")))
-				.andExpect(content().string(containsString("Password:")))
-				.andExpect(content().string(containsString("User Name:")));
-	}
+public class AppControllerTest extends MockBase {
 
 	/**
 	 * Test method for
@@ -49,39 +26,142 @@ public class AppControllerTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testGetIndex() throws Exception {
-		this.mockMvc.perform(get("/").with(user("user").roles("ADMIN"))).andExpect(status().isOk())
-				.andExpect(content().string(containsString("Home")))
-				.andExpect(content().string(containsString("Login")))
-				.andExpect(content().string(containsString("/api/")))
-				.andExpect(content().string(containsString("Networks")))
-				.andExpect(content().string(containsString("Shows")))
-				.andExpect(content().string(containsString("Roamiosp")))
-				.andExpect(content().string(containsString("Cablecard")))
-				.andExpect(content().string(containsString("Roamionpl")))
-				.andExpect(content().string(containsString("Ota")))
-				.andExpect(content().string(containsString("Roamiotodo")));
+	public void testIndex() throws Exception {
+		ResultActions result = getAsNoOne("/");
+		contentContainsKey(result, "view.index.title", false);
+		contentContainsKey(result, "app.name", false);
+		contentContainsKey(result, "signin.signup", false);
+		result = getAsAdmin("/");
+		contentContainsKey(result, "view.index.title", false);
+		contentContainsKey(result, "index.greeting", false);
 	}
 
 	/**
-	 * Test method for
-	 * {@link com.dea42.genspring.controller.ApiController#getApiIndex()}.
+	 * quick check / maps to /home
 	 * 
 	 * @throws Exception
 	 */
 	@Test
-	public void testGetApiIndex() throws Exception {
-		this.mockMvc.perform(get("/api/").with(user("user").roles("ADMIN"))).andExpect(status().isOk())
-				.andExpect(content().string(containsString("API Home")))
-				.andExpect(content().string(containsString("Login")))
-				.andExpect(content().string(containsString("networks")))
-				.andExpect(content().string(containsString("shows")))
-				.andExpect(content().string(containsString("roamiosp")))
-				.andExpect(content().string(containsString("cablecard")))
-				.andExpect(content().string(containsString("roamionpl")))
-				.andExpect(content().string(containsString("ota")))
-				.andExpect(content().string(containsString("roamiotodo")));
+	public void testHome() throws Exception {
+		ResultActions result = getAsNoOne("/home");
+		contentContainsKey(result, "view.index.title", false);
+	}
+
+	/**
+	 * check text on sign up page
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testSignupModelString() throws Exception {
+		ResultActions result = getAsNoOne("/signup");
+		contentContainsKey(result, "signin.email", false);
+		contentContainsKey(result, "signin.password", false);
+		contentContainsKey(result, "signin.haveAccount", false);
+		contentContainsKey(result, "signin.signin", false);
+		contentContainsKey(result, "signin.signup", false);
+	}
+
+	/**
+	 * Test signup TODO: sort best way to test this
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testSignupSignupFormErrorsRedirectAttributes() throws Exception {
+		SignupForm signupForm = new SignupForm();
+		signupForm.setEmail(ADMIN_USER);
+		signupForm.setPassword(ADMIN_PASS);
+		signupForm.setSignup(true);
+		Account account = signupForm.createAccount();
+
+		given(accountService.save(account)).willReturn(account);
+		given(accountService.login(account.getEmail(), account.getPassword())).willReturn(true);
+
+		ResultActions ra = send(SEND_POST, "/signup", "signupForm", signupForm, ImmutableMap.of("action", "save"), null,
+				"/home");
+
+		Message msg = new Message("signup.success", Message.Type.SUCCESS, new Object[0]);
+		ra.andExpect(flash().attribute("message", msg));
+	}
+
+	/**
+	 * check text on sign in page
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testLoginHttpServletRequestSignupFormStringString() throws Exception {
+		ResultActions result = getAsNoOne("/login");
+		contentContainsKey(result, "signin.email", false);
+		contentContainsKey(result, "signin.password", false);
+		contentContainsKey(result, "signin.rememberMe", false);
+		contentContainsKey(result, "signin.signin", false);
+		contentContainsKey(result, "signin.newHere", false);
+		contentContainsKey(result, "signin.signup", false);
+	}
+
+	/**
+	 * Test sign in
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testLoginModelSignupFormErrorsRedirectAttributes() throws Exception {
+		SignupForm signupForm = new SignupForm();
+		signupForm.setEmail(ADMIN_USER);
+		signupForm.setPassword(ADMIN_PASS);
+		Account account = signupForm.createAccount();
+
+		given(accountService.save(account)).willReturn(account);
+		given(accountService.login(account.getEmail(), account.getPassword())).willReturn(true);
+
+		ResultActions ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, "/home");
+		expectSuccessMsg(ra, "signin.success");
+
+		signupForm = new SignupForm();
+		signupForm.setEmail(ADMIN_USER);
+		signupForm.setPassword("bad pass");
+		account = signupForm.createAccount();
+
+		ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, null);
+		contentContainsKey(ra, "signin.failed", false);
+
+		signupForm = new SignupForm();
+		signupForm.setEmail(ADMIN_USER);
+		signupForm.setPassword("");
+		account = signupForm.createAccount();
+
+		ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, null);
+		contentContainsKey(ra, "notBlank.message", false);
+
+		signupForm = new SignupForm();
+		signupForm.setEmail("");
+		signupForm.setPassword("bad pass");
+		account = signupForm.createAccount();
+
+		ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, null);
+		contentContainsKey(ra, "notBlank.message", false);
+
+		signupForm = new SignupForm();
+		signupForm.setEmail("admin");
+		signupForm.setPassword("bad pass");
+		account = signupForm.createAccount();
+
+		ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, null);
+		contentContainsKey(ra, "email.message", false);
+		contentContainsKey(ra, "notBlank.message", true);
+	}
+
+	/**
+	 * quick test lang swap
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testGetInternationalPage() throws Exception {
+		getAsAdminRedirectExpected("/international", "/home");
+		getAsNoOneRedirectExpected("/international", "/home");
 	}
 
 }
-

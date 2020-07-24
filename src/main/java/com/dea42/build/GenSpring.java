@@ -15,12 +15,14 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -50,14 +52,16 @@ import com.dea42.common.Utils;
  *          See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
  */
 public class GenSpring {
-	private static final String strVal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890abcdefghijklmnopqrstuvwzyz";
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String propKey = "genSpring";
+	// TODO: get from build
+	public static final String genSpringVersion = "0.2.0";
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
-	private ResourceBundle bundle = null;
-	private ResourceBundle renames = ResourceBundle.getBundle("rename");
+	private boolean beanEquals = false;
+	private ResourceBundle bundle;
+	private ResourceBundle renames;
 	private String srcGroupId = "com.dea42";
 	private String srcArtifactId = "genspring";
 	private String srcPkg;
@@ -67,6 +71,7 @@ public class GenSpring {
 	private String basePkg;
 	private String basePath;
 	private String baseDir;
+	private String appVersion;
 	private int year = 2001;
 	private String schema = null;
 
@@ -75,12 +80,14 @@ public class GenSpring {
 		year = gc.get(Calendar.YEAR);
 
 		bundle = ResourceBundle.getBundle(propKey);
+		renames = ResourceBundle.getBundle("rename");
 		baseDir = Utils.getProp(bundle, propKey + ".outdir");
 		schema = Utils.getProp(bundle, propKey + ".schema");
 		baseGroupId = Utils.getProp(bundle, propKey + ".pkg");
 		baseArtifactId = Utils.getProp(bundle, propKey + ".module");
 		basePkg = baseGroupId + '.' + baseArtifactId;
 		basePath = basePkg.replace('.', '/');
+		appVersion = Utils.getProp(bundle, propKey + ".version", "1.0");
 
 		srcPkg = srcGroupId + '.' + srcArtifactId;
 		srcPath = srcPkg.replace('.', '/');
@@ -118,18 +125,18 @@ public class GenSpring {
 	 * 
 	 * @param list
 	 */
-	private void genIndex(Set<String> set) {
+	private void writeIndex(Set<String> set) {
 		Path p = createFile("/src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader("Home"));
+				ps.println(htmlHeader("header.home", null));
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("    	<a th:href=\"@{/" + fieldName + "s}\">" + clsName + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/api/}\">/api/</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
-				htmlFooter();
+				ps.println(htmlFooter());
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -138,18 +145,18 @@ public class GenSpring {
 		}
 	}
 
-	private void genApiIndex(Set<String> set) {
+	private void writeApiIndex(Set<String> set) {
 		Path p = createFile("/src/main/resources/templates/api_index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader("API Home"));
+				ps.println(htmlHeader("header.restApi", null));
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("    	<a th:href=\"@{/api/" + fieldName + "s}\">" + clsName + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/}\">Home</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
-				htmlFooter();
+				ps.println(htmlFooter());
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -177,11 +184,13 @@ public class GenSpring {
 			 */
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-				System.out.println("visitFile: " + file);
+				LOGGER.info("Copying:" + file);
 				String data = new String(Files.readAllBytes(file));
 				data = data.replace(srcPkg, basePkg);
 				data = data.replace(srcGroupId, baseGroupId);
 				data = data.replace(srcArtifactId, baseArtifactId);
+				data = data.replace("genSpringVersion", genSpringVersion);
+				data = data.replace("@version 1.0<br>", "@version " + appVersion + "<br>");
 
 				String outFile = file.toString().substring(beginIndex).replace('\\', '/').replace(srcPath, basePath);
 				Path p = createFile(outFile);
@@ -193,7 +202,6 @@ public class GenSpring {
 						LOGGER.error("failed to create " + p, e);
 					}
 				}
-
 				return FileVisitResult.CONTINUE;
 			}
 
@@ -217,7 +225,7 @@ public class GenSpring {
 	 * @param tableNames
 	 * @throws Exception
 	 */
-	public void genProject(List<String> tableNames) throws Exception {
+	public void writeProject(List<String> tableNames) throws Exception {
 		copyCommon();
 
 		writeAppProps();
@@ -229,9 +237,9 @@ public class GenSpring {
 		}
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
-		writeAppControllerTest(colsInfo.keySet());
-		genIndex(colsInfo.keySet());
-		genApiIndex(colsInfo.keySet());
+		writeIndex(colsInfo.keySet());
+		writeApiIndex(colsInfo.keySet());
+		updateMsgProps(colsInfo);
 	}
 
 	/**
@@ -252,14 +260,22 @@ public class GenSpring {
 
 		Db db = new Db(propKey + ".genFiles()", propKey);
 		Connection conn = db.getConnection(propKey + ".genFiles()");
+
 		if (db.getDbUrl().indexOf("mysql") > -1) {
 			String sql = "show create table " + tableName;
-			Statement stmt = conn.createStatement();
-			stmt.setMaxRows(1);
-			LOGGER.debug("query=" + sql);
-			ResultSet rs = stmt.executeQuery(sql);
-			if (rs.next()) {
-				create = rs.getString("Create Table");
+			try {
+				Statement stmt = conn.createStatement();
+				stmt.setMaxRows(1);
+				LOGGER.debug("query=" + sql);
+				ResultSet rs = stmt.executeQuery(sql);
+				if (rs.next()) {
+					// TODO: test this. Reported failing with "java.sql.SQLException: Column 'Create
+					// Table' not found."
+					// See https://dev.mysql.com/doc/refman/8.0/en/show-create-table.html
+					create = rs.getString("Create Table");
+				}
+			} catch (SQLException e) {
+				LOGGER.error(sql + " failed", e);
 			}
 		}
 
@@ -418,6 +434,34 @@ public class GenSpring {
 		return cols;
 	}
 
+	/**
+	 * Generate comment header for a class
+	 * 
+	 * @param className
+	 * @param description
+	 * @return
+	 */
+	private String getClassHeader(String className, String description) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("/**").append(System.lineSeparator());
+		sb.append(" * Title: " + className + " <br>").append(System.lineSeparator());
+		sb.append(" * Description: " + description + " <br>").append(System.lineSeparator());
+		String tmp = Utils.getProp(bundle, propKey + ".Copyright", "");
+		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+			sb.append(" * Copyright: " + tmp + year + "<br>").append(System.lineSeparator());
+		}
+		tmp = Utils.getProp(bundle, propKey + ".Company", "");
+		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+			sb.append(" * Company: " + tmp + "<br>").append(System.lineSeparator());
+		}
+		sb.append(" * @author Gened by " + this.getClass().getCanonicalName() + " version " + genSpringVersion + "<br>")
+				.append(System.lineSeparator());
+		sb.append(" * @version " + appVersion + "<br>").append(System.lineSeparator());
+		sb.append(" */");
+
+		return sb.toString();
+	}
+
 	private void writeApiController(Set<String> set) {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
@@ -437,20 +481,7 @@ public class GenSpring {
 				}
 				ps.println("");
 				ps.println("import java.util.List;");
-				ps.println("/**");
-				ps.println(" * Title: ApiController <br>");
-				ps.println(" * Description: Api REST Controller. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(getClassHeader("ApiController", "Api REST Controller."));
 				ps.println("@RestController");
 				ps.println("@RequestMapping(\"/api\")");
 				ps.println("public class ApiController {");
@@ -480,6 +511,51 @@ public class GenSpring {
 		}
 	}
 
+	/**
+	 * Add and the class and field names to src/main/resources/messages.properties
+	 * 
+	 * @param colsInfo
+	 */
+	private void updateMsgProps(Map<String, Map<String, ColInfo>> colsInfo) {
+		String outFile = baseDir + "/src/main/resources/messages.properties";
+		Path p = Paths.get(outFile);
+		String data = "";
+		boolean dataChged = false;
+		try {
+			data = new String(Files.readAllBytes(p));
+			Set<String> set = colsInfo.keySet();
+			for (String clsName : set) {
+				// If table already in there then skip
+				if (!data.contains("## for " + clsName + System.lineSeparator())) {
+					dataChged = true;
+					data = data + "## for " + clsName + System.lineSeparator();
+					data = data + "class." + clsName + "=" + clsName + System.lineSeparator();
+					Map<String, ColInfo> namList = colsInfo.get(clsName);
+					Iterator<String> it = namList.keySet().iterator();
+					while (it.hasNext()) {
+						String name = it.next();
+						ColInfo info = (ColInfo) namList.get(name);
+						data = data + clsName + "." + info.getVName() + "=" + info.getGsName() + System.lineSeparator();
+					}
+					data = data + System.lineSeparator();
+				}
+			}
+			if (dataChged) {
+				Files.write(p, data.getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+				LOGGER.warn("Wrote:" + p.toString());
+			} else {
+				LOGGER.warn(p.toString() + " up to date so will skip.");
+			}
+		} catch (Exception e) {
+			LOGGER.error("failed to update " + p, e);
+		}
+	}
+
+	/**
+	 * Created mock unit test of ApiController. TODO: need updated to use MockBase
+	 * 
+	 * @param colsInfo
+	 */
 	private void writeApiControllerTest(Map<String, Map<String, ColInfo>> colsInfo) {
 		Set<String> set = colsInfo.keySet();
 		String pkgNam = basePkg + ".controller";
@@ -512,47 +588,17 @@ public class GenSpring {
 				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
 				ps.println("import org.springframework.web.context.WebApplicationContext;");
 				ps.println("");
+				ps.println("import " + basePkg + ".MockBase;");
 				for (String clsName : set) {
 					ps.println("import " + basePkg + ".entity." + clsName + ";");
 					ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				}
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: ApiControllerTest <br>");
-				ps.println(" * Description: Api REST Controller Test. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test."));
 				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
 				ps.println("@WebMvcTest(ApiController.class)");
-				ps.println("public class ApiControllerTest {");
-				ps.println("	private MockMvc mockMvc;");
+				ps.println("public class ApiControllerTest extends MockBase {");
 				ps.println("");
-				ps.println("	@Autowired");
-				ps.println("	private WebApplicationContext webApplicationContext;");
-				ps.println("");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.println("    @MockBean");
-					ps.println("    private " + clsName + "Services " + fieldName + "Service;");
-				}
-				ps.println("");
-				ps.println("	@Before()");
-				ps.println("	public void setup() {");
-				ps.println("		// Init MockMvc Object and build");
-				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
-				ps.println("	}");
-				ps.println("");
-				ps.println("    public ApiControllerTest(){");
-				ps.println("    }");
 				for (String clsName : set) {
 					Map<String, ColInfo> namList = colsInfo.get(clsName);
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
@@ -574,16 +620,13 @@ public class GenSpring {
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
-								if (endIndex > strVal.length())
-									endIndex = strVal.length() - 1;
-								ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
-										+ "\");");
+								ps.println("         o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
 							}
 						}
 					}
 					ps.println("		list.add(o);");
 					ps.println("");
-					ps.println("		given(" + fieldName + "Service.listAll()).willReturn(list);");
+					ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
 					ps.println("");
 					ps.println("		this.mockMvc.perform(get(\"/api/" + fieldName
 							+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
@@ -594,10 +637,8 @@ public class GenSpring {
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
-								if (endIndex > strVal.length())
-									endIndex = strVal.length() - 1;
-								ps.println("				.andExpect(content().string(containsString(\""
-										+ strVal.substring(0, endIndex) + "\")))");
+								ps.println("				.andExpect(content().string(containsString(o.get"
+										+ info.getGsName() + "())))");
 							}
 						}
 						ps.print("				.andExpect(content().string(containsString(\"" + info.getVName()
@@ -623,27 +664,41 @@ public class GenSpring {
 	/**
 	 * gen HTML header for page
 	 * 
-	 * @param title
+	 * @param clsName  or key to be used for the title
+	 * @param pageType it null clsName is assumed to be a message key. Should match
+	 *                 property in messages.properties as in listView for
+	 *                 edit.listView
 	 * @return
 	 */
-	private String htmlHeader(String title) {
+	private String htmlHeader(String clsName, String pageType) {
 		StringBuilder sb = new StringBuilder();
 
-		sb.append("<!DOCTYPE html>");
-		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">");
-		sb.append("<head>");
-		sb.append("    <meta charset=\"UTF-8\"/>");
-		sb.append("    <title>" + Utils.getProp(bundle, propKey + ".module") + " | " + title + "</title>");
-		sb.append("    <link th:href=\"@{/css/site.css}\" rel=\"stylesheet\"/>");
-		sb.append("</head>");
-		sb.append("<body>");
+		sb.append("<!DOCTYPE html>" + System.lineSeparator());
+		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
+		sb.append("<head>\r\n" + "<meta charset=\"UTF-8\" />" + System.lineSeparator());
+		if (pageType == null)
+			sb.append("<title th:text=\"#{" + clsName + "}\"></title>" + System.lineSeparator());
+		else
+			sb.append("<title th:text=\"#{edit." + pageType + "} + ' ' + #{class." + clsName + "}\"></title>"
+					+ System.lineSeparator());
+		sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />" + System.lineSeparator());
+		sb.append("<link rel=\"stylesheet\" media=\"screen\"" + System.lineSeparator());
+		sb.append("	th:href=\"@{/resources/css/bootstrap.min.css}\" />" + System.lineSeparator());
+		sb.append("<link rel=\"stylesheet\" media=\"screen\"" + System.lineSeparator());
+		sb.append("	th:href=\"@{/resources/css/site.css}\" />" + System.lineSeparator());
+		sb.append("<script th:src=\"@{/resources/js/jquery.min.js}\"></script>" + System.lineSeparator());
+		sb.append("<script th:src=\"@{/resources/js/bootstrap.min.js}\"></script>" + System.lineSeparator());
+		sb.append("</head>" + System.lineSeparator());
+		sb.append("<body>" + System.lineSeparator());
+
+		sb.append("	<div th:replace=\"fragments/header :: header\">&nbsp;</div>" + System.lineSeparator());
 
 		return sb.toString();
 	}
 
 	private String htmlFooter() {
 		StringBuilder sb = new StringBuilder();
-
+		sb.append("	<div th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>" + System.lineSeparator());
 		sb.append("</body>");
 		sb.append("</html>");
 
@@ -669,20 +724,7 @@ public class GenSpring {
 				ps.println("import org.springframework.stereotype.Repository;");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: " + clsName + "Repository <br>");
-				ps.println(" * Description: Class for the " + clsName + " Repository. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(getClassHeader(clsName + "Repository", "Class for the " + clsName + " Repository."));
 				ps.println("@Repository");
 				ps.println("public interface " + clsName + "Repository extends JpaRepository<" + clsName + ", "
 						+ pkinfo.getType() + ">{");
@@ -705,12 +747,12 @@ public class GenSpring {
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader("Edit " + clsName));
-				ps.println("	<div align=\"center\">");
-				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " == 0}\">Create New "
-						+ clsName + "</h1>");
-				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " > 0}\">Edit " + clsName
-						+ "</h1>");
+				ps.println(htmlHeader(clsName, "edit"));
+				ps.println("	<div class=\"container\">");
+				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " == 0}\"");
+				ps.println("			th:text=\"#{edit.new} + ' ' + #{class." + clsName + "}\"></h1>");
+				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " > 0}\"");
+				ps.println("			th:text=\"#{edit.edit} + ' ' + #{class." + clsName + "}\"></h1>");
 				ps.println("		<br />");
 				ps.println("		<form action=\"#\" th:action=\"@{/" + fieldName + "s/save}\" th:object=\"${"
 						+ fieldName + "}\"");
@@ -719,7 +761,8 @@ public class GenSpring {
 				ps.println("			<table >");
 				ps.println("				<tr th:if=\"${" + fieldName + "." + pkinfo.getVName()
 						+ " > 0}\">				");
-				ps.println("					<td>" + pkinfo.getColName() + ":</td>");
+				ps.println("					<td th:text=\"#{" + clsName + "." + pkinfo.getVName() + "} + ':'\">"
+						+ pkinfo.getColName() + ":</td>");
 				ps.println("					<td>");
 				ps.println("						<input type=\"text\" th:field=\"*{" + pkinfo.getVName()
 						+ "}\" readonly=\"readonly\" />");
@@ -740,12 +783,12 @@ public class GenSpring {
 				}
 				ps.println("				<tr>");
 				ps.println(
-						"					<td colspan=\"2\"><button type=\"submit\" name=\"action\" value=\"save\">save</button> <button type=\"submit\" name=\"action\" value=\"cancel\">cancel</button></td>");
+						"					<td colspan=\"2\"><button type=\"submit\" name=\"action\" value=\"save\" th:text=\"#{edit.save}\"></button> <button type=\"submit\" name=\"action\" value=\"cancel\" th:text=\"#{edit.cancel}\"></button></td>");
 				ps.println("				</tr>");
 				ps.println("			</table>");
 				ps.println("		</form>");
 				ps.println("	</div>");
-				htmlFooter();
+				ps.println(htmlFooter());
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -790,12 +833,13 @@ public class GenSpring {
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
+				Set<String> processed = new HashSet<String>();
 				Set<String> set = getListKeys(clsName, namList);
-				ps.println(htmlHeader(clsName + " List View"));
-				ps.println("	<div align=\"center\">");
-				ps.println("		<h1>" + clsName + " List</h1>");
-				ps.println("		<a th:href=\"@{/" + fieldName + "s/new}\">Create New " + clsName + "</a> <br />");
-				ps.println("		<br />");
+				ps.println(htmlHeader(clsName, "listView"));
+				ps.println("	<div class=\"container\">");
+				ps.println("		<h1 th:text=\"#{class." + clsName + "} + ' ' + #{edit.list}\"></h1>");
+				ps.println("		<a th:href=\"@{/" + fieldName + "s/new}\" th:text=\"#{edit.new} + ' ' + #{class."
+						+ clsName + "}\"></a> <br /><br />");
 				ps.println("");
 				ps.println("	    <table>");
 				ps.println("	        <tr>");
@@ -804,146 +848,68 @@ public class GenSpring {
 				while (it.hasNext()) {
 					String name = it.next();
 					ColInfo info = (ColInfo) namList.get(name);
-					ps.println("            <th>" + info.getColName() + "</th>");
+					if (!processed.contains(name)) {
+
+						if (namList.containsKey(name + "link")) {
+							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
+									+ info.getColName() + "</th>");
+							processed.add(name);
+							processed.add(name + "link");
+						} else if (name.endsWith("link") && namList.containsKey(name.substring(0, name.length() - 4))) {
+							name = name.substring(0, name.length() - 4);
+							info = (ColInfo) namList.get(name);
+							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
+									+ info.getColName() + "</th>");
+							processed.add(name);
+							processed.add(name + "link");
+						} else {
+							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
+									+ info.getColName() + "</th>");
+							processed.add(name);
+						}
+					}
 				}
-				ps.println("            <th>Actions</th>");
+				ps.println("            <th th:text=\"#{edit.actions}\"></th>");
 				ps.println("	        </tr>");
 				ps.println("	        <tr th:each=\"" + fieldName + ":${" + fieldName + "s}\">");
+				processed = new HashSet<String>();
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
 					ColInfo info = (ColInfo) namList.get(name);
-					if (namList.containsKey(name + "link")) {
-						ColInfo infoLnk = (ColInfo) namList.get(name + "link");
-						ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
-								+ "}}\"><span th:text=\"${" + fieldName + "." + info.getVName()
-								+ "}\"></span></a></td>");
-
-					} else {
-						ps.println(
-								"	            <td th:text=\"${" + fieldName + "." + info.getVName() + "}\"></td>");
+					if (!processed.contains(name)) {
+						if (namList.containsKey(name + "link")) {
+							ColInfo infoLnk = (ColInfo) namList.get(name + "link");
+							ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
+									+ "}}\" th:text=\"${" + fieldName + "." + info.getVName() + "}\"></a></td>");
+							processed.add(name);
+							processed.add(name + "link");
+						} else if (name.endsWith("link") && namList.containsKey(name.substring(0, name.length() - 4))) {
+							name = name.substring(0, name.length() - 4);
+							ColInfo infoLnk = (ColInfo) info;
+							info = (ColInfo) namList.get(name);
+							ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
+									+ "}}\" th:text=\"${" + fieldName + "." + info.getVName() + "}\"></a></td>");
+							processed.add(name);
+							processed.add(name + "link");
+						} else {
+							ps.println("	            <td th:text=\"${" + fieldName + "." + info.getVName()
+									+ "}\"></td>");
+							processed.add(name);
+						}
 					}
 				}
 				ps.println("				<td><a th:href=\"@{'/" + fieldName + "s/edit/' + ${" + fieldName + "."
-						+ pkinfo.getVName() + "}}\">Edit</a>");
+						+ pkinfo.getVName() + "}}\" th:text=\"#{edit.edit}\"></a>");
 				ps.println("					&nbsp;&nbsp;&nbsp; <a th:href=\"@{'/" + fieldName + "s/delete/' + ${"
-						+ fieldName + "." + pkinfo.getVName() + "}}\">Delete</a>");
+						+ fieldName + "." + pkinfo.getVName() + "}}\" th:text=\"#{edit.delete}\"></a>");
 				ps.println("				</td>");
 				ps.println("");
 				ps.println("	        </tr>");
 				ps.println("	    </table>");
 				ps.println("    </div>");
 				ps.println("");
-				htmlFooter();
-				LOGGER.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
-				p.toFile().delete();
-			}
-		}
-	}
-
-	private void writeAppControllerTest(Set<String> set) {
-		String pkgNam = basePkg + ".controller";
-		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + "/AppControllerTest.java";
-		Path p = createFile(outFile);
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
-				ps.println(
-						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
-				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
-				ps.println("");
-				ps.println("import org.junit.Before;");
-				ps.println("import org.junit.Test;");
-				ps.println("import org.junit.runner.RunWith;");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
-				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
-				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
-				ps.println("import org.springframework.test.web.servlet.MockMvc;");
-				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
-				ps.println("import org.springframework.web.context.WebApplicationContext;");
-				ps.println("");
-				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
-				ps.println("@WebMvcTest(AppController.class)");
-				ps.println("public class AppControllerTest {");
-				ps.println("	private MockMvc mockMvc;");
-				ps.println("");
-				ps.println("	@Autowired");
-				ps.println("	private WebApplicationContext webApplicationContext;");
-				ps.println("");
-				ps.println("	@Before()");
-				ps.println("	public void setup() {");
-				ps.println("		// Init MockMvc Object and build");
-				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller.AppController#getLoginPage()}.");
-				ps.println("	 */");
-				ps.println("	@Test");
-				ps.println("	public void testGetLoginPage() throws Exception {");
-				ps.println("		this.mockMvc.perform(get(\"/login\")).andExpect(status().isOk())");
-				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
-				ps.println("				.andExpect(content().string(containsString(\"Password:\")))");
-				ps.println("				.andExpect(content().string(containsString(\"User Name:\")));");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller.AppController#getIndex()}.");
-				ps.println("	 * ");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println("	@Test");
-				ps.println("	public void testGetIndex() throws Exception {");
-				ps.println(
-						"		this.mockMvc.perform(get(\"/\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-				ps.println("				.andExpect(content().string(containsString(\"Home\")))");
-				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
-				ps.println("				.andExpect(content().string(containsString(\"/api/\")))");
-				Iterator<String> it = set.iterator();
-				while (it.hasNext()) {
-					ps.print("				.andExpect(content().string(containsString(\"" + it.next() + "\")))");
-					if (it.hasNext())
-						ps.println("");
-					else
-						ps.println(";");
-				}
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller.ApiController#getApiIndex()}.");
-				ps.println("	 * ");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println("	@Test");
-				ps.println("	public void testGetApiIndex() throws Exception {");
-				ps.println(
-						"		this.mockMvc.perform(get(\"/api/\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-				ps.println("				.andExpect(content().string(containsString(\"API Home\")))");
-				ps.println("				.andExpect(content().string(containsString(\"Login\")))");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String clsName = it.next();
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.print("				.andExpect(content().string(containsString(\"" + fieldName + "\")))");
-					if (it.hasNext())
-						ps.println("");
-					else
-						ps.println(";");
-				}
-				ps.println("	}");
-				ps.println("");
-				ps.println("}");
-				ps.println("");
+				ps.println(htmlFooter());
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
@@ -962,63 +928,35 @@ public class GenSpring {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> set = getListKeys(clsName, namList);
 				ps.println("package " + pkgNam + ';');
-				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
 				ps.println("import static org.mockito.BDDMockito.given;");
-				ps.println(
-						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
-				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
-				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
-				ps.println(
-						"import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
-				ps.println("");
 				ps.println("import java.util.ArrayList;");
 				ps.println("import java.util.List;");
-				ps.println("");
-				ps.println("import org.junit.Before;");
 				ps.println("import org.junit.Test;");
-				ps.println("import org.junit.runner.RunWith;");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
-				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
-				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
-				ps.println("import org.springframework.test.web.servlet.MockMvc;");
-				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
-				ps.println("import org.springframework.web.context.WebApplicationContext;");
+				ps.println("import org.springframework.test.web.servlet.ResultActions;");
+				ps.println("import com.google.common.collect.ImmutableMap;");
 				ps.println("");
+				ps.println("import " + basePkg + ".MockBase;");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
-				ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: " + clsName + "ControllerTest <br>");
-				ps.println(" * Description: Class for testing the " + clsName + "Controller. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
-				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
+				ps.println(getClassHeader(clsName + "ControllerTest", clsName + "Controller."));
 				ps.println("@WebMvcTest(" + clsName + "Controller.class)");
-				ps.println("public class " + clsName + "ControllerTest {");
-				ps.println("	@MockBean");
-				ps.println("	private " + clsName + "Services " + fieldName + "Service;");
-				ps.println("");
-				ps.println("	private MockMvc mockMvc;");
-				ps.println("");
-				ps.println("	@Autowired");
-				ps.println("	private WebApplicationContext webApplicationContext;");
-				ps.println("");
-				ps.println("	@Before()");
-				ps.println("	public void setup() {");
-				ps.println("		// Init MockMvc Object and build");
-				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext).build();");
+				ps.println("public class " + clsName + "ControllerTest extends MockBase {");
+				ps.println("	private " + clsName + " get" + clsName + "(Integer id) {");
+				ps.println("		" + clsName + " o = new " + clsName + "();");
+				ps.println("		o.setId(id);");
+				Iterator<String> it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isString()) {
+						int endIndex = info.getLength();
+						if (endIndex > 0) {
+							ps.println("        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
+						}
+					}
+				}
+				ps.println("		return o;");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
@@ -1029,30 +967,14 @@ public class GenSpring {
 				ps.println("	@Test");
 				ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
 				ps.println("		List<" + clsName + "> list = new ArrayList<>();");
-				ps.println("		" + clsName + " o = new " + clsName + "();");
-				ps.println("		o.setId(1);");
-				Iterator<String> it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					ColInfo info = (ColInfo) namList.get(name);
-					if (info.isString()) {
-						int endIndex = info.getLength();
-						if (endIndex > 0) {
-							if (endIndex > strVal.length())
-								endIndex = strVal.length() - 1;
-							ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
-									+ "\");");
-						}
-					}
-				}
+				ps.println("		" + clsName + " o = get" + clsName + "(1);");
 				ps.println("		list.add(o);");
 				ps.println("");
-				ps.println("		given(" + fieldName + "Service.listAll()).willReturn(list);");
+				ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
 				ps.println("");
-				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
-						+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-				ps.println("				.andExpect(content().string(containsString(\"<h1>" + clsName
-						+ " List</h1>\")))");
+				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s\");");
+				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"class." + clsName
+						+ "\") + \" \" + getMsg(\"edit.list\") + \"</h1>\");");
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
@@ -1060,19 +982,17 @@ public class GenSpring {
 					if (info.isString()) {
 						int endIndex = info.getLength();
 						if (endIndex > 0) {
-							if (endIndex > strVal.length())
-								endIndex = strVal.length() - 1;
-							ps.println("				.andExpect(content().string(containsString(\""
-									+ strVal.substring(0, endIndex) + "\")))");
+							ps.println("		contentContainsMarkup(ra,getTestString(" + endIndex + "));");
 						}
 					}
-					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
-							+ "\")))");
-					if (it.hasNext()) {
-						ps.println("");
-					} else {
-						ps.println(";");
-					}
+					if (!info.getVName().endsWith("link"))
+						ps.println("		contentContainsMarkup(ra,getMsg(\"" + clsName + "." + info.getVName()
+								+ "\"));");
+//					if (it.hasNext()) {
+//						ps.println("");
+//					} else {
+//						ps.println(";");
+//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1085,22 +1005,20 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testShowNew" + clsName + "Page() throws Exception {");
-				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
-						+ "s/new\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-				ps.println("				.andExpect(content().string(containsString(\"<h1>Create New " + clsName
-						+ "</h1>\")))");
+				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s/new\");");
+				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"edit.new\") + \" \" + getMsg(\"class."
+						+ clsName + "\") + \"</h1>\");");
 				set = namList.keySet();
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
 					ColInfo info = (ColInfo) namList.get(name);
-					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
-							+ "\")))");
-					if (it.hasNext()) {
-						ps.println("");
-					} else {
-						ps.println(";");
-					}
+					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
+//					if (it.hasNext()) {
+//						ps.println("");
+//					} else {
+//						ps.println(";");
+//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1111,10 +1029,11 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Cancel() throws Exception {");
-				ps.println("		this.mockMvc.perform(post(\"/" + fieldName
-						+ "s/save\").param(\"action\", \"cancel\").with(user(\"user\").roles(\"ADMIN\")))");
-				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
-						+ fieldName + "s\"));");
+				ps.println("		" + clsName + " o = get" + clsName + "(1);");
+				ps.println("");
+				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
+						+ "\", o, ImmutableMap.of(\"action\", \"cancel\"), ADMIN_USER,");
+				ps.println("				\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
@@ -1124,10 +1043,11 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Save() throws Exception {");
-				ps.println("		this.mockMvc.perform(post(\"/" + fieldName
-						+ "s/save\").param(\"action\", \"save\").with(user(\"user\").roles(\"ADMIN\")))");
-				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
-						+ fieldName + "s\"));");
+				ps.println("		" + clsName + " o = get" + clsName + "(0);");
+				ps.println("");
+				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
+						+ "\", o, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
+				ps.println("				\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
@@ -1139,8 +1059,11 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testShowEdit" + clsName + "Page() throws Exception {");
-				ps.println("		" + clsName + " o = new " + clsName + "();");
-				ps.println("		o.setId(1);");
+				ps.println("		" + clsName + " o = get" + clsName + "(1);");
+				ps.println("");
+				ps.println("		given(" + fieldName + "Services.get(1)).willReturn(o);");
+				ps.println("");
+				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s/edit/1\");");
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
@@ -1148,38 +1071,15 @@ public class GenSpring {
 					if (info.isString()) {
 						int endIndex = info.getLength();
 						if (endIndex > 0) {
-							if (endIndex > strVal.length())
-								endIndex = strVal.length() - 1;
-							ps.println("         o.set" + info.getGsName() + "(\"" + strVal.substring(0, endIndex)
-									+ "\");");
+							ps.println("		contentContainsMarkup(ra,o.get" + info.getGsName() + "());");
 						}
 					}
-				}
-				ps.println("");
-				ps.println("		given(" + fieldName + "Service.get(1)).willReturn(o);");
-				ps.println("");
-				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
-						+ "s/edit/1\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					ColInfo info = (ColInfo) namList.get(name);
-					if (info.isString()) {
-						int endIndex = info.getLength();
-						if (endIndex > 0) {
-							if (endIndex > strVal.length())
-								endIndex = strVal.length() - 1;
-							ps.println("				.andExpect(content().string(containsString(\""
-									+ strVal.substring(0, endIndex) + "\")))");
-						}
-					}
-					ps.print("				.andExpect(content().string(containsString(\"" + info.getColName()
-							+ "\")))");
-					if (it.hasNext()) {
-						ps.println("");
-					} else {
-						ps.println(";");
-					}
+					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
+//					if (it.hasNext()) {
+//						ps.println("");
+//					} else {
+//						ps.println(";");
+//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1190,10 +1090,8 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testDelete" + clsName + "() throws Exception {");
-				ps.println("		this.mockMvc.perform(get(\"/" + fieldName
-						+ "s/delete/1\").with(user(\"user\").roles(\"ADMIN\")))");
-				ps.println("				.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(\"/"
-						+ fieldName + "s\"));");
+				ps.println(
+						"		getAsAdminRedirectExpected(\"/" + fieldName + "s/delete/1\",\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("}");
@@ -1204,6 +1102,7 @@ public class GenSpring {
 				p.toFile().delete();
 			}
 		}
+
 	}
 
 	private void writeObjController(String clsName, ColInfo pkinfo) {
@@ -1230,20 +1129,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: " + clsName + "Controller <br>");
-				ps.println(" * Description: Class for  " + clsName + "Controller. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(getClassHeader(clsName + "Controller", clsName + "Controller."));
 				ps.println("@Controller");
 				ps.println("@RequestMapping(\"/" + fieldName + "s\")");
 				ps.println("public class " + clsName + "Controller {");
@@ -1321,43 +1207,23 @@ public class GenSpring {
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.stereotype.Service;");
 				ps.println("");
-				ps.println("import java.util.ArrayList;");
 				ps.println("import java.util.List;");
 				ps.println("");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: " + clsName + "Services <br>");
-				ps.println(" * Description: Class for the " + clsName + "Services. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(getClassHeader(clsName + "Services", clsName + "Services."));
 				ps.println("@Service");
 				ps.println("public class " + clsName + "Services {");
 				ps.println("    @Autowired");
 				ps.println("    private " + clsName + "Repository " + fieldName + "Repository;");
 				ps.println("");
-//			ps.println("    public List<" + clsName + "> getAll" + clsName + "s(){");
-//			ps.println("        List<" + clsName + "> " + fieldName + "s = new ArrayList<>();");
-//			ps.println("        this." + fieldName + "Repository.findAll().forEach(" + fieldName + "s::add);");
-//			ps.println("        return " + fieldName + "s;");
-//			ps.println("    }");
-//			ps.println("");
 				ps.println("	public List<" + clsName + "> listAll() {");
 				ps.println("		return (List<" + clsName + ">) " + fieldName + "Repository.findAll();");
 				ps.println("	}");
 				ps.println("	");
-				ps.println("	public void save(" + clsName + " product) {");
-				ps.println("		" + fieldName + "Repository.save(product);");
+				ps.println("	public void save(" + clsName + " item) {");
+				ps.println("		" + fieldName + "Repository.save(item);");
 				ps.println("	}");
 				ps.println("	");
 				ps.println("	public " + clsName + " get(" + pkinfo.getType() + " id) {");
@@ -1430,20 +1296,8 @@ public class GenSpring {
 				ps.println("import javax.persistence.*;");
 
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Title: " + viewName + " Bean <br>");
-				ps.println(" * Description: Class for holding data from the " + viewName + " table. <br>");
-				String tmp = Utils.getProp(bundle, "genSpring.Copyright", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Copyright: " + tmp + year + "<br>");
-				}
-				tmp = Utils.getProp(bundle, "genSpring.Company", "");
-				if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
-					ps.println(" * Company: " + tmp + "<br>");
-				}
-				ps.println(" * @author Gened by " + this.getClass().getCanonicalName() + "<br>");
-				ps.println(" * @version " + Utils.getProp(bundle, "genSpring.version", "1.0") + "<br>");
-				ps.println(" */");
+				ps.println(
+						getClassHeader(viewName + " Bean", "Class for holding data from the " + viewName + " table."));
 				ps.println("@Entity");
 				ps.println("@Table(name = \"" + viewName + "\")");
 				ps.println("public class " + className + " implements Serializable {");
@@ -1466,20 +1320,20 @@ public class GenSpring {
 					}
 					sb.append(")");
 					ps.println(sb.toString());
-					ps.println("private " + info.getType() + ' ' + info.getVName() + ';');
+					ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
 				}
 
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Basic constructor");
-				ps.println(" */");
-				ps.println("public " + className + "() {");
-				ps.println("}");
+				ps.println("	/**");
+				ps.println("	 * Basic constructor");
+				ps.println("	 */");
+				ps.println("	public " + className + "() {");
+				ps.println("	}");
 				ps.println("");
-				ps.println("/**");
-				ps.println(" * Full constructor");
-				ps.println(" *");
-				ps.println(" */");
+				ps.println("	/**");
+				ps.println("	 * Full constructor");
+				ps.println("	 *");
+				ps.println("	 */");
 				StringBuilder sb = new StringBuilder("	public " + className + "(");
 				set = namList.keySet();
 				it = set.iterator();
@@ -1503,12 +1357,13 @@ public class GenSpring {
 				}
 				ps.println("	}");
 				writeBeanGetSets(ps, namList);
+				LOGGER.debug("Done with get/sets writing");
 				if (beanToString) {
-					ps.println("/**");
-					ps.println(" * Returns a String showing the values of this bean - mainly for debuging");
-					ps.println(" *");
-					ps.println(" * @return String");
-					ps.println(" */");
+					ps.println("	/**");
+					ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
+					ps.println("	 *");
+					ps.println("	 * @return String");
+					ps.println("	 */");
 					ps.println("	public String toString(){");
 					ps.println("		StringBuffer sb = new StringBuffer();");
 					set = namList.keySet();
@@ -1521,10 +1376,41 @@ public class GenSpring {
 					ps.println("		return sb.toString();");
 					ps.println("	}");
 				}
-				LOGGER.debug("Done with get/sets writing");
 
 				ps.println("");
 
+				if (beanEquals) {
+					ps.println("	/**");
+					ps.println("	 * Mainly for mock testing");
+					ps.println("	 *");
+					ps.println("	 * @return boolean");
+					ps.println("	 */");
+					ps.println("	@Override");
+					ps.println("	public boolean equals(Object obj) {");
+					ps.println("		if (this == obj)");
+					ps.println("			return true;");
+					ps.println("		if (obj == null)");
+					ps.println("			return false;");
+					ps.println("		if (getClass() != obj.getClass())");
+					ps.println("			return false;");
+					ps.println("		Account other = (Account) obj;");
+					ps.println("");
+					set = namList.keySet();
+					it = set.iterator();
+					while (it.hasNext()) {
+						ColInfo info = (ColInfo) namList.get(it.next());
+						ps.println("		if (get" + info.getGsName() + " == null) {");
+						ps.println("			if (other.get" + info.getGsName() + " != null)");
+						ps.println("				return false;");
+						ps.println("		} else if (!get" + info.getGsName() + ".equals(other.get" + info.getGsName()
+								+ "))");
+						ps.println("			return false;");
+						ps.println("");
+					}
+					ps.println("	}");
+				}
+
+				ps.println("");
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -1547,16 +1433,6 @@ public class GenSpring {
 		Iterator<String> it = set.iterator();
 		while (it.hasNext()) {
 			ColInfo info = (ColInfo) namList.get(it.next());
-//			ps.println("/**");
-//			ps.println(" * returns value of the " + info.getColName() + " column of this row of data");
-//			ps.println(" *");
-//			ps.println(" * @return value of this column in this row");
-//			ps.println(" */");
-//			ps.println("public " + info.getType() + " getObj" + info.getGsName() + "() {");
-//			ps.println("    return " + info.getVName() + ';');
-//			ps.println("}");
-//			ps.println("");
-
 			ps.println("	/**");
 			ps.println("	 * returns value of the " + info.getColName() + " column of this row of data");
 			ps.println("	 *");
@@ -1569,27 +1445,27 @@ public class GenSpring {
 			ps.println("	 */");
 			ps.println("	public " + info.getType() + " get" + info.getGsName() + "() {");
 			if ("Float".equals(info.getType())) {
-				ps.println("	if (" + info.getVName() + "== null)");
-				ps.println("	    return 0.0f;");
-				ps.println("	return " + info.getVName() + ".floatValue();");
+				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("	    	return 0.0f;");
+				ps.println("		return " + info.getVName() + ".floatValue();");
 			} else if ("Double".equals(info.getType())) {
-				ps.println("	if (" + info.getVName() + "== null)");
-				ps.println("	    return 0;");
-				ps.println("	return " + info.getVName() + ".doubleValue();");
+				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("	    	return 0;");
+				ps.println("		return " + info.getVName() + ".doubleValue();");
 			} else if ("BigDecimal".equals(info.getType())) {
-				ps.println("	if (" + info.getVName() + "== null)");
-				ps.println("	    return BigDecimal.ZERO;");
-				ps.println("	return " + info.getVName() + ".doubleValue();");
+				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("	    	return BigDecimal.ZERO;");
+				ps.println("		return " + info.getVName() + ".doubleValue();");
 			} else if ("Integer".equals(info.getType())) {
-				ps.println("	if (" + info.getVName() + "== null)");
-				ps.println("	    return 0;");
-				ps.println("	return " + info.getVName() + ".intValue();");
+				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("	    	return 0;");
+				ps.println("		return " + info.getVName() + ".intValue();");
 			} else if ("Long".equals(info.getType())) {
-				ps.println("	if (" + info.getVName() + "== null)");
-				ps.println("	    return 0l;");
-				ps.println("	return " + info.getVName() + ".longValue();");
+				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("	    	return 0l;");
+				ps.println("		return " + info.getVName() + ".longValue();");
 			} else {
-				ps.println("	return " + info.getVName() + ';');
+				ps.println("		return " + info.getVName() + ';');
 			}
 			ps.println("	}");
 			ps.println("");
@@ -1610,14 +1486,14 @@ public class GenSpring {
 			ps.println("	 */");
 			ps.println("	public void set" + info.getGsName() + '(' + info.getType() + " newVal) {");
 			if ("String".equals(info.getType()) && info.getLength() > 0) {
-				ps.print("		if (" + info.getVName() + " != null && " + info.getVName() + ".length() > ");
-				ps.println(info.getLength() + "){");
-				ps.println("	    " + info.getVName() + " = newVal.substring(0," + (info.getLength() - 1) + ");");
-				ps.println("	} else {");
-				ps.println("	    " + info.getVName() + " = newVal;");
-				ps.println("	}");
+				ps.println("		if (" + info.getVName() + " != null && " + info.getVName() + ".length() > "
+						+ info.getLength() + "){");
+				ps.println("			" + info.getVName() + " = newVal.substring(0," + (info.getLength() - 1) + ");");
+				ps.println("		} else {");
+				ps.println("	    	" + info.getVName() + " = newVal;");
+				ps.println("		}");
 			} else {
-				ps.println("	" + info.getVName() + " = newVal;");
+				ps.println("		" + info.getVName() + " = newVal;");
 			}
 			ps.println("	}");
 			ps.println("");
@@ -1625,20 +1501,47 @@ public class GenSpring {
 
 	}
 
+	public static void printUsage(String error, Exception e) {
+		if (error != null)
+			System.err.println(error);
+		System.err.println("USAGE: Genspring [options] [table names]");
+		System.err.println("Where options are:");
+		System.err.println("-double = use Double instead of BigDecimal for entities beans");
+		System.err.println("-toString = generate toString() methods for entities beans");
+		System.err.println("-beanEquals = generate equals() methods for entities beans");
+		System.err.println("");
+		System.err.println("if table names not given then runs on all tables in DB.");
+		System.err.println("");
+		System.err.println("Note: be sure to set properties in resources/genSpring.properties before running.");
+
+		if (e != null)
+			LOGGER.error(error, e);
+
+		System.exit(1);
+	}
+
 	/**
 	 * Entry point for this app
 	 * 
 	 * @param args
-	 * @noinspection OverlyNestedMethod
 	 */
 	public static void main(String[] args) {
 		try {
 			Db db = new Db(propKey + ".main()", propKey);
 			String dbName = db.getDbName();
 			int i = 0;
+			GenSpring obj = new GenSpring();
+			List<String> tableNames = new ArrayList<String>();
 			for (; i < args.length; i++) {
-				GenSpring obj = new GenSpring();
 				if (args[i].length() > 0 && args[i].charAt(0) == '-') {
+					if ("-h".equals(args[i])) {
+						printUsage(null, null);
+					}
+				} else if (args[i].length() > 0 && args[i].charAt(0) == '-') {
+					if ("-beanEquals".equals(args[i])) {
+						obj.beanEquals = true;
+					}
+				} else if (args[i].length() > 0 && args[i].charAt(0) == '-') {
 					if ("-double".equals(args[i])) {
 						obj.useDouble = true;
 					}
@@ -1646,9 +1549,12 @@ public class GenSpring {
 					if ("-toString".equals(args[i])) {
 						obj.beanToString = true;
 					}
+				} else {
+					tableNames.add(args[i]);
 				}
 			}
-			if (args.length >= i) {
+
+			if (tableNames.isEmpty()) {
 				String query = "SHOW TABLES"; // mySQL
 				if (db.getDbUrl().indexOf("sqlserver") > -1) {
 					query = "SELECT NAME,INFO FROM sysobjects WHERE type= 'U'";
@@ -1672,7 +1578,6 @@ public class GenSpring {
 				} catch (Exception e) {
 					LOGGER.warn("Could not get table count  ", e);
 				}
-				List<String> tableNames = new ArrayList<String>();
 				while (rs.next()) {
 					try {
 						// TODO: get these table filters from a props file.
@@ -1700,15 +1605,14 @@ public class GenSpring {
 							}
 						}
 					} catch (Exception e) {
-						LOGGER.error("main() crashed ", e);
+						printUsage("main() crashed ", e);
 					}
 				}
 				db.close(propKey + ".main()");
-				GenSpring obj = new GenSpring();
-				obj.genProject(tableNames);
 			}
+			obj.writeProject(tableNames);
 		} catch (Exception e) {
-			LOGGER.error("main() crashed  ", e);
+			printUsage("main() crashed  ", e);
 		}
 
 		LOGGER.info("Done");

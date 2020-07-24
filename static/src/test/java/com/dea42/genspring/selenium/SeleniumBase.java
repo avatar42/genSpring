@@ -5,6 +5,7 @@ package com.dea42.genspring.selenium;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -17,12 +18,13 @@ import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.test.web.servlet.ResultActions;
+
+import com.dea42.genspring.UnitBase;
+import com.dea42.genspring.utils.Utils;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
-import junit.framework.TestCase;
 
 /**
  * Base class for Selenium tests
@@ -30,8 +32,7 @@ import junit.framework.TestCase;
  * @author GenSpring
  *
  */
-public class SeleniumBase extends TestCase {
-	protected static final Logger LOGGER = LoggerFactory.getLogger(SeleniumBase.class.getName());
+public class SeleniumBase extends UnitBase {
 
 	@LocalServerPort
 	protected int port;
@@ -40,11 +41,31 @@ public class SeleniumBase extends TestCase {
 	protected WebDriver driver;
 	protected int timeOutInSeconds = 30;
 	protected boolean useLocal = false;
+	// time to pause at the start of each command.
+	protected long speedDelay = 1;
 
-	protected WebElement getBy(By selector) {
+	/**
+	 * called at the start of each "command". Set speedDelay above to the
+	 * milliseconds pause you want between commands or 0 for none.
+	 */
+	protected void speedControl() {
+		if (speedDelay > 0) {
+			try {
+				Thread.sleep(speedDelay);
+			} catch (InterruptedException e) {
+				// ignored
+			}
+		}
+	}
+
+	protected WebElement getBy(By selector, WebElement parent) {
+		speedControl();
 		WebElement element = null;
 		try {
-			element = driver.findElement(selector);
+			if (parent == null)
+				element = driver.findElement(selector);
+			else
+				element = parent.findElement(selector);
 		} catch (Exception e) {
 			LOGGER.info("Element " + selector + " not found");
 		}
@@ -57,12 +78,14 @@ public class SeleniumBase extends TestCase {
 	 * @param url
 	 */
 	protected void open(String url) {
+		speedControl();
 		driver.get(url);
 		driver.manage().window().maximize();
 		waitForPageLoaded();
 	}
 
 	protected String getSrc() {
+		speedControl();
 		String rtn = null;
 		try {
 			rtn = driver.getPageSource();
@@ -71,6 +94,45 @@ public class SeleniumBase extends TestCase {
 		}
 
 		return rtn;
+	}
+
+	/**
+	 * Checks the nav system
+	 */
+	public void checkHeader(ResultActions result, String user) throws Exception {
+		speedControl();
+		List<String> names = getMenuLinks("guiMenu", "header.gui", false);
+		assertTrue("Check for more than 0 GUI menu items", names.size() > 0);
+		boolean login = true;
+		for (String name : names) {
+			checkEditLinks(name, login);
+			if (login)
+				login = false;
+		}
+
+		List<String> refs = getMenuLinks("restMenu", "header.restApi", true);
+		assertTrue("Check for more than 0 REST API menu items", names.size() > 0);
+		for (String ref : refs) {
+			open(ref);
+			sourceContains("<id>1</id>", false);
+		}
+
+		// check lang changes
+		openTest("/");
+		refs = getMenuLinks("langMenu", "lang.change", true);
+		List<String> langs = new ArrayList<String>();
+		for (String ref : refs) {
+			langs.add(ref.substring(ref.length() - 2, ref.length()));
+		}
+		for (String ref : refs) {
+			lang = ref.substring(ref.length() - 2, ref.length());
+			open(ref);
+			sourceContains("<span>" + getMsg("lang.change") + "</span>", false);
+			for (String lang : langs) {
+				sourceContains(">" + getMsg("lang." + lang) + "</a>", false);
+			}
+		}
+
 	}
 
 	/**
@@ -95,7 +157,7 @@ public class SeleniumBase extends TestCase {
 	}
 
 	/**
-	 * Open a url on Spring Boot app ahnd wait for page to load
+	 * Open a url on Spring Boot app and wait for page to load
 	 * 
 	 * @param url without this.base bit as in /login
 	 */
@@ -104,27 +166,50 @@ public class SeleniumBase extends TestCase {
 	}
 
 	/**
-	 * wait for the element to appear then click it.
+	 * Wait for the element to appear then click it. Same as waitThenClick(By, null)
 	 * 
 	 * @param selector
 	 * @return
 	 */
 	protected WebElement waitThenClick(By selector) {
+		return waitThenClick(selector, null);
+	}
+
+	/**
+	 * wait for the element to appear then click it.
+	 * 
+	 * @param selector
+	 * @param parent   element to search from or null to search page
+	 * @return
+	 */
+	protected WebElement waitThenClick(By selector, WebElement parent) {
 		waitForElement(selector);
-		return clickBy(selector);
+		LOGGER.debug("clicking:" + selector);
+		return clickBy(selector, parent);
 
 	}
 
-	protected WebElement clickLinkByText(String text) {
-		WebElement element = getBy(By.linkText(text));
-		assertNotNull("Getting link with text '" + text + "'", element);
-		element.click();
-		LOGGER.debug("Clicked link:" + text);
-		return element;
+	/**
+	 * Click a link based on its text. wrapper for clickBy(By.linkText(text),
+	 * parent)
+	 * 
+	 * @param text
+	 * @param parent
+	 * @return
+	 */
+	protected WebElement clickLinkByText(String text, WebElement parent) {
+		return clickBy(By.linkText(text), parent);
 	}
 
-	protected WebElement clickBy(By selector) {
-		WebElement element = getBy(selector);
+	/**
+	 * 
+	 * @param selector
+	 * @param parent
+	 * @return
+	 */
+	protected WebElement clickBy(By selector, WebElement parent) {
+		speedControl();
+		WebElement element = getBy(selector, parent);
 		assertNotNull("Getting element" + selector, element);
 		element.click();
 		LOGGER.debug("Clicked:" + selector);
@@ -132,6 +217,7 @@ public class SeleniumBase extends TestCase {
 	}
 
 	protected String getAttribute(WebElement element, String attrName) {
+		speedControl();
 		String rtn = null;
 		try {
 			rtn = element.getAttribute(attrName);
@@ -142,8 +228,9 @@ public class SeleniumBase extends TestCase {
 		return rtn;
 	}
 
-	protected WebElement type(By selector, String text, boolean clearFirst) {
-		WebElement element = getBy(selector);
+	protected WebElement type(By selector, String text, boolean clearFirst, WebElement parent) {
+		speedControl();
+		WebElement element = getBy(selector, parent);
 		assertNotNull("Getting element by:" + selector, element);
 
 		String b4text = "";
@@ -164,6 +251,7 @@ public class SeleniumBase extends TestCase {
 	}
 
 	public void waitForPageLoaded() {
+		speedControl();
 		ExpectedCondition<Boolean> expectation = new ExpectedCondition<Boolean>() {
 			public Boolean apply(WebDriver driver) {
 				return ((JavascriptExecutor) driver).executeScript("return document.readyState").toString()
@@ -179,7 +267,9 @@ public class SeleniumBase extends TestCase {
 		}
 	}
 
-	public void waitForElement(By selector) {
+	public WebElement waitForElement(By selector) {
+		speedControl();
+		WebElement element = null;
 		ExpectedCondition<Boolean> expectation = new ExpectedCondition<Boolean>() {
 			public Boolean apply(WebDriver driver) {
 				try {
@@ -194,13 +284,16 @@ public class SeleniumBase extends TestCase {
 			Thread.sleep(1000);
 			WebDriverWait wait = new WebDriverWait(driver, timeOutInSeconds);
 			wait.until(expectation);
+			element = driver.findElement(selector);
 		} catch (Throwable error) {
 			Assert.fail("Timeout waiting for Page Load after click of " + selector + " to complete.");
 		}
+
+		return element;
 	}
 
 	/**
-	 * load webdriver and set base part of URL to local app
+	 * load web driver and set base part of URL to local app
 	 */
 	@Before
 	public void setUp() throws Exception {
@@ -225,6 +318,19 @@ public class SeleniumBase extends TestCase {
 			driver.quit();
 	}
 
+	public void loginAdmin() {
+		speedControl();
+		WebElement form = waitForElement(By.id("signinForm"));
+		ResourceBundle bundle = ResourceBundle.getBundle("app");
+		String user = Utils.getProp(bundle, "default.admin", null);
+		String userpass = Utils.getProp(bundle, "default.adminpass", null);
+		sourceContains("<legend>" + getMsg("signin.title") + "</legend>", false);
+		type(By.id("email"), user, true, form);
+		type(By.id("password"), userpass, true, form);
+		clickBy(By.id("signinBtn"), form);
+
+	}
+
 	/**
 	 * Run through the links from the home page down to the edit page, check for the
 	 * save link and then cancel.
@@ -234,81 +340,80 @@ public class SeleniumBase extends TestCase {
 	 * @param expectLogin if true expect and handle the login challenge.
 	 */
 	protected void checkEditLinks(String item, boolean expectLogin) {
+		speedControl();
 		openTest("/");
-		waitThenClick(By.linkText(item));
+		WebElement menu = waitThenClick(By.id("guiMenu"), null);
+		waitThenClick(By.linkText(item), menu);
 		if (expectLogin) {
-			type(By.name("username"), "user", true);
-			type(By.name("password"), "password", true);
-			clickBy(By.xpath("//input[@value='Login']"));
+			loginAdmin();
+			menu = waitThenClick(By.id("guiMenu"), null);
+			waitThenClick(By.linkText(item), menu);
 		}
 
-		waitThenClick(By.linkText("Create New " + item));
-		sourceContains("Create New " + item, false);
-		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']")));
-		waitThenClick(By.xpath("//button[@value='cancel']"));
+		waitThenClick(By.linkText(getMsg("edit.new") + " " + item), null);
+		sourceContains(getMsg("edit.new") + " " + item, false);
+		assertNotNull("Checking for cancel button", getBy(By.xpath("//button[@value='cancel']"), null));
+		waitThenClick(By.xpath("//button[@value='cancel']"), null);
 
-		waitThenClick(By.linkText("Edit"));
+		waitThenClick(By.linkText("Edit"), null);
 		sourceContains("Edit " + item, false);
-		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']")));
-		waitThenClick(By.xpath("//button[@value='cancel']"));
+		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']"), null));
+		waitThenClick(By.xpath("//button[@value='save']"), null);
 
 	}
 
-	protected void checkSite() throws Exception {
-		List<WebElement> links = null;
-		// check statics
-		// check css links work
-		openTest("/css/site.css");
-		sourceContains("background-color:", false);
-		openTest("/css/bootstrap.min.css");
-		sourceContains("Bootstrap v3.0.0", false);
-		openTest("/resources/sheet.css");
-		sourceContains("fonts.googleapis.com", false);
-
-		// check js links work
-		openTest("/js/jquery.min.js");
-		sourceContains("jQuery v1.11.1", false);
-		openTest("/js/bootstrap.min.js");
-		sourceContains("bootstrap.js v3.0.0", false);
-
-		// Check tabs saves as static pages
-		openTest("/optView.html");
-		sourceContains("resources/sheet.css", false);
-		openTest("/Players.html");
-		sourceContains("resources/sheet.css", false);
-
-		// do basic web page checks
+	/**
+	 * Get all the menu item links for a menu. TODO: add sub menu support
+	 * 
+	 * @param menuId
+	 * @param menuKey     TODO
+	 * @param returnHrefs
+	 * @return
+	 */
+	protected List<String> getMenuLinks(String menuId, String menuKey, boolean returnHrefs) {
 		openTest("/");
-		links = driver.findElements(By.cssSelector("a"));
-		List<String> names = new ArrayList<String>();
-		for (WebElement we : links) {
-			String txt = we.getText();
-			if (!"Login".equals(txt) && !"/api/".equals(txt)) {
-				names.add(txt);
-			}
-		}
-
-		boolean login = true;
-		for (String name : names) {
-			checkEditLinks(name, login);
-			if (login)
-				login = false;
-		}
-
-		openTest("/api/");
-		links = driver.findElements(By.cssSelector("a"));
+		WebElement menu = waitThenClick(By.id(menuId), null);
+		List<WebElement> links = menu.findElements(By.cssSelector("a"));
 		List<String> refs = new ArrayList<String>();
 		for (WebElement we : links) {
-			String txt = getAttribute(we, "href");
-			if (txt.contains("/api/")) {
-				refs.add(txt);
+			// skip menu link we clicked to display menu
+			String txt = we.getText();
+			if (!getMsg(menuKey).equals(txt)) {
+				if (returnHrefs) {
+					refs.add(getAttribute(we, "href"));
+				} else {
+					refs.add(txt);
+				}
 			}
 		}
 
-		for (String ref : refs) {
-			open(ref);
-			sourceContains("<id>1</id>", false);
-		}
+		LOGGER.debug(refs.toString());
+		return refs;
+	}
 
+	protected void checkSite() throws Exception {
+		// check statics
+		// check css links work
+//		openTest("/resources/css/site.css");
+//		sourceContains("background-color:", false);
+//		openTest("/resources/css/bootstrap.min.css");
+//		sourceContains("Bootstrap v3.0.0", false);
+//		openTest("/resources/sheet.css");
+//		sourceContains("fonts.googleapis.com", false);
+//
+//		// check js links work
+//		openTest("/resources/js/jquery.min.js");
+//		sourceContains("jQuery v1.11.1", false);
+//		openTest("/resources/js/bootstrap.min.js");
+//		sourceContains("bootstrap.js v3.0.0", false);
+//
+//		// Check tabs saves as static pages
+//		openTest("/optView.html");
+//		sourceContains("resources/sheet.css", false);
+//		openTest("/Players.html");
+//		sourceContains("resources/sheet.css", false);
+
+		// do basic web page checks
+		checkHeader(null, null);
 	}
 }

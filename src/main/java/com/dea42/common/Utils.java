@@ -125,6 +125,16 @@ public class Utils {
 		return defaultVal;
 	}
 
+	public static boolean getProp(ResourceBundle bundle, String key, boolean defaultVal) {
+		try {
+			return Boolean.parseBoolean(bundle.getString(key));
+		} catch (MissingResourceException e) {
+			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+		}
+
+		return defaultVal;
+	}
+
 	/**
 	 * Lower case objName then remove each non alphanumeric then upper case the char
 	 * right after. Note if resulting name is Java keyword then Field is appended.

@@ -32,55 +32,101 @@ genSpring.beanToString=true
 
 # Running the generator
 Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Java app. <br>
-USAGE: GenSpring [-double] [-toString] [tableNames] <br>
--double = Use Double instead of BigDecimal <br>
--toString = Add toString() to bean classes **(overridden by genSpring.beanToString in properties file)** <br>
-tableNames if given only generates files for those tables. If not given generates full project for all tables in DB **(not filtered see main())** <br>
+		USAGE: Genspring [options] [table names]<br>
+		Where options are:<br>
+		-double = use Double instead of BigDecimal for entities beans<br>
+		-toString = generate toString() methods for entities beans **(overridden by genSpring.beanToString in properties file)**<br>
+		-beanEquals = generate equals() methods for entities beans<br>
+		<br>
+		if table names not given then runs on all tables in DB.<br>
+		<br>
+		Note: be sure to set properties in resources/genSpring.properties before running.<br>
 
 # Output from generator
 For example with a DB containing the tables Networks and Shows would generate the files <br>
 #TODO: update files list
 ./pom.xml <br>
-./src/main/java/com/dea42/watchlist/controller/ApiController.java <br>
-./src/main/java/com/dea42/watchlist/controller/AppController.java <br>
-./src/main/java/com/dea42/watchlist/controller/NetworksController.java <br>
-./src/main/java/com/dea42/watchlist/controller/ShowsController.java <br>
+./src/main/java/com/dea42/watchlist/controller/AccountController.java
+./src/main/java/com/dea42/watchlist/controller/ApiController.java
+./src/main/java/com/dea42/watchlist/controller/AppController.java
+./src/main/java/com/dea42/watchlist/controller/CustomErrorController.java
+./src/main/java/com/dea42/watchlist/controller/NetworksController.java
+./src/main/java/com/dea42/watchlist/controller/ShowsController.java
 ./src/main/java/com/dea42/watchlist/db/SQLiteDialect.java **(Only if using SQLite)**<br>
-./src/main/java/com/dea42/watchlist/entity/Networks.java <br>
-./src/main/java/com/dea42/watchlist/entity/Shows.java <br>
-./src/main/java/com/dea42/watchlist/repo/NetworksRepository.java <br>
-./src/main/java/com/dea42/watchlist/repo/ShowsRepository.java <br>
-./src/main/java/com/dea42/watchlist/SecurityConfiguration.java <br>
-./src/main/java/com/dea42/watchlist/service/NetworksServices.java <br>
-./src/main/java/com/dea42/watchlist/service/ShowsServices.java <br>
-./src/main/java/com/dea42/watchlist/ServletInitializer.java <br>
-./src/main/java/com/dea42/watchlist/WebAppApplication.java <br>
-./src/main/resources/application.properties <br>
-./src/main/resources/log4j2.xml <br>
-./src/main/resources/resources/css/bootstrap.min.css <br>
-./src/main/resources/resources/css/site.css <br>
-./src/main/resources/resources/js/bootstrap.min.js <br>
-./src/main/resources/resources/js/jquery.min.js <br>
-./src/main/resources/templates/api_index.html <br>
+./src/main/java/com/dea42/watchlist/entity/Account.java
+./src/main/java/com/dea42/watchlist/entity/Networks.java
+./src/main/java/com/dea42/watchlist/entity/Shows.java
+./src/main/java/com/dea42/watchlist/form/SignupForm.java
+./src/main/java/com/dea42/watchlist/repo/AccountRepository.java
+./src/main/java/com/dea42/watchlist/repo/NetworksRepository.java
+./src/main/java/com/dea42/watchlist/repo/ShowsRepository.java
+./src/main/java/com/dea42/watchlist/SecurityConfiguration.java
+./src/main/java/com/dea42/watchlist/service/AccountService.java
+./src/main/java/com/dea42/watchlist/service/NetworksServices.java
+./src/main/java/com/dea42/watchlist/service/ShowsServices.java
+./src/main/java/com/dea42/watchlist/ServletInitializer.java
+./src/main/java/com/dea42/watchlist/utils/ExceptionHandler.java
+./src/main/java/com/dea42/watchlist/utils/Message.java
+./src/main/java/com/dea42/watchlist/utils/MessageHelper.java
+./src/main/java/com/dea42/watchlist/utils/Utils.java
+./src/main/java/com/dea42/watchlist/WebAppApplication.java
+./src/main/resources/app.properties
+./src/main/resources/application.properties
+./src/main/resources/log4j2.xml
+./src/main/resources/messages.properties
+./src/main/resources/messages_de.properties
+./src/main/resources/messages_fr.properties
+./src/main/resources/resources/css/bootstrap.min.css
+./src/main/resources/resources/css/site.css
+./src/main/resources/resources/js/bootstrap.min.js
+./src/main/resources/resources/js/jquery.min.js
+./src/main/resources/templates/api_index.html
 ./src/main/resources/templates/edit_networks.html **(edit / create page)** <br>
 ./src/main/resources/templates/edit_shows.html **(edit / create page)** <br>
-./src/main/resources/templates/index.html **(links to list pages plus /api and /login)** <br>
-./src/main/resources/templates/login.html ** login page**<br>
+./src/main/resources/templates/error/general.html
+./src/main/resources/templates/fragments/alert.html
+./src/main/resources/templates/fragments/footer.html
+./src/main/resources/templates/fragments/header.html **(nav header)** <br>
+./src/main/resources/templates/home/homeNotSignedIn.html
+./src/main/resources/templates/home/homeSignedIn.html
+./src/main/resources/templates/home/signin.html
+./src/main/resources/templates/home/signup.html
+./src/main/resources/templates/index.html
 ./src/main/resources/templates/networkss.html **(list page)** <br>
 ./src/main/resources/templates/showss.html **(list page)** <br>
 ./src/main/webapp/favicon.ico ** sample site icon**<br>
-./src/main/webapp/optView.html ** sample static web page**<br>
-./src/main/webapp/Players.html ** sample static web page**<br>
-./src/main/webapp/resources/sheet.css ** css file for Google sheet tabs exported as HTML**<br>
+./src/main/webapp/public/optView.html ** sample static web page**<br>
+./src/main/webapp/public/Players.html ** sample static web page**<br>
+./src/main/webapp/public/resources/sheet.css ** css file for Google sheet tabs exported as HTML**<br>
+./src/main/webapp/resources/css/bootstrap.min.css
+./src/main/webapp/resources/css/site.css
+./src/main/webapp/resources/fonts/glyphicons-halflings-regular.eot
+./src/main/webapp/resources/fonts/glyphicons-halflings-regular.svg
+./src/main/webapp/resources/fonts/glyphicons-halflings-regular.ttf
+./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff
+./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff2
+./src/main/webapp/resources/js/bootstrap.min.js
+./src/main/webapp/resources/js/jquery.min.js<br>
+./src/main/webapp/WEB-INF/web.xml<br>
+<br>
+Test files<br>
+./src/test/java/com/dea42/watchlist/controller/ApiControllerTest.java<br>
+./src/test/java/com/dea42/watchlist/controller/AppControllerTest.java<br>
+./src/test/java/com/dea42/watchlist/controller/NetworksControllerTest.java<br>
+./src/test/java/com/dea42/watchlist/controller/ShowsControllerTest.java<br>
+./src/test/java/com/dea42/watchlist/MockBase.java<br>
+./src/test/java/com/dea42/watchlist/selenium/SeleniumBase.java ** base test class **<br>
+./src/test/java/com/dea42/watchlist/selenium/SmokeIT.java ** integration tests against app server **<br>
+./src/test/java/com/dea42/watchlist/selenium/SmokeTest.java ** integration tests against Spring Boot **<br>
+./src/test/java/com/dea42/watchlist/UnitBase.java<br>
+./src/test/java/com/dea42/watchlist/WebAppApplicationTest.java<br>
 ./src/test/java/com/dea42/watchlist/controller/ApiControllerTest.java <br>
 ./src/test/java/com/dea42/watchlist/controller/AppControllerTest.java <br>
 ./src/test/java/com/dea42/watchlist/controller/NetworksControllerTest.java <br>
 ./src/test/java/com/dea42/watchlist/controller/ShowsControllerTest.java <br>
-./src/test/java/com/dea42/watchlist/selenium/SeleniumBase.java ** base test class **<br>
-./src/test/java/com/dea42/watchlist/selenium/SmokeIT.java ** integration tests against app server **<br>
-./src/test/java/com/dea42/watchlist/selenium/SmokeTest.java ** integration tests against Spring Boot **<br>
-./src/test/java/com/dea42/watchlist/WebAppApplicationTest.java <br>
  <br>
+
+
 and the folder <br>
 ./src/test/resources <br>
  

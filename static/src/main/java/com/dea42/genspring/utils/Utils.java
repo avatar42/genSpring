@@ -1,7 +1,6 @@
 package com.dea42.genspring.utils;
 
 import java.io.UnsupportedEncodingException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.MissingResourceException;
@@ -11,6 +10,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * General utils used by app from GenSpring static resources
+ * 
+ * @author avata
+ *
+ */
 public class Utils {
 	private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
 

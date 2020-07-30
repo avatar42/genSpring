@@ -1,16 +1,15 @@
 package com.dea42.genSpring;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
@@ -18,9 +17,10 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.ResourceBundle;
-import java.util.Scanner;
 
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -43,7 +43,7 @@ public class Sheet2AppTest {
 	 */
 	@Test
 	public void testEndToEnd() {
-		doEndToEnd("genSpringTest", 5);
+		doEndToEnd("genSpringTest", 5, true);
 	}
 
 	/**
@@ -54,7 +54,90 @@ public class Sheet2AppTest {
 	 */
 	@Test
 	public void testEndToEnd2() {
-		doEndToEnd("genSpringTest2", 6);
+		doEndToEnd("genSpringTest2", 6, true);
+	}
+
+	/**
+	 * Same as testEndToEnd2 except with out purge and checking no gened files were
+	 * changed.
+	 */
+	@Test
+	public void testEndToEnd3() {
+		String bundleName = "genSpringTest2";
+
+		Map<String, Long> modTimes = new HashMap<String, Long>();
+		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+		Path outdir = Utils.getPath(Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", "."), "src");
+		Path pom = Utils.getPath(Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", "."), "pom.xml");
+
+		modTimes.put(pom.toString(), pom.toFile().lastModified());
+		try {
+			Files.walkFileTree(outdir, new FileVisitor<Path>() {
+				@Override
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				/**
+				 * store file modtimes
+				 */
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					modTimes.put(file.toString(), file.toFile().lastModified());
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e) {
+			LOGGER.error("failed getting mod times", e);
+			fail("failed getting mod times");
+		}
+
+		assertFalse("check if modTimes empty", modTimes.isEmpty());
+		doEndToEnd("genSpringTest2", 6, false);
+
+		assertEquals(pom.toString(), modTimes.get(pom.toString()).longValue(), pom.toFile().lastModified());
+		try {
+			Files.walkFileTree(outdir, new FileVisitor<Path>() {
+				@Override
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				/**
+				 * check file modtimes unchanged
+				 */
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
+							file.toFile().lastModified());
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e) {
+			LOGGER.error("failed getting mod times", e);
+			fail("failed getting mod times");
+		}
+
 	}
 
 	private void deletePath(Path path) {
@@ -144,9 +227,10 @@ public class Sheet2AppTest {
 		}
 	}
 
-	public void doEndToEnd(String bundleName, int columns) {
+	public void doEndToEnd(String bundleName, int columns, boolean purgeFirst) {
 		// remove all files form projects
-		purgeProject(bundleName, clearDBFirst, clearSrcFirst);
+		if (purgeFirst)
+			purgeProject(bundleName, clearDBFirst, clearSrcFirst);
 
 		Sheets2DB s = new Sheets2DB(bundleName, true);
 		s.getSheet();
@@ -191,10 +275,12 @@ public class Sheet2AppTest {
 
 		Utils.runCmd(cmd, outdir);
 
+		String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
+		String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
+		String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
+
 		Path p = Utils
-				.getPath(outdir, "target",
-						Utils.getProp(bundle, GenSpring.PROPKEY + ".module", "1.0.0") + "-"
-								+ Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0") + "-SNAPSHOT.war")
+				.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war")
 				.normalize();
 		assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
 	}

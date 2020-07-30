@@ -3,6 +3,7 @@ Creates a DB from a Google sheet with a table for each selected tab <br>
  
 # Setup
 Basically set your options in /genSpring/src/main/resources/sheet.properties <br>
+** Note after a clean you will be asked to auth to Google to access the sheet. See target/tokens folder** 
  
 ## DB to create tables in (note if blank and db.driver=org.sqlite.JDBC creates a SQLite DB in sheet.outdir folder. See Db.getUrl(ResourceBundle bundle, String folder))
 db.url=jdbc:sqlite:L:/sites/git/genSpring/target/watchlistDB.sqlite 
@@ -63,7 +64,7 @@ genSpring.pkg=com.dea42
 ## sub package / artifactId
 genSpring.module=genSpring 
 ## Optional if the artifactId needs to be diff from module. Defaults to same as module.
-genspring.artifactId=genSpringTest
+genSpring.artifactId=genSpringTest
 ## add a toString() to the entity bean class
 genSpring.beanToString=true 
 

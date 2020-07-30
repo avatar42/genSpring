@@ -53,7 +53,8 @@ import com.dea42.common.Utils;
 public class GenSpring {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String PROPKEY = "genSpring";
-	public static final String genSpringVersion = "0.2.1";
+	// Note change pom.xml to match
+	public static final String genSpringVersion = "0.2.2";
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
@@ -711,21 +712,21 @@ public class GenSpring {
 				ps.println("import java.util.ArrayList;");
 				ps.println("import java.util.List;");
 				ps.println("");
-				ps.println("import org.junit.Before;");
+//				ps.println("import org.junit.Before;");
 				ps.println("import org.junit.Test;");
 				ps.println("import org.junit.runner.RunWith;");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+//				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
-				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
+//				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
 				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
-				ps.println("import org.springframework.test.web.servlet.MockMvc;");
-				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
-				ps.println("import org.springframework.web.context.WebApplicationContext;");
+//				ps.println("import org.springframework.test.web.servlet.MockMvc;");
+//				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
+//				ps.println("import org.springframework.web.context.WebApplicationContext;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
 				for (String clsName : set) {
 					ps.println("import " + basePkg + ".entity." + clsName + ";");
-					ps.println("import " + basePkg + ".service." + clsName + "Services;");
+//					ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				}
 				ps.println("");
 				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test."));

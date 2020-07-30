@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS "account";
+DROP TABLE IF EXISTS account;
 CREATE TABLE account (id bigint not null, created timestamp, email varchar, password varchar, role varchar, primary key (id));
 
 INSERT INTO account (id,created,email,password,"role") VALUES (

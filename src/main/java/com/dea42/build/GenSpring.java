@@ -8,7 +8,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
@@ -53,20 +52,21 @@ import com.dea42.common.Utils;
  */
 public class GenSpring {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
-	public static final String propKey = "genSpring";
-	// TODO: get from build
-	public static final String genSpringVersion = "0.2.0";
+	public static final String PROPKEY = "genSpring";
+	public static final String genSpringVersion = "0.2.1";
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
 	private boolean beanEquals = false;
 	private ResourceBundle bundle;
 	private ResourceBundle renames;
+	private String bundleName;
 	private String srcGroupId = "com.dea42";
 	private String srcArtifactId = "genspring";
 	private String srcPkg;
 	private String srcPath;
 	private String baseGroupId;
+	private String baseModule;
 	private String baseArtifactId;
 	private String basePkg;
 	private String basePath;
@@ -76,22 +76,30 @@ public class GenSpring {
 	private String schema = null;
 
 	public GenSpring() throws IOException {
+		this(PROPKEY);
+	}
+
+	public GenSpring(String bundleName) throws IOException {
+		this.bundleName = bundleName;
 		GregorianCalendar gc = new GregorianCalendar();
 		year = gc.get(Calendar.YEAR);
 
-		bundle = ResourceBundle.getBundle(propKey);
+		bundle = ResourceBundle.getBundle(bundleName);
 		renames = ResourceBundle.getBundle("rename");
-		baseDir = Utils.getProp(bundle, propKey + ".outdir");
-		schema = Utils.getProp(bundle, propKey + ".schema");
-		baseGroupId = Utils.getProp(bundle, propKey + ".pkg");
-		baseArtifactId = Utils.getProp(bundle, propKey + ".module");
-		basePkg = baseGroupId + '.' + baseArtifactId;
+		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir");
+		schema = Utils.getProp(bundle, PROPKEY + ".schema");
+		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg");
+		baseModule = Utils.getProp(bundle, PROPKEY + ".module");
+		baseArtifactId = Utils.getProp(bundle, PROPKEY + ".artifactId", baseModule);
+		basePkg = baseGroupId + '.' + baseModule;
 		basePath = basePkg.replace('.', '/');
-		appVersion = Utils.getProp(bundle, propKey + ".version", "1.0");
+		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
+		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
+		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
 
 		srcPkg = srcGroupId + '.' + srcArtifactId;
 		srcPath = srcPkg.replace('.', '/');
-		File outDir = new File(baseDir);
+		File outDir = Utils.getPath(baseDir).toFile();
 		if (!outDir.exists()) {
 			if (!outDir.mkdirs()) {
 				throw new IOException("Could not create output dir:" + baseDir);
@@ -100,7 +108,7 @@ public class GenSpring {
 	}
 
 	private Path createFile(String relPath) {
-		Path p = Paths.get(baseDir, relPath);
+		Path p = Utils.getPath(baseDir, relPath);
 		try {
 			Files.createDirectories(p.getParent());
 			p = Files.createFile(p);
@@ -283,16 +291,15 @@ public class GenSpring {
 	}
 
 	public void copyCommon() throws IOException {
-		String pathString = "static";
-		int beginIndex = pathString.length();
-		Files.walkFileTree(Paths.get(pathString), new FileVisitor<Path>() {
+		Path staticPath = Utils.getPath("static");
+		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
 			@Override
 			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-				String relDir = dir.toString().substring(beginIndex).replace('\\', '/').replace(srcPath, basePath);
-				Path target = Paths.get(baseDir + relDir);
+				String relDir = staticPath.relativize(dir).toString().replace('\\', '/').replace(srcPath, basePath);
+				Path target = Utils.getPath(baseDir + "/" + relDir);
 				Files.createDirectories(target);
 
-				System.out.println("preVisitDirectory: " + dir + "->" + target);
+				LOGGER.debug("preVisitDirectory: " + dir + "->" + target);
 				return FileVisitResult.CONTINUE;
 			}
 
@@ -303,13 +310,21 @@ public class GenSpring {
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 				LOGGER.info("Copying:" + file);
 				String data = new String(Files.readAllBytes(file));
-				data = data.replace(srcPkg, basePkg);
-				data = data.replace(srcGroupId, baseGroupId);
-				data = data.replace(srcArtifactId, baseArtifactId);
-				data = data.replace("genSpringVersion", genSpringVersion);
-				data = data.replace("@version 1.0<br>", "@version " + appVersion + "<br>");
-
-				String outFile = file.toString().substring(beginIndex).replace('\\', '/').replace(srcPath, basePath);
+				if (file.getFileName().endsWith("pom.xml")) {
+					data = data.replace(srcPkg, basePkg);
+					data = data.replace("<artifactId>" + srcArtifactId + "</artifactId>",
+							"<artifactId>" + baseArtifactId + "</artifactId>");
+					data = data.replace("<version>1.0.0-SNAPSHOT</version>",
+							"<version>" + appVersion + "-SNAPSHOT</version>");
+				} else {
+					data = data.replace(srcPkg, basePkg);
+					data = data.replace(srcGroupId, baseGroupId);
+					data = data.replace(srcArtifactId, baseModule);
+					data = data.replace("genSpringVersion", genSpringVersion);
+					data = data.replace("@version 1.0<br>", "@version " + appVersion + "<br>");
+				}
+				Path relPath = staticPath.relativize(file);
+				String outFile = baseDir + "/" + relPath.toString().replace('\\', '/').replace(srcPath, basePath);
 				Path p = createFile(outFile);
 				if (p != null) {
 					try {
@@ -324,13 +339,13 @@ public class GenSpring {
 
 			@Override
 			public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-				System.out.println("visitFileFailed: " + file);
+				LOGGER.debug("visitFileFailed: " + file);
 				return FileVisitResult.CONTINUE;
 			}
 
 			@Override
 			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-				System.out.println("postVisitDirectory: " + dir);
+				LOGGER.debug("postVisitDirectory: " + dir);
 				return FileVisitResult.CONTINUE;
 			}
 		});
@@ -352,6 +367,7 @@ public class GenSpring {
 			String clsName = Utils.tabToStr(renames, tableName);
 			colsInfo.put(clsName, genFiles(tableName));
 		}
+		writeMockBase(colsInfo.keySet());
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
 		writeNav(colsInfo.keySet());
@@ -376,8 +392,8 @@ public class GenSpring {
 		String create = "";
 		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(100);
 
-		Db db = new Db(propKey + ".genFiles()", propKey);
-		Connection conn = db.getConnection(propKey + ".genFiles()");
+		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
+		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
 
 		if (db.getDbUrl().indexOf("mysql") > -1) {
 			String sql = "show create table " + tableName;
@@ -539,7 +555,7 @@ public class GenSpring {
 			LOGGER.info(rs.getString("DEFERRABILITY") + " DEFERRABILITY");
 			LOGGER.info(" ");
 		}
-		db.close(propKey + ".genFiles()");
+		db.close(PROPKEY + ".genFiles()");
 
 		writeBean(tableName, className, namList, create);
 		writeRepo(className, pkinfo);
@@ -564,11 +580,11 @@ public class GenSpring {
 		sb.append("/**").append(System.lineSeparator());
 		sb.append(" * Title: " + className + " <br>").append(System.lineSeparator());
 		sb.append(" * Description: " + description + " <br>").append(System.lineSeparator());
-		String tmp = Utils.getProp(bundle, propKey + ".Copyright", "");
+		String tmp = Utils.getProp(bundle, PROPKEY + ".Copyright", "");
 		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
 			sb.append(" * Copyright: " + tmp + year + "<br>").append(System.lineSeparator());
 		}
-		tmp = Utils.getProp(bundle, propKey + ".Company", "");
+		tmp = Utils.getProp(bundle, PROPKEY + ".Company", "");
 		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
 			sb.append(" * Company: " + tmp + "<br>").append(System.lineSeparator());
 		}
@@ -636,7 +652,7 @@ public class GenSpring {
 	 */
 	private void updateMsgProps(Map<String, Map<String, ColInfo>> colsInfo) {
 		String outFile = baseDir + "/src/main/resources/messages.properties";
-		Path p = Paths.get(outFile);
+		Path p = Utils.getPath(outFile);
 		String data = "";
 		boolean dataChged = false;
 		try {
@@ -793,7 +809,7 @@ public class GenSpring {
 
 		sb.append("<!DOCTYPE html>" + System.lineSeparator());
 		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
-		sb.append("<head>\r\n" + "<meta charset=\"UTF-8\" />" + System.lineSeparator());
+		sb.append("<head>" + System.lineSeparator() + "<meta charset=\"UTF-8\" />" + System.lineSeparator());
 		if (pageType == null)
 			sb.append("<title th:text=\"#{" + clsName + "}\"></title>" + System.lineSeparator());
 		else
@@ -1036,6 +1052,321 @@ public class GenSpring {
 		}
 	}
 
+	private void writeMockBase(Set<String> set) {
+		String pkgNam = basePkg;
+		String relPath = pkgNam.replace('.', '/');
+		String outFile = "/src/test/java/" + relPath + "/MockBase.java";
+		Path p = createFile(outFile);
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
+				ps.println(
+						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;");
+				ps.println(
+						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
+				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;");
+				ps.println(
+						"import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;");
+				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
+				ps.println("");
+				ps.println("import java.util.Map;");
+				ps.println("");
+				ps.println("import javax.servlet.Filter;");
+				ps.println("");
+				ps.println("import org.apache.commons.lang3.StringUtils;");
+				ps.println("import org.apache.tools.ant.UnsupportedAttributeException;");
+				ps.println("import org.junit.Before;");
+				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
+				ps.println(
+						"import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.UserRequestPostProcessor;");
+				ps.println("import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;");
+				ps.println("import org.springframework.test.web.servlet.ResultActions;");
+				ps.println("import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;");
+				ps.println("import org.springframework.test.web.servlet.request.RequestPostProcessor;");
+				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
+				ps.println("import org.springframework.web.context.WebApplicationContext;");
+				ps.println("import " + basePkg + ".service.AccountService;");
+				ps.println("import " + basePkg + ".repo.AccountRepository;");
+				for (String clsName : set) {
+					ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
+					ps.println("import " + basePkg + ".service." + clsName + "Services;");
+				}
+				ps.println("");
+				ps.println("import " + basePkg + ".utils.Message;");
+				ps.println("import " + basePkg + ".utils.Utils;");
+				ps.println("");
+				ps.println(getClassHeader("MockBase", "The base class for mock testing."));
+				ps.println("public class MockBase extends UnitBase {");
+				ps.println("    @MockBean");
+				ps.println("    protected AccountService accountService;");
+				ps.println("    @MockBean");
+				ps.println("    protected AccountRepository accountRepository;");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("    @MockBean");
+					ps.println("    protected " + clsName + "Services " + fieldName + "Services;");
+					ps.println("    @MockBean");
+					ps.println("    protected " + clsName + "Repository " + fieldName + "Repository;");
+				}
+				ps.println("	@Autowired");
+				ps.println("	protected WebApplicationContext webApplicationContext;");
+				ps.println("");
+				ps.println("	@Autowired");
+				ps.println("	private Filter springSecurityFilterChain;");
+				ps.println("");
+				ps.println("	@Before()");
+				ps.println("	public void setup() {");
+				ps.println("		// Init MockMvc Object and build");
+				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)");
+				ps.println(
+						"				.apply(SecurityMockMvcConfigurers.springSecurity()).addFilters(springSecurityFilterChain).build();");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Send request and if not expecting request check header for nav");
+				ps.println("	 * ");
+				ps.println("	 * @param type");
+				ps.println("	 * @param relURL");
+				ps.println("	 * @param modelName");
+				ps.println("	 * @param model");
+				ps.println("	 * @param params");
+				ps.println("	 * @param login");
+				ps.println("	 * @param redirectedUrl");
+				ps.println("	 * @return ResultActions object for further checks.");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println(
+						"	protected ResultActions send(String type, String relURL, String modelName, Object model, Map<String, String> params,");
+				ps.println("			String login, String redirectedUrl) throws Exception {");
+				ps.println("		MockHttpServletRequestBuilder req = null;");
+				ps.println("		if (SEND_GET.equals(type)) {");
+				ps.println("			req = get(relURL);");
+				ps.println("		} else if (SEND_POST.equals(type)) {");
+				ps.println("			req = post(relURL);");
+				ps.println("		} else {");
+				ps.println("			throw new UnsupportedAttributeException(\"Send type not supported\", type);");
+				ps.println("		}");
+				ps.println("		if (!StringUtils.isAllBlank(modelName)) {");
+				ps.println("			req = req.flashAttr(modelName, model);");
+				ps.println("		}");
+				ps.println("		if (params != null && !params.isEmpty()) {");
+				ps.println("			for (String key : params.keySet()) {");
+				ps.println("				req = req.param(key, params.get(key));");
+				ps.println("			}");
+				ps.println("		}");
+				ps.println("		if (!StringUtils.isAllBlank(login)) {");
+				ps.println("			UserRequestPostProcessor urpp = user(login);");
+				ps.println("			if (ADMIN_USER.equals(login)) {");
+				ps.println("				urpp = urpp.roles(ADMIN_ROLE);");
+				ps.println("			} else {");
+				ps.println("				urpp = urpp.roles(TEST_ROLE);");
+				ps.println("			}");
+				ps.println("			req = req.with(urpp);");
+				ps.println("		} else {");
+				ps.println("			req = req.with(anonymous());");
+				ps.println("		}");
+				ps.println("");
+				ps.println("		ResultActions result = this.mockMvc.perform(req);");
+				ps.println("		if (redirectedUrl != null) {");
+				ps.println("			// If redirect then just check right one");
+				ps.println(
+						"			result.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(redirectedUrl));");
+				ps.println("		} else if (headless.contains(relURL)) {");
+				ps.println("			// For pops just check status");
+				ps.println("			result.andExpect(status().isOk());");
+				ps.println("		} else {");
+				ps.println("			// else do full header check");
+				ps.println("			checkHeader(result, login);");
+				ps.println("		}");
+				ps.println("		return result;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Check header is on page and complete. TODO: add active module check");
+				ps.println("	 * ");
+				ps.println("	 * @param result");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	public void checkHeader(ResultActions result, String user) throws Exception {");
+				ps.println("		result.andExpect(status().isOk());");
+				ps.println("		contentContainsKey(result, \"app.name\", false);");
+				ps.println("		// GUI menu");
+				ps.println("		contentContainsKey(result, \"header.gui\", false);");
+				for (String clsName : set) {
+					ps.println("		contentContainsKey(result, \"class." + clsName + "\", false);");
+				}
+				ps.println("// REST menu");
+				ps.println("		contentContainsKey(result, \"header.restApi\", false);");
+				for (String clsName : set) {
+					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					ps.println("		contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);");
+				}
+				ps.println("// Login / out");
+				ps.println("		contentContainsKey(result, \"lang.eng\", false);");
+				ps.println("		contentContainsKey(result, \"lang.fr\", false);");
+				ps.println("		contentContainsKey(result, \"lang.de\", false);");
+				ps.println("");
+				ps.println("		if (user == null)");
+				ps.println("			contentContainsKey(result, \"signin.signin\", false);");
+				ps.println("		else");
+				ps.println("			contentContainsKey(result, \"signin.logout\", false);");
+				ps.println("");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Do mock get as admin user, check the nav header then return the handle.");
+				ps.println("	 * ");
+				ps.println("	 * @param relURL");
+				ps.println("	 * @return");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	protected ResultActions getAsAdmin(String relURL) throws Exception {");
+				ps.println("		return send(SEND_GET, relURL, null, null, null, ADMIN_USER, null);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Do mock get as admin user, check for redirect. Wrapper for send().");
+				ps.println("	 * ");
+				ps.println("	 * @param relURL");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println(
+						"	protected void getAsAdminRedirectExpected(String relURL, String redirectedUrl) throws Exception {");
+				ps.println("		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Do mock get not logged in, check for redirect. Wrapper for send().");
+				ps.println("	 * ");
+				ps.println("	 * @param relURL");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println(
+						"	protected void getAsNoOneRedirectExpected(String relURL, String redirectedUrl) throws Exception {");
+				ps.println("		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Do mock get not logged in, check the nav header then return the handle.");
+				ps.println("	 * Wrapper for send().");
+				ps.println("	 * ");
+				ps.println("	 * @param relURL");
+				ps.println("	 * @throws Exception");
+				ps.println("	 */");
+				ps.println("	protected ResultActions getAsNoOne(String relURL) throws Exception {");
+				ps.println("		return send(SEND_GET, relURL, null, null, null, null, null);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Confirm text of key is in content");
+				ps.println("	 * ");
+				ps.println("	 * @param result");
+				ps.println("	 * @param key");
+				ps.println("	 * @param failIfExists flip to fail if there");
+				ps.println("	 */");
+				ps.println(
+						"	public void contentContainsKey(ResultActions result, String key, boolean failIfExists) {");
+				ps.println("		String expectedText = Utils.getProp(getMsgBundle(), key);");
+				ps.println("		contentContainsMarkup(result, expectedText, failIfExists);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Check to see if htmlString is in HTML content of result");
+				ps.println("	 * ");
+				ps.println("	 * @param result");
+				ps.println("	 * @param htmlString");
+				ps.println("	 */");
+				ps.println("	public void contentContainsMarkup(ResultActions result, String htmlString) {");
+				ps.println("		contentContainsMarkup(result, htmlString, false);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Check to see if htmlString is in HTML content of result");
+				ps.println("	 * ");
+				ps.println("	 * @param result");
+				ps.println("	 * @param htmlString   if null or blank String then just returns");
+				ps.println("	 * @param failIfExists flip to fail if exists instead of when missing.");
+				ps.println("	 */");
+				ps.println(
+						"	public void contentContainsMarkup(ResultActions result, String htmlString, boolean failIfExists) {");
+				ps.println("		// if");
+				ps.println("		if (StringUtils.isBlank(htmlString))");
+				ps.println("			return;");
+				ps.println("");
+				ps.println("		try {");
+				ps.println("			result.andExpect(content().string(containsString(htmlString)));");
+				ps.println("			if (failIfExists) {");
+				ps.println("				LOGGER.error(\"Found '\" + htmlString + \"' in \" + content());");
+				ps.println("				fail(\"Found '\" + htmlString + \"' in content\");");
+				ps.println("			}");
+				ps.println("		} catch (Throwable e) {");
+				ps.println("			if (!failIfExists) {");
+				ps.println("				LOGGER.error(\"Did not find '\" + htmlString + \"' in \" + content(), e);");
+				ps.println("				fail(\"Did not find '\" + htmlString + \"' in content\");");
+				ps.println("			}");
+				ps.println("		}");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	public void expectSuccessMsg(ResultActions ra, String msgKey) throws Exception {");
+				ps.println("		expectSuccessMsg(ra, msgKey, new Object[0]);");
+				ps.println("	}");
+				ps.println("");
+				ps.println(
+						"	public void expectSuccessMsg(ResultActions ra, String msgKey, Object... args) throws Exception {");
+				ps.println("		Message msg = new Message(msgKey, Message.Type.SUCCESS, args);");
+				ps.println("		// Compares type, key and params.");
+				ps.println("		ra.andExpect(flash().attribute(Message.MESSAGE_ATTRIBUTE, msg));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	public void expectErrorMsg(ResultActions ra, String msgKey) throws Exception {");
+				ps.println("		expectErrorMsg(ra, msgKey, new Object[0]);");
+				ps.println("	}");
+				ps.println("");
+				ps.println(
+						"	public void expectErrorMsg(ResultActions ra, String msgKey, Object... args) throws Exception {");
+				ps.println("		Message msg = new Message(msgKey, Message.Type.DANGER, args);");
+				ps.println("		// Compares type, key and params.");
+				ps.println("		ra.andExpect(flash().attribute(Message.MESSAGE_ATTRIBUTE, msg));");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * @deprecated see send()");
+				ps.println("	 * @return");
+				ps.println("	 */");
+				ps.println("	protected RequestPostProcessor getMockTestUser() {");
+				ps.println("		LOGGER.debug(\"Using the user:\" + TEST_USER + \" with role:ROLE_\" + TEST_ROLE);");
+				ps.println("		UserRequestPostProcessor rtn = user(TEST_USER).roles(TEST_ROLE);");
+				ps.println("		LOGGER.debug(\"Returning:\" + rtn);");
+				ps.println("		return rtn;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * @deprecated see send()");
+				ps.println("	 * @return");
+				ps.println("	 */");
+				ps.println("	protected RequestPostProcessor getMockTestAdmin() {");
+				ps.println(
+						"		LOGGER.debug(\"Using the user:\" + ADMIN_USER + \" with role:ROLE_\" + ADMIN_ROLE);");
+				ps.println("		UserRequestPostProcessor rtn = user(ADMIN_USER).roles(ADMIN_ROLE);");
+				ps.println("		LOGGER.debug(\"Returning:\" + rtn);");
+				ps.println("		return rtn;");
+				ps.println("	}");
+				ps.println("}");
+				ps.println("");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
 	private void writeObjControllerTest(String clsName, ColInfo pkinfo, TreeMap<String, ColInfo> namList) {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
@@ -1106,11 +1437,6 @@ public class GenSpring {
 					if (!info.getVName().endsWith("link"))
 						ps.println("		contentContainsMarkup(ra,getMsg(\"" + clsName + "." + info.getVName()
 								+ "\"));");
-//					if (it.hasNext()) {
-//						ps.println("");
-//					} else {
-//						ps.println(";");
-//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1367,6 +1693,7 @@ public class GenSpring {
 	 */
 	private void writeAppProps() {
 		String dbUrl = Utils.getProp(bundle, "db.url", "");
+		String dbDriver = Utils.getProp(bundle, "db.driver", "");
 		Path p = createFile("/src/main/resources/application.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
@@ -1374,14 +1701,29 @@ public class GenSpring {
 				ps.println("spring.jpa.show-sql=true");
 				ps.println(
 						"spring.jpa.hibernate.naming.physical-strategy=org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl");
-				if (dbUrl.contains("sqlite")) {
+				if (dbDriver.contains("sqlite")) {
 					ps.println("## SQLite also needs");
 					ps.println("spring.jpa.database-platform=" + basePkg + ".db.SQLiteDialect");
 					ps.println("spring.datasource.driver-class-name = org.sqlite.JDBC");
 				}
+				if (StringUtils.isBlank(dbUrl) && dbDriver.contains("sqlite")) {
+					String folder = Utils.getProp(bundle, PROPKEY + ".outdir", ".");
+					// db.url=jdbc:sqlite:L:/sites/git/Watchlist/watchlistDB.sqlite
+					Path outPath = Utils.getPath(folder);
+					if (!outPath.toFile().isDirectory())
+						outPath.toFile().mkdirs();
+
+					dbUrl = "jdbc:sqlite:" + outPath.toAbsolutePath().toString().replace('\\', '/') + "/" + bundleName
+							+ "DB.sqlite";
+
+				}
 				ps.println("spring.datasource.url=" + dbUrl);
-				ps.println("spring.datasource.username=" + Utils.getProp(bundle, "user", null));
-				ps.println("spring.datasource.password=" + Utils.getProp(bundle, "password", null));
+
+				String user = Utils.getProp(bundle, "user", null);
+				if (!StringUtils.isBlank(user)) {
+					ps.println("spring.datasource.username=" + user);
+					ps.println("spring.datasource.password=" + Utils.getProp(bundle, "password", ""));
+				}
 				ps.println("");
 				ps.println("logging.level.root=INFO");
 				LOGGER.warn("Wrote:" + p.toString());
@@ -1511,20 +1853,21 @@ public class GenSpring {
 					ps.println("			return false;");
 					ps.println("		if (getClass() != obj.getClass())");
 					ps.println("			return false;");
-					ps.println("		Account other = (Account) obj;");
+					ps.println("		" + className + " other = (" + className + ") obj;");
 					ps.println("");
 					set = namList.keySet();
 					it = set.iterator();
 					while (it.hasNext()) {
 						ColInfo info = (ColInfo) namList.get(it.next());
-						ps.println("		if (get" + info.getGsName() + " == null) {");
-						ps.println("			if (other.get" + info.getGsName() + " != null)");
+						ps.println("		if (get" + info.getGsName() + "() == null) {");
+						ps.println("			if (other.get" + info.getGsName() + "() != null)");
 						ps.println("				return false;");
-						ps.println("		} else if (!get" + info.getGsName() + ".equals(other.get" + info.getGsName()
-								+ "))");
+						ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get"
+								+ info.getGsName() + "()))");
 						ps.println("			return false;");
 						ps.println("");
 					}
+					ps.println("		return true;");
 					ps.println("	}");
 				}
 
@@ -1624,9 +1967,12 @@ public class GenSpring {
 			System.err.println(error);
 		System.err.println("USAGE: Genspring [options] [table names]");
 		System.err.println("Where options are:");
-		System.err.println("-double = use Double instead of BigDecimal for entities beans");
-		System.err.println("-toString = generate toString() methods for entities beans");
-		System.err.println("-beanEquals = generate equals() methods for entities beans");
+		System.err.println(
+				"-double = use Double instead of BigDecimal for entities beans. Can be overridden in properties file.");
+		System.err.println(
+				"-toString = generate toString() methods for entities beans. Can be overridden in properties file.");
+		System.err.println(
+				"-beanEquals = generate equals() methods for entities beans. Can be overridden in properties file.");
 		System.err.println("");
 		System.err.println("if table names not given then runs on all tables in DB.");
 		System.err.println("");
@@ -1638,6 +1984,67 @@ public class GenSpring {
 		System.exit(1);
 	}
 
+	public List<String> getTablesNames(Db db) throws SQLException {
+		List<String> tableNames = new ArrayList<String>();
+		String dbName = db.getDbName();
+
+		String query = "SHOW TABLES"; // mySQL
+		if (db.getDbUrl().indexOf("sqlserver") > -1) {
+			query = "SELECT NAME,INFO FROM sysobjects WHERE type= 'U'";
+		} else if (db.getDbUrl().indexOf("sqlite") > -1) {
+			query = "SELECT name FROM sqlite_master WHERE type='table';";
+		}
+		Connection conn = db.getConnection(PROPKEY + ".main()");
+		Statement stmt = conn.createStatement();
+		if (LOGGER.isInfoEnabled()) {
+			LOGGER.info("query=" + query);
+		}
+		ResultSet rs = stmt.executeQuery(query);
+		try {
+			int rowcount = 0;
+			if (rs.last()) {
+				rowcount = rs.getRow();
+				rs.beforeFirst(); // not rs.first() because the rs.next() below will move on, missing the first
+									// element
+			}
+			LOGGER.info("found " + rowcount + " tables");
+		} catch (Exception e) {
+			LOGGER.warn("Could not get table count  ", e);
+		}
+		while (rs.next()) {
+			try {
+				// TODO: get these table filters from a props file.
+				if (db.getDbUrl().indexOf("mysql") > -1) {
+					String name = rs.getString("Tables_in_" + dbName);
+					if (!name.startsWith("gl_") && !name.startsWith("hostinfo")) {
+						tableNames.add(rs.getString("Tables_in_" + dbName));
+					}
+				} else if (db.getDbUrl().indexOf("sqlite") > -1) {
+					String name = rs.getString("name").toLowerCase();
+					if (!name.startsWith("old_") && !name.startsWith("sqlite_sequence") && !name.equals("providers")
+							&& !name.equals("account") && !name.equals("hibernate_sequence")) {
+						tableNames.add(name);
+					}
+				} else if (db.getDbUrl().indexOf("sqlserver") > -1) {
+					int info = rs.getInt("INFO"); // check for hidden or
+													// bad table
+					String name = rs.getString("name").toLowerCase();
+					// filter tables that don't show in enterprise
+					// manager but do here
+					LOGGER.info("read:" + name + ':' + info);
+					if (info > 0 && !name.startsWith("dtproperties")) {
+						tableNames.add(name);
+					}
+				}
+			} catch (Exception e) {
+				printUsage("main() crashed ", e);
+			}
+		}
+		db.close(PROPKEY + ".main()");
+
+		return tableNames;
+	}
+
 	/**
 	 * Entry point for this app
 	 * 
@@ -1645,8 +2052,7 @@ public class GenSpring {
 	 */
 	public static void main(String[] args) {
 		try {
-			Db db = new Db(propKey + ".main()", propKey);
-			String dbName = db.getDbName();
+			Db db = new Db(PROPKEY + ".main()", PROPKEY);
 			int i = 0;
 			GenSpring obj = new GenSpring();
 			List<String> tableNames = new ArrayList<String>();
@@ -1673,60 +2079,7 @@ public class GenSpring {
 			}
 
 			if (tableNames.isEmpty()) {
-				String query = "SHOW TABLES"; // mySQL
-				if (db.getDbUrl().indexOf("sqlserver") > -1) {
-					query = "SELECT NAME,INFO FROM sysobjects WHERE type= 'U'";
-				} else if (db.getDbUrl().indexOf("sqlite") > -1) {
-					query = "SELECT name FROM sqlite_master WHERE type='table';";
-				}
-				Connection conn = db.getConnection(propKey + ".main()");
-				Statement stmt = conn.createStatement();
-				if (LOGGER.isInfoEnabled()) {
-					LOGGER.info("query=" + query);
-				}
-				ResultSet rs = stmt.executeQuery(query);
-				try {
-					int rowcount = 0;
-					if (rs.last()) {
-						rowcount = rs.getRow();
-						rs.beforeFirst(); // not rs.first() because the rs.next() below will move on, missing the first
-											// element
-					}
-					LOGGER.info("found " + rowcount + " tables");
-				} catch (Exception e) {
-					LOGGER.warn("Could not get table count  ", e);
-				}
-				while (rs.next()) {
-					try {
-						// TODO: get these table filters from a props file.
-						if (db.getDbUrl().indexOf("mysql") > -1) {
-							String name = rs.getString("Tables_in_" + dbName);
-							if (!name.startsWith("gl_") && !name.startsWith("hostinfo")) {
-								tableNames.add(rs.getString("Tables_in_" + dbName));
-							}
-						} else if (db.getDbUrl().indexOf("sqlite") > -1) {
-							String name = rs.getString("name").toLowerCase();
-							if (!name.startsWith("old_") && !name.startsWith("sqlite_sequence")
-									&& !name.equals("providers") && !name.equals("account")
-									&& !name.equals("hibernate_sequence")) {
-								tableNames.add(name);
-							}
-						} else if (db.getDbUrl().indexOf("sqlserver") > -1) {
-							int info = rs.getInt("INFO"); // check for hidden or
-															// bad table
-							String name = rs.getString("name").toLowerCase();
-							// filter tables that don't show in enterprise
-							// manager but do here
-							LOGGER.info("read:" + name + ':' + info);
-							if (info > 0 && !name.startsWith("dtproperties")) {
-								tableNames.add(name);
-							}
-						}
-					} catch (Exception e) {
-						printUsage("main() crashed ", e);
-					}
-				}
-				db.close(propKey + ".main()");
+				tableNames = obj.getTablesNames(db);
 			}
 			obj.writeProject(tableNames);
 		} catch (Exception e) {

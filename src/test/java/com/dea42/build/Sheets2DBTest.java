@@ -4,7 +4,7 @@
 package com.dea42.build;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Calendar;
@@ -24,7 +24,7 @@ import com.dea42.common.Utils;
  *
  */
 public class Sheets2DBTest {
-	public static final String propKey = "sheettest";
+	public static final String bundleName = "sheettest";
 	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DBTest.class.getName());
 
 	/**
@@ -54,8 +54,8 @@ public class Sheets2DBTest {
 	 */
 	@Test
 	public void testStrToCols() {
-		Sheets2DB s = new Sheets2DB(propKey);
-		ResourceBundle bundle = ResourceBundle.getBundle(propKey);
+		Sheets2DB s = new Sheets2DB(bundleName, true);
+		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String cols = Utils.getProp(bundle, "shows.columns", "A-I,Q-T,BC-BF");
 		List<Integer> list = s.strToCols(cols);
 		Integer[] expecteds = new Integer[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19, 54, 55, 56, 57 };
@@ -69,11 +69,13 @@ public class Sheets2DBTest {
 			assertTrue("Looking for " + expected + " in results", list.contains(expected));
 		}
 
-		assertNull("passing empty string", s.strToCols(""));
+		list = s.strToCols("");
+		assertNotNull("passing empty string", list);
+		assertTrue("passing empty string", list.isEmpty());
 	}
 
 	private void parseDateStr(String str, long expected) {
-		Sheets2DB s = new Sheets2DB(propKey);
+		Sheets2DB s = new Sheets2DB(bundleName, true);
 
 		long ms = s.parseDateStr(str);
 		Date d = new Date(ms);
@@ -113,4 +115,5 @@ public class Sheets2DBTest {
 		parseDateStr("13:30:00", gc.getTimeInMillis());
 		parseDateStr("1:30:00 PM", gc.getTimeInMillis());
 	}
+
 }

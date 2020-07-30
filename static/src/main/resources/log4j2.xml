@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN">
   <Properties>
-    <Property name="filename">/home/dea/logs/log4j.out</Property>
+    <Property name="filename">log4j.out</Property>
   </Properties>
   <Appenders>
     <Console name="Console" target="SYSTEM_OUT">
@@ -16,7 +16,7 @@
           </RollingFile>
   </Appenders>
   <Loggers>
-    <Logger name="com.dea42.build" level="trace" additivity="false">
+    <Logger name="com.dea42" level="trace" additivity="false">
       <AppenderRef ref="Console"/>
       <AppenderRef ref="Rolling"/>
     </Logger>

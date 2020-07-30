@@ -2,6 +2,8 @@ package com.dea42.common;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -17,6 +19,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,8 +89,12 @@ public class Db {
 	private String config = "db";
 
 	public Db(String calledBy, String config) {
+		this(calledBy, config, null);
+	}
+
+	public Db(String calledBy, String config, String folder) {
 		this.config = config;
-		init(config);
+		init(config, folder);
 		if (calledBy != null) {
 			getConnection(calledBy);
 		} else {
@@ -115,16 +122,31 @@ public class Db {
 		return s_dbDriver.contains("db2");
 	}
 
+	public String getUrl(ResourceBundle bundle, String folder) {
+		s_dbUrl = Utils.getProp(bundle, "db.url", null);
+		s_dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
+		if (StringUtils.isAllBlank(s_dbUrl) && s_dbDriver.contains("sqlite")) {
+			// db.url=jdbc:sqlite:L:/sites/git/Watchlist/watchlistDB.sqlite
+			Path outPath = Utils.getPath(folder);
+			if (!outPath.toFile().isDirectory())
+				outPath.toFile().mkdirs();
+
+			s_dbUrl = "jdbc:sqlite:" + outPath.normalize().toString().replace('\\', '/') + "/" + config + "DB.sqlite";
+		}
+
+		return s_dbUrl;
+	}
+
 	/**
 	 * Load the properties file with the passed name and use the parms in it to init
 	 * the DB driver
 	 * 
 	 * @param config
+	 * @param folder TODO
 	 */
-	public void init(String config) {
+	public void init(String config, String folder) {
 		if (!s_loaded) {
 			ResourceBundle bundle = ResourceBundle.getBundle(config);
-			s_dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
 			s_dbDriver2 = Utils.getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
 			s_dbPool = Utils.getProp(bundle, "db.pool", null);
 			LOGGER.info("db.pool =" + s_dbPool);
@@ -150,13 +172,14 @@ public class Db {
 				s_dbUser = Utils.getProp(bundle, "db.user", null);
 				s_dbPass = Utils.getProp(bundle, "db.password", null);
 				s_dbName = Utils.getProp(bundle, "db.name", null);
-				s_dbUrl = Utils.getProp(bundle, "db.url", null);
+				s_dbUrl = getUrl(bundle, folder);
 				s_loaded = true;
+
 			} else {
 				s_loaded = true;
 			}
-
 		}
+
 	}
 
 	public static int getOpenCount() {

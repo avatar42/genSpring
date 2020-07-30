@@ -7,17 +7,22 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.ResourceBundle;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.BlockJUnit4ClassRunner;
 
+import com.dea42.build.Sheets2DB;
 import com.dea42.build.Sheets2DBTest;
 
 /**
  * @author avata
  *
  */
+@RunWith(BlockJUnit4ClassRunner.class)
 public class UtilsTest {
 
 	/**
@@ -26,7 +31,7 @@ public class UtilsTest {
 	 */
 	@Test
 	public void testGetPropResourceBundleString() {
-		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.propKey);
+		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		String val = Utils.getProp(bundle, "db.driver");
 		assertEquals("db.driver", "org.sqlite.JDBC", val);
 		val = Utils.getProp(bundle, "db.drive");
@@ -39,7 +44,7 @@ public class UtilsTest {
 	 */
 	@Test
 	public void testGetPropResourceBundleStringString() {
-		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.propKey);
+		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		String val = Utils.getProp(bundle, "db.driver", "bob");
 		assertEquals("db.driver", "org.sqlite.JDBC", val);
 		val = Utils.getProp(bundle, "db.drive", "bob");
@@ -52,12 +57,12 @@ public class UtilsTest {
 	 */
 	@Test
 	public void testGetPropListResourceBundleString() {
-		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.propKey);
-		List<String> list = Utils.getPropList(bundle, Sheets2DBTest.propKey + ".tabs");
-		assertTrue(Sheets2DBTest.propKey + ".tabs", list.contains("Roamio_Todo"));
+		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
+		List<String> list = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
+		assertTrue(Sheets2DB.PROPKEY + ".tabs", list.contains("Roamio_Todo"));
 
-		list = Utils.getPropList(bundle, Sheets2DBTest.propKey + ".tab");
-		assertNull(Sheets2DBTest.propKey + ".tab", list);
+		list = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tab");
+		assertNull(Sheets2DB.PROPKEY + ".tab", list);
 	}
 
 	/**
@@ -99,6 +104,27 @@ public class UtilsTest {
 	public void testTabToStr4() {
 		String tableName = Utils.tabToStr(null, "_short");
 		assertEquals("ShortField", tableName);
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.common.Utils#getPath(java.lang.String, java.lang.String)}.
+	 */
+	@Test
+	public void testGetPath() {
+		String cwd = System.getProperty("user.dir").toString().replace('\\', '/');
+		if (cwd.endsWith("target"))
+			cwd = cwd.substring(0, cwd.length() - 7);
+
+		Path p = Utils.getPath("static");
+		assertEquals(cwd + "/static", p.toString().replace('\\', '/'));
+		// no way to cd in Java. Must run manually in other folder to test in target
+		// folder logic
+		// TODO: ? % java -cp .:"/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/*"
+		// org.junit.runner.JUnitCore UtilsTest
+		p = Utils.getPath("../genSpring/static");
+		assertEquals(cwd + "/static", p.toString().replace('\\', '/'));
+
 	}
 
 }

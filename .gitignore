@@ -2,3 +2,12 @@
 /Scripts/
 /.dbeaver/
 /tokens/
+/log4j.out
+/log4j.out.1.log.gz
+/log4j.out.2.log.gz
+/log4j.out.3.log.gz
+/log4j.out.4.log.gz
+/log4j.out.5.log.gz
+/log4j.out.6.log.gz
+/log4j.out.7.log.gz
+/.factorypath

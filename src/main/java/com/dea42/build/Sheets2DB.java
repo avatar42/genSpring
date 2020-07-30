@@ -101,27 +101,34 @@ public class Sheets2DB {
 
 	private ResourceBundle renames = ResourceBundle.getBundle("rename");
 	private ResourceBundle bundle = null;
-	public String propKey = "sheet";
+	public static final String PROPKEY = "sheet";
+	public String bundelName;
 	private int passed = 0;
 	private int failed = 0;
 	private int skipped = 0;
 
-	private Db db = new Db(propKey + ".runSQL()", propKey);
+	private Db db;
 
+	/**
+	 * default constructor using the sheet bundle name
+	 */
 	public Sheets2DB() {
+		this(PROPKEY, false);
 	}
 
 	/**
 	 * For testing
 	 * 
-	 * @param propKey
+	 * @param bundelName
+	 * @param cleanFirst TODO
 	 */
-	protected Sheets2DB(String propKey) {
-		this.propKey = propKey;
+	public Sheets2DB(String bundelName, boolean cleanFirst) {
+		this.bundelName = bundelName;
+		bundle = ResourceBundle.getBundle(bundelName);
 	}
 
 	protected long parseDateStr(String source) {
-		LOGGER.debug(source);
+		LOGGER.debug("source:" + source);
 
 		if (source == null || source.length() < 5 || source.length() > 30)
 			return 0;
@@ -421,9 +428,8 @@ public class Sheets2DB {
 	 * @return
 	 */
 	public List<Integer> strToCols(String colStr) {
-		List<Integer> wantedCols = null;
+		List<Integer> wantedCols = new ArrayList<Integer>();
 		if (!StringUtils.isBlank(colStr)) {
-			wantedCols = new ArrayList<Integer>();
 			StringTokenizer st = new StringTokenizer(colStr, ",");
 			while (st.hasMoreTokens()) {
 				String def = st.nextToken();
@@ -438,25 +444,34 @@ public class Sheets2DB {
 				}
 			}
 		}
-		LOGGER.debug(wantedCols.toString());
+		LOGGER.debug(colStr + "=>" + wantedCols.toString());
 		return wantedCols;
 	}
 
-	public void exportTab(Sheets service, String spreadsheetId, Sheet sheet, String colStr) {
+	public void exportTab(Sheets service, String spreadsheetId, Sheet sheet) throws SQLException {
 
 		SheetProperties p = sheet.getProperties();
 		String tabName = p.getTitle();
+		String tableName = Utils.tabToStr(renames, tabName);
+		// {"basicFilter":{"range":{"endColumnIndex":19,"endRowIndex":38,"sheetId":1049211208,"startColumnIndex":0,"startRowIndex":0},"sortSpecs":[{"dimensionIndex":0,"sortOrder":"ASCENDING"}]},
+		// "properties":{
+		// "gridProperties":{"columnCount":19,"frozenColumnCount":1,"frozenRowCount":1,"rowCount":38},
+		// "index":2,"sheetId":1049211208,"sheetType":"GRID","title":"Networks"}}
 		GridProperties gp = p.getGridProperties();
 		int columnCount = gp.getColumnCount();
-		int rowCount = Utils.getProp(bundle, tabName + ".lastRow", gp.getRowCount());
+		int rowCount = Utils.getProp(bundle, tableName + ".lastRow", gp.getRowCount());
 		// headers / field names assumed to be in last frozen row or first row
-		int frozenRowCount = gp.getFrozenRowCount();
+		int frozenRowCount = 0;
+		try {
+			frozenRowCount = gp.getFrozenRowCount();
+		} catch (Exception e1) {
+			// if no frozen rows gets a null pointer!
+		}
 		if (frozenRowCount < 1)
 			frozenRowCount = 1;
 
-		ResourceBundle bundle = ResourceBundle.getBundle(propKey);
-		List<Integer> wantedColNums = strToCols(Utils.getProp(bundle, tabName + ".columns"));
-		List<Integer> requiredColNums = strToCols(Utils.getProp(bundle, tabName + ".required"));
+		List<Integer> wantedColNums = strToCols(Utils.getProp(bundle, tableName + ".columns"));
+		List<Integer> requiredColNums = strToCols(Utils.getProp(bundle, tableName + ".required"));
 		List<Object> requiredFields = new ArrayList<Object>();
 
 		// Get headers and basic cell data
@@ -490,7 +505,7 @@ public class Sheets2DB {
 						// init field lengths to 0
 						int colNum = 0;
 						for (Object header : row) {
-							if (wantedColNums == null || wantedColNums.contains(colNum)) {
+							if (wantedColNums.isEmpty() || wantedColNums.contains(colNum)) {
 								if (StringUtils.isBlank(Utils.tabToStr(renames, (String) header))) {
 									header = "Col" + columnNumberToLetter(colNum + 1);
 								}
@@ -504,13 +519,13 @@ public class Sheets2DB {
 							}
 							colNum++;
 						}
-						LOGGER.debug(row.toString());
+						LOGGER.debug("row:" + row.toString());
 					} else if (rowId > frozenRowCount && rowId <= rowCount) {
 						Map<Object, Object> rowMap = new HashMap<Object, Object>();
 						rowsData.put(rowId, rowMap);
 						Object[] cells = row.toArray();
 						for (int i = 0; i < cells.length; i++) {
-							if (wantedColNums == null || wantedColNums.contains(i)) {
+							if (wantedColNums.isEmpty() || wantedColNums.contains(i)) {
 								rowMap.put(ha[i], cells[i]);
 
 								Class<?> fieldCls = fieldTypes.get(ha[i]);
@@ -577,7 +592,7 @@ public class Sheets2DB {
 								}
 							}
 						}
-						LOGGER.debug(rowMap.toString());
+						LOGGER.debug("rowMap:" + rowMap.toString());
 					}
 					rowId++;
 				}
@@ -605,7 +620,7 @@ public class Sheets2DB {
 						Map<Object, Object> rowMap = rowsData.get(rowId);
 						Object[] cells = row.toArray();
 						for (int i = 0; i < cells.length; i++) {
-							if (wantedColNums == null || wantedColNums.contains(i)) {
+							if (wantedColNums.isEmpty() || wantedColNums.contains(i)) {
 
 								if (cells[i] instanceof String) {
 									String s = (String) cells[i];
@@ -637,10 +652,12 @@ public class Sheets2DB {
 		} catch (IOException e) {
 			LOGGER.error("Failed to get link fields for " + tabName, e);
 		}
-		LOGGER.debug(maxFieldLenghts.toString());
-		LOGGER.debug(fieldTypes.toString());
 
-		String tableName = Utils.tabToStr(renames, tabName);
+		LOGGER.debug("maxFieldLenghts:" + maxFieldLenghts.toString());
+		LOGGER.debug("fieldTypes:" + fieldTypes.toString());
+
+		LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
+
 		// Drop old table if there is one
 		runSQL("Drop table IF EXISTS " + tableName + ";");
 
@@ -756,9 +773,10 @@ public class Sheets2DB {
 				}
 			}
 			sb.append(");");
-			if (runSQL(sb.toString())) {
+			try {
+				runSQL(sb.toString());
 				passed++;
-			} else {
+			} catch (SQLException e) {
 				failed++;
 			}
 		}
@@ -770,61 +788,77 @@ public class Sheets2DB {
 	 * 
 	 * @param sql
 	 * @return pass / fail
+	 * @throws IOException
+	 * @throws SQLException
 	 */
-	private boolean runSQL(String sql) {
+	private void addAccountTable() throws IOException, SQLException {
+
+		LOGGER.debug("Creating account table");
+		// Drop old table if there is one
+		runSQL("DROP TABLE IF EXISTS account;");
+		runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar, password varchar, role varchar, primary key (id));");
+		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (1,1592425095850,'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (2,1592425096102,'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
+		runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
+		runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
+	}
+
+	/**
+	 * Since we are recreating the table each time, do each call without
+	 * transactions so we can see any trouble rows that might exist in one go.
+	 * 
+	 * @param sql
+	 * @return pass / fail
+	 */
+	private boolean runSQL(String sql) throws SQLException {
 		LOGGER.debug("Running:" + sql);
 		boolean rtn = false;
 
 		try {
-			Connection conn = db.getConnection(propKey + ".runSQL()");
+			Connection conn = db.getConnection(PROPKEY + ".runSQL()");
 			Statement stmt = conn.createStatement();
 			rtn = stmt.execute(sql);
 			if (sql.startsWith("INSERT")) {
 				int cnt = stmt.getUpdateCount();
 				rtn = (cnt == 1);
-//				LOGGER.error("SQL return was" + cnt);
+				LOGGER.trace("SQL return was" + cnt);
 			}
-		} catch (SQLException e) {
-			LOGGER.error("Failed to run:" + sql, e);
 		} finally {
-			db.close(propKey + ".runSQL()");
+			db.close(PROPKEY + ".runSQL()");
 		}
 		return rtn;
 	}
 
 	public void getSheet() {
+		List<String> tabs = null;
 		try {
-			bundle = ResourceBundle.getBundle(propKey);
-
+			db = new Db(bundelName + ".getSheet()", bundelName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
+			addAccountTable();
 			// Build a new authorized API client service.
 			final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 			// https://docs.google.com/spreadsheets/d/1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE/edit?usp=sharing
 			final String spreadsheetId = Utils.getProp(bundle, "sheet.id",
 					"1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE");
 			final String tabStr = Utils.getProp(bundle, "sheet.tabs", "");
-			List<String> tabs = Arrays.asList(tabStr.split("\\s*,\\s*"));
+			tabs = Arrays.asList(tabStr.split("\\s*,\\s*"));
 
 			Sheets service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
 					.setApplicationName(APPLICATION_NAME).build();
 			Spreadsheet spreadsheet = service.spreadsheets().get(spreadsheetId).execute();
 			List<Sheet> sheets = spreadsheet.getSheets();
-			// {"basicFilter":{"range":{"endColumnIndex":19,"endRowIndex":38,"sheetId":1049211208,"startColumnIndex":0,"startRowIndex":0},"sortSpecs":[{"dimensionIndex":0,"sortOrder":"ASCENDING"}]},
-			// "properties":{
-			// "gridProperties":{"columnCount":19,"frozenColumnCount":1,"frozenRowCount":1,"rowCount":38},
-			// "index":2,"sheetId":1049211208,"sheetType":"GRID","title":"Networks"}}
 			for (Sheet sheet : sheets) {
 				SheetProperties p = sheet.getProperties();
-				String tabName = p.getTitle();
+				String tabName = Utils.tabToStr(renames, p.getTitle());
 				if (tabs.contains(tabName)) {
-					final String colStr = Utils.getProp(bundle, tabName + ".columns", "");
-					exportTab(service, spreadsheetId, sheet, colStr);
+					exportTab(service, spreadsheetId, sheet);
 				}
 			}
-		} catch (GeneralSecurityException | IOException e) {
-			LOGGER.error("Failed to get sheet ", e);
+		} catch (Exception e) {
+			LOGGER.error("Failed to get oe export sheet ", e);
 		}
 
-		System.out.println("Inserted " + passed + " records.");
+		System.out.println("Inserted " + passed + " records into " + tabs);
 		System.out.println("Failed to insert " + failed + " records.");
 		System.out.println("Skipped inserting " + skipped + " records.");
 	}

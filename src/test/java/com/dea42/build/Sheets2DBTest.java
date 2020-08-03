@@ -131,6 +131,7 @@ public class Sheets2DBTest {
 		genDB("genSpringTest", 5);
 
 	}
+
 	/**
 	 * Run Sheets2DB with genSpringTest2.properties file and validate the results
 	 */
@@ -139,7 +140,7 @@ public class Sheets2DBTest {
 
 		genDB("genSpringTest2", 6);
 	}
-	
+
 	private void genDB(String bundleName, int columns) {
 		Sheets2DB s = new Sheets2DB(bundleName, true);
 		s.getSheet();
@@ -162,6 +163,18 @@ public class Sheets2DBTest {
 					assertEquals("Checking expected columns in " + tableName, columns + 1, size);
 				else
 					assertEquals("Checking expected columns in " + tableName, columns, size);
+
+				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
+				if (!userColNums.isEmpty()) {
+					query = "SELECT * FROM " + tableName + "User";
+					stmt = conn.createStatement();
+					stmt.setMaxRows(1);
+					LOGGER.debug("query=" + query);
+					rs = stmt.executeQuery(query);
+					rm = rs.getMetaData();
+					size = rm.getColumnCount();
+					assertEquals("Checking expected columns in " + tableName, userColNums.size() + 3, size);
+				}
 			} catch (SQLException e) {
 				LOGGER.error("Exception creating DB", e);
 				fail("Exception creating DB");

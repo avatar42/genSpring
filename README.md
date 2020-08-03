@@ -35,6 +35,12 @@ CableCard.required=A,B <br>
 ### set this if you need to ignore extra rows at bottom of sheet
 shows.lastRow=251 <br>
 
+### [optional] Tables each row should be prefixed / linked to a user ID. ID 1 is used for the import.
+sheet.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard
+
+### [optional] Columns to be placed in separate table linked to source table and account. 
+shows.user=E
+
 # genSpring
 Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard coded, in mem, auth system.
 Tested with SQLite but code was brought over from Struts version for MySQL and SQLServer that will probably work.

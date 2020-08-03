@@ -6,7 +6,13 @@ package com.dea42.build;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -17,6 +23,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.dea42.common.Db;
 import com.dea42.common.Utils;
 
 /**
@@ -116,4 +123,49 @@ public class Sheets2DBTest {
 		parseDateStr("1:30:00 PM", gc.getTimeInMillis());
 	}
 
+	/**
+	 * Run Sheets2DB with genSpringTest.properties file and validate the results
+	 */
+	@Test
+	public void testWithgenSpringTest() {
+		genDB("genSpringTest", 5);
+
+	}
+	/**
+	 * Run Sheets2DB with genSpringTest2.properties file and validate the results
+	 */
+	@Test
+	public void testWithgenSpringTest2() {
+
+		genDB("genSpringTest2", 6);
+	}
+	
+	private void genDB(String bundleName, int columns) {
+		Sheets2DB s = new Sheets2DB(bundleName, true);
+		s.getSheet();
+		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
+		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		Connection conn = db.getConnection("Sheet2AppTest");
+		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
+		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
+		for (String tableName : tables) {
+			try {
+				String query = "SELECT * FROM " + tableName;
+				Statement stmt = conn.createStatement();
+				stmt.setMaxRows(1);
+				LOGGER.debug("query=" + query);
+				ResultSet rs = stmt.executeQuery(query);
+				ResultSetMetaData rm = rs.getMetaData();
+				int size = rm.getColumnCount();
+				if (userTables.contains(tableName))
+					assertEquals("Checking expected columns in " + tableName, columns + 1, size);
+				else
+					assertEquals("Checking expected columns in " + tableName, columns, size);
+			} catch (SQLException e) {
+				LOGGER.error("Exception creating DB", e);
+				fail("Exception creating DB");
+			}
+		}
+	}
 }

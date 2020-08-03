@@ -661,9 +661,13 @@ public class Sheets2DB {
 		// Drop old table if there is one
 		runSQL("Drop table IF EXISTS " + tableName + ";");
 
+		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		// create new table
 		StringBuilder sb = new StringBuilder(
-				"CREATE TABLE " + tableName + "(id integer NOT NULL primary key autoincrement");
+				"CREATE TABLE " + tableName + "(id INTEGER NOT NULL primary key autoincrement");
+		if (userTables.contains(tableName))
+			sb.append(", userId bigint");
+
 		for (Object name : maxFieldLenghts.keySet()) {
 			Class<?> cls = fieldTypes.get(name);
 			if (cls == null) {
@@ -682,6 +686,8 @@ public class Sheets2DB {
 					sb.append("INTEGER");
 				else
 					sb.append("BOOLEAN");
+			} else if (cls.isAssignableFrom(Long.class)) {
+				sb.append("BIGINT");
 			} else if (cls.isAssignableFrom(Integer.class)) {
 				sb.append("INTEGER");
 			} else if (cls.isAssignableFrom(Date.class)) {
@@ -703,7 +709,13 @@ public class Sheets2DB {
 				sb.append(" NOT NULL");
 			}
 		}
+		if (userTables.contains(tableName)) {
+			sb.append(",");
+			sb.append("    CONSTRAINT FK_" + tableName + "Account FOREIGN KEY (userId)");
+			sb.append("    REFERENCES account(id)");
+		}
 		sb.append(");");
+
 		runSQL(sb.toString());
 
 		genInsert:
@@ -712,6 +724,9 @@ public class Sheets2DB {
 			Map<Object, Object> row = rowsData.get(rowId);
 			sb = new StringBuilder("INSERT INTO " + tableName + " (");
 			boolean addcom = false;
+			if (userTables.contains(tableName)) {
+				sb.append("userId,");
+			}
 			for (Object name : maxFieldLenghts.keySet()) {
 				if (addcom) {
 					sb.append(", ");
@@ -723,6 +738,9 @@ public class Sheets2DB {
 			}
 			sb.append(") VALUES (");
 			addcom = false;
+			if (userTables.contains(tableName)) {
+				sb.append("1,");
+			}
 			for (Object name : maxFieldLenghts.keySet()) {
 				if (addcom) {
 					sb.append(", ");
@@ -797,8 +815,8 @@ public class Sheets2DB {
 		// Drop old table if there is one
 		runSQL("DROP TABLE IF EXISTS account;");
 		runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar, password varchar, role varchar, primary key (id));");
-		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (1,1592425095850,'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (2,1592425096102,'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (1,"+System.currentTimeMillis()+",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (2,"+System.currentTimeMillis()+",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
 		runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
 		runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
 		runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");

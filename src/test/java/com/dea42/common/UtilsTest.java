@@ -62,7 +62,7 @@ public class UtilsTest {
 		assertTrue(Sheets2DB.PROPKEY + ".tabs", list.contains("Roamio_Todo"));
 
 		list = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tab");
-		assertNull(Sheets2DB.PROPKEY + ".tab", list);
+		assertTrue(Sheets2DB.PROPKEY + ".tab", list.isEmpty());
 	}
 
 	/**

@@ -935,7 +935,7 @@ public class GenSpring {
 	private Set<String> getListKeys(String clsName, TreeMap<String, ColInfo> namList) throws DataFormatException {
 		Set<String> set = namList.keySet();
 		List<String> listCols = Utils.getPropList(bundle, clsName + ".list");
-		if (listCols == null) {
+		if (listCols.isEmpty()) {
 			set = namList.keySet();
 		} else {
 			set = listCols.stream().collect(Collectors.toSet());

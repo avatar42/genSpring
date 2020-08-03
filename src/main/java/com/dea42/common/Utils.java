@@ -101,7 +101,7 @@ public class Utils {
 	public static List<String> getPropList(final ResourceBundle bundle, final String key) {
 		String s = getProp(bundle, key, null);
 		if (StringUtils.isBlank(s))
-			return null;
+			return new ArrayList<String>();
 
 		return Arrays.asList(s.split("\\s*,\\s*"));
 	}

@@ -238,6 +238,7 @@ public class Sheet2AppTest {
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
 		Connection conn = db.getConnection("Sheet2AppTest");
+		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {
 			try {
@@ -248,7 +249,10 @@ public class Sheet2AppTest {
 				ResultSet rs = stmt.executeQuery(query);
 				ResultSetMetaData rm = rs.getMetaData();
 				int size = rm.getColumnCount();
-				assertEquals("Checking expected columns in " + tableName, columns, size);
+				if (userTables.contains(tableName))
+					assertEquals("Checking expected columns in " + tableName, columns + 1, size);
+				else
+					assertEquals("Checking expected columns in " + tableName, columns, size);
 			} catch (SQLException e) {
 				LOGGER.error("Exception creating DB", e);
 				fail("Exception creating DB");
@@ -271,7 +275,7 @@ public class Sheet2AppTest {
 		String osName = System.getProperty("os.name");
 		if (osName.startsWith("Windows"))
 			cmd = "mvn.cmd";
-		cmd = cmd + " clean install";
+		cmd = cmd + " clean integration-test -Pintegration";
 
 		Utils.runCmd(cmd, outdir);
 
@@ -279,9 +283,7 @@ public class Sheet2AppTest {
 		String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
 		String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
 
-		Path p = Utils
-				.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war")
-				.normalize();
+		Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war").normalize();
 		assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
 	}
 

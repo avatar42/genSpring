@@ -3,15 +3,23 @@
  */
 package com.dea42.genspring.selenium;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.TestWatcher;
+import org.junit.runner.Description;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.firefox.FirefoxDriver;
@@ -43,6 +51,9 @@ public class SeleniumBase extends UnitBase {
 	protected boolean useLocal = false;
 	// time to pause at the start of each command.
 	protected long speedDelay = 1;
+
+	@Rule
+	public ScreenShotRule screenshotRule = new ScreenShotRule();
 
 	/**
 	 * called at the start of each "command". Set speedDelay above to the
@@ -312,11 +323,11 @@ public class SeleniumBase extends UnitBase {
 			this.base = "http://localhost:" + port;
 	}
 
-	@After
-	public void teardown() {
-		if (driver != null)
-			driver.quit();
-	}
+//	@After
+//	public void teardown() {
+//		if (driver != null)
+//			driver.quit();
+//	}
 
 	public void loginAdmin() {
 		speedControl();
@@ -394,26 +405,76 @@ public class SeleniumBase extends UnitBase {
 	protected void checkSite() throws Exception {
 		// check statics
 		// check css links work
-//		openTest("/resources/css/site.css");
-//		sourceContains("background-color:", false);
-//		openTest("/resources/css/bootstrap.min.css");
-//		sourceContains("Bootstrap v3.0.0", false);
-//		openTest("/resources/sheet.css");
-//		sourceContains("fonts.googleapis.com", false);
-//
-//		// check js links work
-//		openTest("/resources/js/jquery.min.js");
-//		sourceContains("jQuery v1.11.1", false);
-//		openTest("/resources/js/bootstrap.min.js");
-//		sourceContains("bootstrap.js v3.0.0", false);
-//
-//		// Check tabs saves as static pages
-//		openTest("/optView.html");
-//		sourceContains("resources/sheet.css", false);
-//		openTest("/Players.html");
-//		sourceContains("resources/sheet.css", false);
+		openTest("/resources/css/site.css");
+		sourceContains("background-color:", false);
+		openTest("/resources/css/bootstrap.min.css");
+		sourceContains("Bootstrap v3.0.0", false);
+		openTest("/resources/sheet.css");
+		sourceContains("fonts.googleapis.com", false);
+
+		// check js links work
+		openTest("/resources/js/jquery.min.js");
+		sourceContains("jQuery v1.11.1", false);
+		openTest("/resources/js/bootstrap.min.js");
+		sourceContains("bootstrap.js v3.0.0", false);
+
+		// Check tabs saves as static pages
+		openTest("/optView.html");
+		sourceContains("resources/sheet.css", false);
+		openTest("/Players.html");
+		sourceContains("resources/sheet.css", false);
 
 		// do basic web page checks
 		checkHeader(null, null);
+	}
+
+	public class ScreenShotRule extends TestWatcher {
+		String testName = "";
+		private long startTime = 0;
+		private long endTime = 0;
+
+		public ScreenShotRule() {
+		}
+
+		@Override
+		protected void starting(Description description) {
+			startTime = System.currentTimeMillis();
+			if (description.getDisplayName() != null)
+				testName = description.getDisplayName();
+			else if (description.getMethodName() != null)
+				testName = description.getMethodName();
+			else if (description.getClassName() != null)
+				testName = description.getClassName();
+			else
+				testName = "unknown";
+		}
+
+		@Override
+		protected void failed(Throwable e, Description description) {
+			endTime = System.currentTimeMillis();
+			try {
+				TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
+
+				File scrFile = takesScreenshot.getScreenshotAs(OutputType.FILE);
+				File destFile = new File(testName + ".screenShot.png");
+				FileUtils.copyFile(scrFile, destFile);
+				LOGGER.error("saved screenshot to:" + destFile.getAbsolutePath(), e);
+			} catch (IOException ioe) {
+				throw new RuntimeException(ioe);
+			}
+		}
+
+		@Override
+		protected void succeeded(Description description) {
+			endTime = System.currentTimeMillis();
+		}
+
+		@Override
+		protected void finished(Description description) {
+			LOGGER.info("Runtime:" + (endTime - startTime) + " milliseconds");
+			if (driver != null)
+				driver.quit();
+		}
+
 	}
 }

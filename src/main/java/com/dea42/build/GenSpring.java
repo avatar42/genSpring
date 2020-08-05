@@ -106,6 +106,45 @@ public class GenSpring {
 				throw new IOException("Could not create output dir:" + baseDir);
 			}
 		}
+
+	}
+
+	/**
+	 * Simplify test generation by just passing props use to gen to the app's tests
+	 */
+	private void writeTestProps() {
+		Path p = createFile("/src/test/resources/test.properties");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				for (String key : bundle.keySet()) {
+					String val = bundle.getString(key);
+					if (StringUtils.isBlank(val))
+						ps.println(key + "=");
+					else
+						ps.println(key + "=" + val);
+				}
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+		p = createFile("/src/test/resources/rename.properties");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				for (String key : renames.keySet()) {
+					String val = renames.getString(key);
+					if (StringUtils.isBlank(val))
+						ps.println(key + "=");
+					else
+						ps.println(key + "=" + val);
+				}
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
 	}
 
 	private Path createFile(String relPath) {
@@ -362,6 +401,7 @@ public class GenSpring {
 		copyCommon();
 
 		writeAppProps();
+		writeTestProps();
 
 		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {

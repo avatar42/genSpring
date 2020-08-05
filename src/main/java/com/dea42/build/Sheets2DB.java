@@ -715,17 +715,30 @@ public class Sheets2DB {
 		LOGGER.debug("maxFieldLenghts:" + maxFieldLenghts.toString());
 		LOGGER.debug("fieldTypes:" + fieldTypes.toString());
 
+		String schema = db.getDbName();
+		if (schema == null)
+			schema = "";
+		else
+			schema = schema + ".";
+
 		// Drop old table if there is one
-		runSQL("Drop table IF EXISTS " + tableName + ";");
+//		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
+
+		String idType = "BIGINT";
+		String autoincrement = "auto_increment";
+		if (db.isSQLite()) {
+			idType = "INTEGER";
+			autoincrement = "autoincrement";
+		}
 
 		// create new table
 		StringBuilder sb = new StringBuilder(
-				"CREATE TABLE " + tableName + "(id INTEGER NOT NULL primary key autoincrement");
+				"CREATE TABLE " + schema + tableName + "(id " + idType + " NOT NULL primary key " + autoincrement);
 		if (addUserFK)
 			sb.append(", userId bigint");
 
 		if (mainTable != null)
-			sb.append(", " + mainTable + "_Id INTEGER");
+			sb.append(", " + mainTable + "_Id " + idType);
 
 		for (Object name : maxFieldLenghts.keySet()) {
 			Class<?> cls = fieldTypes.get(name);
@@ -733,7 +746,10 @@ public class Sheets2DB {
 				cls = String.class;
 			}
 			String fieldName = Utils.tabToStr(renames, (String) name);
-			sb.append(",\n").append(fieldName).append("\t");
+			if (db.isMySQL())
+				sb.append(",\n`").append(fieldName).append("`\t");
+			else
+				sb.append(",\n").append(fieldName).append("\t");
 			if (cls.isAssignableFrom(String.class)) {
 				int len = maxFieldLenghts.get(name);
 				if (len == 0)
@@ -771,12 +787,12 @@ public class Sheets2DB {
 		if (addUserFK) {
 			sb.append(",");
 			sb.append("    CONSTRAINT FK_" + tableName + "Account FOREIGN KEY (userId)");
-			sb.append("    REFERENCES account(id)");
+			sb.append("    REFERENCES " + schema + "account(id)");
 		}
 		if (mainTable != null) {
 			sb.append(",");
 			sb.append("    CONSTRAINT FK_" + tableName + "_" + mainTable + " FOREIGN KEY (" + mainTable + "_Id)");
-			sb.append("    REFERENCES " + mainTable + "(id)");
+			sb.append("    REFERENCES " + schema + mainTable + "(id)");
 		}
 		sb.append(");");
 
@@ -786,7 +802,7 @@ public class Sheets2DB {
 		// import data gathered into DB
 		for (Integer rowId : rowsData.keySet()) {
 			Map<Object, Object> row = rowsData.get(rowId);
-			sb = new StringBuilder("INSERT INTO " + tableName + " (");
+			sb = new StringBuilder("INSERT INTO " + schema + tableName + " (");
 			boolean addcom = false;
 			if (addUserFK) {
 				sb.append("userId,");
@@ -801,7 +817,11 @@ public class Sheets2DB {
 					addcom = true;
 				}
 				String fieldName = Utils.tabToStr(renames, (String) name);
-				sb.append(fieldName);
+				if (db.isMySQL())
+					sb.append('`').append(fieldName).append('`');
+				else
+					sb.append(fieldName);
+
 			}
 			sb.append(") VALUES (");
 			addcom = false;
@@ -872,7 +892,9 @@ public class Sheets2DB {
 
 	/**
 	 * Since we are recreating the table each time, do each call without
-	 * transactions so we can see any trouble rows that might exist in one go.
+	 * transactions so we can see any trouble rows that might exist in one go. TODO:
+	 * add check if table exists or should be replaced instead of just doing it
+	 * everytime.
 	 * 
 	 * @param sql
 	 * @return pass / fail
@@ -880,18 +902,51 @@ public class Sheets2DB {
 	 * @throws SQLException
 	 */
 	private void addAccountTable() throws IOException, SQLException {
+		int varcharLen = 254;
+		int roleNameLen = 254;
 
 		LOGGER.debug("Creating account table");
+		String schema = db.getDbName();
+		if (schema == null)
+			schema = "";
+		else
+			schema = schema + ".";
 		// Drop old table if there is one
-		runSQL("DROP TABLE IF EXISTS account;");
-		runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar, password varchar, role varchar, primary key (id));");
-		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (1," + System.currentTimeMillis()
-				+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-		runSQL("INSERT INTO account (id,created,email,password,\"role\") VALUES (2," + System.currentTimeMillis()
-				+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
-		runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
-		runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
-		runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
+		if (db.isSQLite()) {
+			runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar(" + varcharLen
+					+ "), password varchar(" + varcharLen + "), role varchar(" + roleNameLen + "), primary key (id));");
+			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
+			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
+			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (1,"
+					+ System.currentTimeMillis()
+					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (2,"
+					+ System.currentTimeMillis()
+					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		} else if (db.isMySQL()) {
+			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT auto_increment NOT NULL,\n"
+					+ "	created TIMESTAMP NULL,\n" + "	email VARCHAR(" + varcharLen + ") NULL,\n"
+					+ "	password VARCHAR(" + varcharLen + ") NULL,\n" + "	`role` VARCHAR(" + roleNameLen + ") NULL,\n"
+					+ "	CONSTRAINT account_pk PRIMARY KEY (id)\n" + ")\n" + "ENGINE=InnoDB\n"
+					+ "DEFAULT CHARSET=utf8mb4\n" + "COLLATE=utf8mb4_0900_ai_ci;");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
+					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (2,NOW()"
+					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		} else {
+			LOGGER.warn("Doing best guess for table create.");
+			runSQL("CREATE TABLE " + schema + "account (id bigint not null, created timestamp, email varchar("
+					+ varcharLen + "), password varchar(" + varcharLen + "), role varchar(" + roleNameLen
+					+ "), primary key (id));");
+			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
+			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
+			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
+					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (2,NOW()"
+					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		}
 	}
 
 	/**
@@ -924,7 +979,12 @@ public class Sheets2DB {
 		List<String> tabs = null;
 		try {
 			db = new Db(bundelName + ".getSheet()", bundelName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
-			addAccountTable();
+			String schema = db.getDbName();
+			if (schema == null)
+				schema = "";
+			else
+				schema = schema + ".";
+
 			// Build a new authorized API client service.
 			final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 			// https://docs.google.com/spreadsheets/d/1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE/edit?usp=sharing
@@ -937,6 +997,21 @@ public class Sheets2DB {
 					.setApplicationName(APPLICATION_NAME).build();
 			Spreadsheet spreadsheet = service.spreadsheets().get(spreadsheetId).execute();
 			List<Sheet> sheets = spreadsheet.getSheets();
+
+			// clear DB in reverse order to deal with constraints
+			for (Sheet sheet : sheets) {
+				SheetProperties p = sheet.getProperties();
+				String tabName = Utils.tabToStr(renames, p.getTitle());
+				if (tabs.contains(tabName)) {
+					tabName = p.getTitle();
+					String tableName = Utils.tabToStr(renames, tabName);
+					runSQL("DROP TABLE IF EXISTS " + schema + tableName + "User;");
+					runSQL("DROP TABLE IF EXISTS " + schema + tableName + ";");
+				}
+			}
+			runSQL("DROP TABLE IF EXISTS " + schema + "account;");
+			addAccountTable();
+
 			for (Sheet sheet : sheets) {
 				SheetProperties p = sheet.getProperties();
 				String tabName = Utils.tabToStr(renames, p.getTitle());
@@ -945,7 +1020,7 @@ public class Sheets2DB {
 				}
 			}
 		} catch (Exception e) {
-			LOGGER.error("Failed to get oe export sheet ", e);
+			LOGGER.error("Failed to get to export sheet ", e);
 		}
 
 		System.out.println("Inserted " + passed + " records into " + tabs);

@@ -19,6 +19,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
 
+import org.junit.Assume;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,18 @@ public class Sheets2DBTest {
 	 */
 	@Test
 	public void testWithgenSpringTest() {
-		genDB("genSpringTest", 5);
+		genDB("genSpringTest");
+
+	}
+
+	/**
+	 * Run Sheets2DB with genSpringMySQLTest.properties file and validate the
+	 * results. Note will skip if enable=false in properties file.
+	 */
+	@Test
+	public void testWithgenSpringMySQLTest() {
+		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
+		genDB("genSpringMySQLTest");
 
 	}
 
@@ -138,42 +150,66 @@ public class Sheets2DBTest {
 	@Test
 	public void testWithgenSpringTest2() {
 
-		genDB("genSpringTest2", 6);
+		genDB("genSpringTest2");
 	}
 
-	private void genDB(String bundleName, int columns) {
+	private void genDB(String bundleName) {
 		Sheets2DB s = new Sheets2DB(bundleName, true);
 		s.getSheet();
+
+		// Validate DB
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		String schema = db.getDbName();
+		if (schema == null)
+			schema = "";
+		else
+			schema = schema + ".";
 		Connection conn = db.getConnection("Sheet2AppTest");
-		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {
+			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+			int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
 			try {
-				String query = "SELECT * FROM " + tableName;
+				String query = "SELECT * FROM " + schema + tableName;
 				Statement stmt = conn.createStatement();
 				stmt.setMaxRows(1);
 				LOGGER.debug("query=" + query);
 				ResultSet rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
 				ResultSetMetaData rm = rs.getMetaData();
 				int size = rm.getColumnCount();
-				if (userTables.contains(tableName))
-					assertEquals("Checking expected columns in " + tableName, columns + 1, size);
-				else
-					assertEquals("Checking expected columns in " + tableName, columns, size);
+				assertEquals("Checking expected columns in " + schema + tableName, columns, size);
 
+				query = "SELECT COUNT(*) FROM " + schema + tableName;
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
+				if (db.isMySQL())
+					rs.next();
+				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 				if (!userColNums.isEmpty()) {
-					query = "SELECT * FROM " + tableName + "User";
+					tableName = tableName + "User";
+					columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+					rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+					query = "SELECT * FROM " + schema + tableName;
 					stmt = conn.createStatement();
-					stmt.setMaxRows(1);
 					LOGGER.debug("query=" + query);
 					rs = stmt.executeQuery(query);
+					assertNotNull("Check ResultSet", rs);
 					rm = rs.getMetaData();
 					size = rm.getColumnCount();
-					assertEquals("Checking expected columns in " + tableName, userColNums.size() + 3, size);
+					assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+
+					query = "SELECT COUNT(*) FROM " + schema + tableName;
+					stmt = conn.createStatement();
+					rs = stmt.executeQuery(query);
+					assertNotNull("Check ResultSet", rs);
+					if (db.isMySQL())
+						rs.next();
+					assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				}
 			} catch (SQLException e) {
 				LOGGER.error("Exception creating DB", e);

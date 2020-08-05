@@ -167,6 +167,7 @@
 							<zipUrlInstaller> <url>http://download.jboss.org/wildfly/11.0.0.Final/wildfly-11.0.0.Final.zip</url> 
 							<downloadDir>${project.build.directory}</downloadDir> <extractDir>${project.build.directory}</extractDir> 
 							</zipUrlInstaller> -->
+							<timeout>500000</timeout>
 					</container>
 					<!-- <deployables> <deployable> <groupId>org.codehaus.cargo</groupId> 
 						<artifactId>simple-war</artifactId> <type>war</type> <location>${project.build.directory}/genspring-0.0.1-SNAPSHOT.war</location> 

@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 import org.apache.commons.io.FileUtils;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -51,9 +50,17 @@ public class SeleniumBase extends UnitBase {
 	protected boolean useLocal = false;
 	// time to pause at the start of each command.
 	protected long speedDelay = 1;
+	protected ResourceBundle bundle;
 
 	@Rule
 	public ScreenShotRule screenshotRule = new ScreenShotRule();
+
+	public SeleniumBase() {
+		bundle = ResourceBundle.getBundle("test");
+		String baseModule = Utils.getProp(bundle, "genSpring.module");
+		context = Utils.getProp(bundle, "genSpring.artifactId", baseModule);
+
+	}
 
 	/**
 	 * called at the start of each "command". Set speedDelay above to the
@@ -403,14 +410,13 @@ public class SeleniumBase extends UnitBase {
 	}
 
 	protected void checkSite() throws Exception {
+		String staticTop = "/public";
 		// check statics
 		// check css links work
 		openTest("/resources/css/site.css");
 		sourceContains("background-color:", false);
 		openTest("/resources/css/bootstrap.min.css");
 		sourceContains("Bootstrap v3.0.0", false);
-		openTest("/resources/sheet.css");
-		sourceContains("fonts.googleapis.com", false);
 
 		// check js links work
 		openTest("/resources/js/jquery.min.js");
@@ -418,14 +424,25 @@ public class SeleniumBase extends UnitBase {
 		openTest("/resources/js/bootstrap.min.js");
 		sourceContains("bootstrap.js v3.0.0", false);
 
-		// Check tabs saves as static pages
-		openTest("/optView.html");
+		// fonts
+		openTest("/resources/fonts/glyphicons-halflings-regular.svg");
+
+		// favicon.ico
+		openTest("/favicon.ico");
+
+		// Check tabs saves as static pages that do not require login
+		openTest(staticTop + "/optView.html");
 		sourceContains("resources/sheet.css", false);
-		openTest("/Players.html");
+		openTest(staticTop + "/Players.html");
 		sourceContains("resources/sheet.css", false);
+		// Note is used as resources/sheet.css relative to
+		// src/main/webapp/public/Players.html
+		openTest(staticTop + "/resources/sheet.css");
+		sourceContains("fonts.googleapis.com", false);
 
 		// do basic web page checks
 		checkHeader(null, null);
+
 	}
 
 	public class ScreenShotRule extends TestWatcher {

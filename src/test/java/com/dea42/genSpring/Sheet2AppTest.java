@@ -2,6 +2,7 @@ package com.dea42.genSpring;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -43,7 +44,7 @@ public class Sheet2AppTest {
 	 */
 	@Test
 	public void testEndToEnd() {
-		doEndToEnd("genSpringTest", 5, true);
+		doEndToEnd("genSpringTest", true);
 	}
 
 	/**
@@ -54,7 +55,7 @@ public class Sheet2AppTest {
 	 */
 	@Test
 	public void testEndToEnd2() {
-		doEndToEnd("genSpringTest2", 6, true);
+		doEndToEnd("genSpringTest2", true);
 	}
 
 	/**
@@ -103,7 +104,7 @@ public class Sheet2AppTest {
 		}
 
 		assertFalse("check if modTimes empty", modTimes.isEmpty());
-		doEndToEnd("genSpringTest2", 6, false);
+		doEndToEnd("genSpringTest2", false);
 
 		assertEquals(pom.toString(), modTimes.get(pom.toString()).longValue(), pom.toFile().lastModified());
 		try {
@@ -118,8 +119,9 @@ public class Sheet2AppTest {
 				 */
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
-							file.toFile().lastModified());
+					assertNotNull("File added:" + file.toString(), modTimes.get(file.toString()) != null);
+						assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
+								file.toFile().lastModified());
 					return FileVisitResult.CONTINUE;
 				}
 
@@ -227,7 +229,7 @@ public class Sheet2AppTest {
 		}
 	}
 
-	public void doEndToEnd(String bundleName, int columns, boolean purgeFirst) {
+	public void doEndToEnd(String bundleName, boolean purgeFirst) {
 		// remove all files form projects
 		if (purgeFirst)
 			purgeProject(bundleName, clearDBFirst, clearSrcFirst);
@@ -237,22 +239,56 @@ public class Sheet2AppTest {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		String schema = db.getDbName();
+		if (schema == null)
+			schema = "";
+		else
+			schema = schema + ".";
 		Connection conn = db.getConnection("Sheet2AppTest");
-		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {
+			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+			int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
 			try {
-				String query = "SELECT * FROM " + tableName;
+				String query = "SELECT * FROM " + schema + tableName;
 				Statement stmt = conn.createStatement();
 				stmt.setMaxRows(1);
 				LOGGER.debug("query=" + query);
 				ResultSet rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
 				ResultSetMetaData rm = rs.getMetaData();
 				int size = rm.getColumnCount();
-				if (userTables.contains(tableName))
-					assertEquals("Checking expected columns in " + tableName, columns + 1, size);
-				else
-					assertEquals("Checking expected columns in " + tableName, columns, size);
+				assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+
+				query = "SELECT COUNT(*) FROM " + schema + tableName;
+				stmt = conn.createStatement();
+				rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
+				if (db.isMySQL())
+					rs.next();
+				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
+				if (!userColNums.isEmpty()) {
+					tableName = tableName + "User";
+					columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+					rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+					query = "SELECT * FROM " + schema + tableName;
+					stmt = conn.createStatement();
+					LOGGER.debug("query=" + query);
+					rs = stmt.executeQuery(query);
+					assertNotNull("Check ResultSet", rs);
+					rm = rs.getMetaData();
+					size = rm.getColumnCount();
+					assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+
+					query = "SELECT COUNT(*) FROM " + schema + tableName;
+					stmt = conn.createStatement();
+					rs = stmt.executeQuery(query);
+					assertNotNull("Check ResultSet", rs);
+					if (db.isMySQL())
+						rs.next();
+					assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+				}
 			} catch (SQLException e) {
 				LOGGER.error("Exception creating DB", e);
 				fail("Exception creating DB");
@@ -273,11 +309,13 @@ public class Sheet2AppTest {
 
 		String cmd = "mvn";
 		String osName = System.getProperty("os.name");
+		int expected = 0;
 		if (osName.startsWith("Windows"))
 			cmd = "mvn.cmd";
 		cmd = cmd + " clean integration-test -Pintegration";
 
-		Utils.runCmd(cmd, outdir);
+		int rtn = Utils.runCmd(cmd, outdir);
+		assertEquals("Return from:"+cmd, expected, rtn);
 
 		String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
 		String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);

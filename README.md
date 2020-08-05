@@ -36,10 +36,19 @@ CableCard.required=A,B <br>
 shows.lastRow=251 <br>
 
 ### [optional] Tables each row should be prefixed / linked to a user ID. ID 1 is used for the import.
-sheet.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard
+sheet.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
+
+### normal test values See Sheets2DBTest for example of use
+Sheet1.testCols=5<br>
+Sheet2.testCols=5<br>
+Sheet1.testRows=8<br>
+Sheet2.testRows=8<br>
 
 ### [optional] Columns to be placed in separate table linked to source table and account. 
-shows.user=E
+shows.user=E<br>
+## user column tests
+Sheet1User.testCols=5<br>
+Sheet1User.testRows=8<br>
 
 # genSpring
 Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard coded, in mem, auth system.
@@ -211,10 +220,19 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate the
 ./src/main/webapp/WEB-INF/web.xml<br>
 <br>
 ## Unit test files<br>
-./src/test/java/com/dea42/genSpring/*<br>
-./src/test/resources <br>
+./src/test/java/com/dea42/genspring/controller/ApiControllerTest.java<br>
+./src/test/java/com/dea42/genspring/controller/AppControllerTest.java<br>
+./src/test/java/com/dea42/genspring/controller/*ControllerTest.java<br>
+./src/test/java/com/dea42/genspring/MockBase.java<br>
+./src/test/java/com/dea42/genspring/selenium/SeleniumBase.java<br>
+./src/test/java/com/dea42/genspring/selenium/SmokeIT.java<br>
+./src/test/java/com/dea42/genspring/selenium/SmokeTest.java<br>
+./src/test/java/com/dea42/genspring/UnitBase.java<br>
+./src/test/java/com/dea42/genspring/WebAppApplicationTest.java<br>
+./src/test/resources/rename.properties<br>
+./src/test/resources/test.properties<br>
  
- Use the integration maven profile to run test of a cargo deployed version of the app
+Use the integration maven profile to run test of a cargo deployed version of the app
  
 # Running the web app
 - Import generated project as existing maven project<br>

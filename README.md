@@ -98,42 +98,36 @@ Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Ja
 
 # Output from generator
 For example with a DB containing the tables Sheet1 and Sheet2 would generate the files <br>
-#TODO: update files list
-./pom.xml <br>
-./src/main/java/com/dea42/genSpring/controller/AccountController.java<br>
-./src/main/java/com/dea42/genSpring/controller/ApiController.java<br>
-./src/main/java/com/dea42/genSpring/controller/AppController.java<br>
-./src/main/java/com/dea42/genSpring/controller/CustomErrorController.java<br>
-./src/main/java/com/dea42/genSpring/controller/Sheet1Controller.java<br>
-./src/main/java/com/dea42/genSpring/controller/Sheet2Controller.java<br>
-./src/main/java/com/dea42/genSpring/db/SQLiteDialect.java<br>
-./src/main/java/com/dea42/genSpring/entity/Account.java<br>
-./src/main/java/com/dea42/genSpring/entity/Sheet1.java<br>
-./src/main/java/com/dea42/genSpring/entity/Sheet2.java<br>
-./src/main/java/com/dea42/genSpring/form/SignupForm.java<br>
-./src/main/java/com/dea42/genSpring/repo/AccountRepository.java<br>
-./src/main/java/com/dea42/genSpring/repo/Sheet1Repository.java<br>
-./src/main/java/com/dea42/genSpring/repo/Sheet2Repository.java<br>
-./src/main/java/com/dea42/genSpring/SecurityConfiguration.java<br>
-./src/main/java/com/dea42/genSpring/service/AccountService.java<br>
-./src/main/java/com/dea42/genSpring/service/Sheet1Services.java<br>
-./src/main/java/com/dea42/genSpring/service/Sheet2Services.java<br>
-./src/main/java/com/dea42/genSpring/ServletInitializer.java<br>
-./src/main/java/com/dea42/genSpring/utils/ExceptionHandler.java<br>
-./src/main/java/com/dea42/genSpring/utils/Message.java<br>
-./src/main/java/com/dea42/genSpring/utils/MessageHelper.java<br>
-./src/main/java/com/dea42/genSpring/utils/Utils.java<br>
-./src/main/java/com/dea42/genSpring/WebAppApplication.java<br>
+./src/main/java/com/dea42/genspring/controller/AccountController.java<br>
+./src/main/java/com/dea42/genspring/controller/ApiController.java<br>
+./src/main/java/com/dea42/genspring/controller/AppController.java<br>
+./src/main/java/com/dea42/genspring/controller/CustomErrorController.java<br>
+./src/main/java/com/dea42/genspring/controller/Sheet1Controller.java<br>
+./src/main/java/com/dea42/genspring/controller/Sheet2Controller.java<br>
+./src/main/java/com/dea42/genspring/db/SQLiteDialect.java<br>
+./src/main/java/com/dea42/genspring/entity/Account.java<br>
+./src/main/java/com/dea42/genspring/entity/Sheet1.java<br>
+./src/main/java/com/dea42/genspring/entity/Sheet2.java<br>
+./src/main/java/com/dea42/genspring/form/SignupForm.java<br>
+./src/main/java/com/dea42/genspring/repo/AccountRepository.java<br>
+./src/main/java/com/dea42/genspring/repo/Sheet1Repository.java<br>
+./src/main/java/com/dea42/genspring/repo/Sheet2Repository.java<br>
+./src/main/java/com/dea42/genspring/SecurityConfiguration.java<br>
+./src/main/java/com/dea42/genspring/service/AccountService.java<br>
+./src/main/java/com/dea42/genspring/service/Sheet1Services.java<br>
+./src/main/java/com/dea42/genspring/service/Sheet2Services.java<br>
+./src/main/java/com/dea42/genspring/ServletInitializer.java<br>
+./src/main/java/com/dea42/genspring/utils/ExceptionHandler.java<br>
+./src/main/java/com/dea42/genspring/utils/Message.java<br>
+./src/main/java/com/dea42/genspring/utils/MessageHelper.java<br>
+./src/main/java/com/dea42/genspring/utils/Utils.java<br>
+./src/main/java/com/dea42/genspring/WebAppApplication.java<br>
 ./src/main/resources/app.properties<br>
 ./src/main/resources/application.properties<br>
 ./src/main/resources/log4j2.xml<br>
 ./src/main/resources/messages.properties<br>
 ./src/main/resources/messages_de.properties<br>
 ./src/main/resources/messages_fr.properties<br>
-./src/main/resources/resources/css/bootstrap.min.css<br>
-./src/main/resources/resources/css/site.css<br>
-./src/main/resources/resources/js/bootstrap.min.js<br>
-./src/main/resources/resources/js/jquery.min.js<br>
 ./src/main/resources/templates/api_index.html<br>
 ./src/main/resources/templates/edit_sheet1.html<br>
 ./src/main/resources/templates/edit_sheet2.html<br>
@@ -162,19 +156,22 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate the
 ./src/main/webapp/resources/js/bootstrap.min.js<br>
 ./src/main/webapp/resources/js/jquery.min.js<br>
 ./src/main/webapp/WEB-INF/web.xml<br>
-./src/test/java/com/dea42/genSpring/controller/ApiControllerTest.java<br>
-./src/test/java/com/dea42/genSpring/controller/AppControllerTest.java<br>
-./src/test/java/com/dea42/genSpring/controller/Sheet1ControllerTest.java<br>
-./src/test/java/com/dea42/genSpring/controller/Sheet2ControllerTest.java<br>
-./src/test/java/com/dea42/genSpring/MockBase.java<br>
-./src/test/java/com/dea42/genSpring/selenium/SeleniumBase.java<br>
-./src/test/java/com/dea42/genSpring/selenium/SmokeIT.java<br>
-./src/test/java/com/dea42/genSpring/selenium/SmokeTest.java<br>
-./src/test/java/com/dea42/genSpring/UnitBase.java<br>
-./src/test/java/com/dea42/genSpring/WebAppApplicationTest.java<br>
+./src/test/java/com/dea42/genspring/controller/.gitignore<br>
+./src/test/java/com/dea42/genspring/controller/ApiControllerTest.java<br>
+./src/test/java/com/dea42/genspring/controller/AppControllerTest.java<br>
+./src/test/java/com/dea42/genspring/controller/Sheet1ControllerTest.java<br>
+./src/test/java/com/dea42/genspring/controller/Sheet2ControllerTest.java<br>
+./src/test/java/com/dea42/genspring/MockBase.java<br>
+./src/test/java/com/dea42/genspring/selenium/SeleniumBase.java<br>
+./src/test/java/com/dea42/genspring/selenium/SmokeIT.java<br>
+./src/test/java/com/dea42/genspring/selenium/SmokeTest.java<br>
+./src/test/java/com/dea42/genspring/UnitBase.java<br>
+./src/test/java/com/dea42/genspring/WebAppApplicationTest.java<br>
+./src/test/resources/rename.properties<br>
+./src/test/resources/test.properties<br>
 
 #Basic structure is
-## basic pom file
+## Basic pom file
 ./pom.xml <br>
 ## DB Dialect if needed.
 ./src/main/java/com/dea42/genSpring/db/SQLiteDialect.java  **(Only if using SQLite)**<br>
@@ -182,18 +179,18 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate the
 ./src/main/resources/messages.properties<br>
 ./src/main/resources/messages_de.properties<br>
 ./src/main/resources/messages_fr.properties<br>
-## page with links API URLs
+## Page with links API URLs
 ./src/main/resources/templates/api_index.html
-## item edit / create pages
+## Item edit / create pages
 ./src/main/resources/templates/edit_*.html<br>
 ## item list pages
 ./src/main/resources/templates/*s.html<br>
-## sample static web pages
+## Sample static web pages
 ./src/main/webapp/public/optView.html ** sample static web page**<br>
 ./src/main/webapp/public/Players.html ** sample static web page**<br>
 ./src/main/webapp/public/resources/sheet.css ** css file for Google sheet tabs exported as HTML**<br>
 
-## basic web app framework pages
+## Basic web app framework pages
 ./src/main/resources/templates/error/general.html<br>
 ./src/main/resources/templates/fragments/alert.html<br>
 ./src/main/resources/templates/fragments/footer.html<br>
@@ -204,31 +201,37 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate the
 ./src/main/resources/templates/home/signup.html<br>
 ./src/main/resources/templates/index.html<br>
 ./src/main/webapp/favicon.ico ** sample site icon**<br>
-## sample css files
+## Sample css files
 ./src/main/webapp/resources/css/bootstrap.min.css<br>
 ./src/main/webapp/resources/css/site.css<br>
-## needed Javascript
+## Needed Javascript
 ./src/main/webapp/resources/js/bootstrap.min.js<br>
 ./src/main/webapp/resources/js/jquery.min.js<br>
-## needed fonts and icons
+## Needed fonts and icons
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.eot<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.svg<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.ttf<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff2<br>
-## app url mapping file
+## App url mapping file
 ./src/main/webapp/WEB-INF/web.xml<br>
 <br>
 ## Unit test files<br>
-./src/test/java/com/dea42/genspring/controller/ApiControllerTest.java<br>
-./src/test/java/com/dea42/genspring/controller/AppControllerTest.java<br>
-./src/test/java/com/dea42/genspring/controller/*ControllerTest.java<br>
-./src/test/java/com/dea42/genspring/MockBase.java<br>
-./src/test/java/com/dea42/genspring/selenium/SeleniumBase.java<br>
-./src/test/java/com/dea42/genspring/selenium/SmokeIT.java<br>
-./src/test/java/com/dea42/genspring/selenium/SmokeTest.java<br>
-./src/test/java/com/dea42/genspring/UnitBase.java<br>
 ./src/test/java/com/dea42/genspring/WebAppApplicationTest.java<br>
+./src/test/java/com/dea42/genspring/controller/*ControllerTest.java<br>
+### Common test methods
+./src/test/java/com/dea42/genspring/UnitBase.java<br>
+### Methods for mock testing
+./src/test/java/com/dea42/genspring/MockBase.java<br>
+
+## Regression tests
+### Methods for Selenium regression tests
+./src/test/java/com/dea42/genspring/selenium/SeleniumBase.java<br>
+### Runs regression tests against deployed war
+./src/test/java/com/dea42/genspring/selenium/SmokeIT.java<br>
+### Runs regression tests against Sprint Boot standalone config
+./src/test/java/com/dea42/genspring/selenium/SmokeTest.java<br>
+### Properties files used for testing.
 ./src/test/resources/rename.properties<br>
 ./src/test/resources/test.properties<br>
  

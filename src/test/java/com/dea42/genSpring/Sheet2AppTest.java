@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+import org.junit.Assume;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +40,17 @@ public class Sheet2AppTest {
 	private static final boolean clearSrcFirst = true;
 
 	/**
+	 * Run full end to end regression tests with genSpringMySQLTest.properties file
+	 * and validate the results. Note will skip if enable=false in properties file.
+	 */
+	@Test
+	public void testEndToEndMySQLTest() {
+		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
+		doEndToEnd("genSpringMySQLTest", true);
+
+	}
+
+	/**
 	 * Do full tests of sheet to app that uses package and module that match the
 	 * static folder. This project and then be used to prototype changes as well.
 	 */
@@ -48,10 +60,10 @@ public class Sheet2AppTest {
 	}
 
 	/**
-	 * Do full tests of sheet to app that does not package and module that match the
-	 * static folder and diff sheet than testEndToEnd() to ensure no hard codes are
-	 * left in, no gened files are in the static folder and a couple diff sheet
-	 * options.
+	 * Do full tests of sheet to app package and module that does not match the
+	 * static folder and uses diff sheet than testEndToEnd() to ensure no hard codes
+	 * are left in, no gened files are in the static folder and a couple diff
+	 * generation options.
 	 */
 	@Test
 	public void testEndToEnd2() {
@@ -59,8 +71,8 @@ public class Sheet2AppTest {
 	}
 
 	/**
-	 * Same as testEndToEnd2 except with out purge and checking no gened files were
-	 * changed.
+	 * Same as testEndToEnd2 except with out purge and checking no genSpring created
+	 * files were changed.
 	 */
 	@Test
 	public void testEndToEnd3() {
@@ -120,8 +132,8 @@ public class Sheet2AppTest {
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 					assertNotNull("File added:" + file.toString(), modTimes.get(file.toString()) != null);
-						assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
-								file.toFile().lastModified());
+					assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
+							file.toFile().lastModified());
 					return FileVisitResult.CONTINUE;
 				}
 
@@ -302,27 +314,26 @@ public class Sheet2AppTest {
 
 			gs.writeProject(tableNames);
 
+			String cmd = "mvn";
+			String osName = System.getProperty("os.name");
+			int expected = 0;
+			if (osName.startsWith("Windows"))
+				cmd = "mvn.cmd";
+			cmd = cmd + " clean integration-test -Pintegration";
+
+			int rtn = Utils.runCmd(cmd, outdir);
+			assertEquals("Return from:" + cmd, expected, rtn);
+
+			String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
+			String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
+			String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
+
+			Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war").normalize();
+			assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
 		} catch (Exception e) {
 			LOGGER.error("Failed generating app", e);
 			fail(e.getMessage());
 		}
-
-		String cmd = "mvn";
-		String osName = System.getProperty("os.name");
-		int expected = 0;
-		if (osName.startsWith("Windows"))
-			cmd = "mvn.cmd";
-		cmd = cmd + " clean integration-test -Pintegration";
-
-		int rtn = Utils.runCmd(cmd, outdir);
-		assertEquals("Return from:"+cmd, expected, rtn);
-
-		String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
-		String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
-		String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
-
-		Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war").normalize();
-		assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
 	}
 
 }

@@ -903,7 +903,7 @@ public class Sheets2DB {
 	 */
 	private void addAccountTable() throws IOException, SQLException {
 		int varcharLen = 254;
-		int roleNameLen = 254;
+		int roleNameLen = 25;
 
 		LOGGER.debug("Creating account table");
 		String schema = db.getDbName();
@@ -914,7 +914,8 @@ public class Sheets2DB {
 		// Drop old table if there is one
 		if (db.isSQLite()) {
 			runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar(" + varcharLen
-					+ "), password varchar(" + varcharLen + "), role varchar(" + roleNameLen + "), primary key (id));");
+					+ ") UNIQUE, password varchar(" + varcharLen + "), role varchar(" + roleNameLen
+					+ "), primary key (id));");
 			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
 			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
 			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
@@ -928,7 +929,7 @@ public class Sheets2DB {
 			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT auto_increment NOT NULL,\n"
 					+ "	created TIMESTAMP NULL,\n" + "	email VARCHAR(" + varcharLen + ") NULL,\n"
 					+ "	password VARCHAR(" + varcharLen + ") NULL,\n" + "	`role` VARCHAR(" + roleNameLen + ") NULL,\n"
-					+ "	CONSTRAINT account_pk PRIMARY KEY (id)\n" + ")\n" + "ENGINE=InnoDB\n"
+					+ "	CONSTRAINT account_pk PRIMARY KEY (id), UNIQUE KEY unique_email (email))\n" + "ENGINE=InnoDB\n"
 					+ "DEFAULT CHARSET=utf8mb4\n" + "COLLATE=utf8mb4_0900_ai_ci;");
 			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
 					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
@@ -938,7 +939,7 @@ public class Sheets2DB {
 			LOGGER.warn("Doing best guess for table create.");
 			runSQL("CREATE TABLE " + schema + "account (id bigint not null, created timestamp, email varchar("
 					+ varcharLen + "), password varchar(" + varcharLen + "), role varchar(" + roleNameLen
-					+ "), primary key (id));");
+					+ "), primary key (id), UNIQUE KEY unique_email (email));");
 			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
 			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
 			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");

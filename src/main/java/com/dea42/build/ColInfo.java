@@ -24,24 +24,35 @@ public class ColInfo implements Serializable {
 	 */
 	private static final long serialVersionUID = 2L;
 
+	// name of column in DB
 	private String colName;
-	private String constName;
+	// variable name
 	private String vName;
+	// Java type
 	private String type;
 	// the java.sql.Types value
 	private int stype;
+	// getter/setter name (the bit after get/set
 	private String gsName;
 	private int length;
+	// needed import(s) for field type and annotation
+	private String importStr;
 	/**
 	 * This column is the primary key
 	 */
 	private boolean pk = false;
 	private String defaultVal;
 	private String constraint;
-	private boolean numeric = false;
-	private boolean date = false;
 
 	private boolean required = false;
+	// show in list pages
+	private boolean list = true;
+	// filter from REST interface
+	private boolean jsonIgnore = false;
+	// add unique flag
+	private boolean unique = false;
+	// Framework set field not to be exposed in GUI or REST
+	private boolean hidden = false;
 
 	private String foreignTable;
 	private String foreignCol;
@@ -63,15 +74,6 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * is date type
-	 * 
-	 * @return
-	 */
-	public boolean isDate() {
-		return date;
-	}
-
-	/**
 	 * return true if a String type
 	 * 
 	 * @return
@@ -81,20 +83,12 @@ public class ColInfo implements Serializable {
 				|| stype == Types.LONGVARCHAR || stype == Types.BLOB || stype == Types.CHAR || stype == Types.SQLXML;
 	}
 
-	/**
-	 * @deprecated
-	 * @return
-	 */
-	public boolean isNumeric() {
-		return numeric;
+	public boolean isTimestamp() {
+		return stype == Types.TIMESTAMP;
 	}
 
-	/**
-	 * @deprecated
-	 * @param numeric
-	 */
-	public void setNumeric(boolean numeric) {
-		this.numeric = numeric;
+	public boolean isDate() {
+		return stype == Types.DATE;
 	}
 
 	/**
@@ -148,7 +142,6 @@ public class ColInfo implements Serializable {
 
 	public void setColName(String colName) {
 		this.colName = colName;
-		constName = colName.toUpperCase();
 	}
 
 	/**
@@ -166,7 +159,8 @@ public class ColInfo implements Serializable {
 	 * @return String
 	 */
 	public String getConstName() {
-		return constName;
+		return colName.toUpperCase();
+
 	}
 
 	public void setVName(String vName) {
@@ -182,19 +176,22 @@ public class ColInfo implements Serializable {
 		return vName;
 	}
 
+	/**
+	 * @return the vName
+	 */
+	public String getvName() {
+		return vName;
+	}
+
+	/**
+	 * @param vName the vName to set
+	 */
+	public void setvName(String vName) {
+		this.vName = vName;
+	}
+
 	public void setType(String type) {
 		this.type = type;
-		if ("Float".equals(type)) {
-			setNumeric(true);
-		} else if ("Double".equals(type)) {
-			setNumeric(true);
-		} else if (type.startsWith("Integer")) {// can be INT or INT IDENTITY
-			setNumeric(true);
-		} else if ("Long".equals(type)) {
-			setNumeric(true);
-		} else if ("Timestamp".equals(type)) {
-			date = true;
-		}
 	}
 
 	/**
@@ -295,10 +292,6 @@ public class ColInfo implements Serializable {
 		this.colPrecision = colPrecision;
 	}
 
-	public void setConstName(String constName) {
-		this.constName = constName;
-	}
-
 	/**
 	 * get java.sql.Types type
 	 * 
@@ -317,16 +310,88 @@ public class ColInfo implements Serializable {
 		this.stype = stype;
 	}
 
+	/**
+	 * @return the list
+	 */
+	public boolean isList() {
+		return list;
+	}
+
+	/**
+	 * @param list the list to set
+	 */
+	public void setList(boolean list) {
+		this.list = list;
+	}
+
+	/**
+	 * @return the hidden
+	 */
+	public boolean isHidden() {
+		return hidden;
+	}
+
+	/**
+	 * @param hidden the hidden to set
+	 */
+	public void setHidden(boolean hidden) {
+		this.hidden = hidden;
+	}
+
+	/**
+	 * @return the jsonIgnore
+	 */
+	public boolean isJsonIgnore() {
+		return jsonIgnore;
+	}
+
+	/**
+	 * @param jsonIgnore the jsonIgnore to set
+	 */
+	public void setJsonIgnore(boolean jsonIgnore) {
+		this.jsonIgnore = jsonIgnore;
+	}
+
+	/**
+	 * @return the unique
+	 */
+	public boolean isUnique() {
+		return unique;
+	}
+
+	/**
+	 * @param unique the unique to set
+	 */
+	public void setUnique(boolean unique) {
+		this.unique = unique;
+	}
+
+	/**
+	 * @return the importStr
+	 */
+	public String getImportStr() {
+		return importStr;
+	}
+
+	/**
+	 * @param importStr the importStr to set
+	 */
+	public void setImportStr(String importStr) {
+		this.importStr = importStr;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("ColInfo [colName=").append(colName).append(", constName=").append(constName).append(", vName=")
-				.append(vName).append(", type=").append(type).append(", stype=").append(stype).append(", gsName=")
-				.append(gsName).append(", length=").append(length).append(", pk=").append(pk).append(", defaultVal=")
-				.append(defaultVal).append(", constraint=").append(constraint).append(", numeric=").append(numeric)
-				.append(", date=").append(date).append(", required=").append(required).append(", foreignTable=")
-				.append(foreignTable).append(", foreignCol=").append(foreignCol).append(", colScale=").append(colScale)
-				.append(", colPrecision=").append(colPrecision).append(", fNum=").append(fNum).append("]");
+		builder.append("ColInfo [colName=").append(colName).append(", vName=").append(vName).append(", type=")
+				.append(type).append(", stype=").append(stype).append(", gsName=").append(gsName).append(", length=")
+				.append(length).append(", importStr=").append(importStr).append(", pk=").append(pk)
+				.append(", defaultVal=").append(defaultVal).append(", constraint=").append(constraint)
+				.append(", required=").append(required).append(", list=").append(list).append(", jsonIgnore=")
+				.append(jsonIgnore).append(", unique=").append(unique).append(", hidden=").append(hidden)
+				.append(", foreignTable=").append(foreignTable).append(", foreignCol=").append(foreignCol)
+				.append(", colScale=").append(colScale).append(", colPrecision=").append(colPrecision).append(", fNum=")
+				.append(fNum).append("]");
 		return builder.toString();
 	}
 

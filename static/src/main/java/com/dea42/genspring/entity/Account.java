@@ -1,9 +1,14 @@
 package com.dea42.genspring.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.sql.Timestamp;
 
-import javax.persistence.*;
-import java.time.Instant;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.Table;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @SuppressWarnings("serial")
 @Entity
@@ -12,19 +17,21 @@ public class Account implements java.io.Serializable {
 
 	@Id
 	@GeneratedValue
-	private Long id;
+	private Long id = 0l;
 
-	@Column(unique = true)
+	@Column(unique = true, name = "email", length = 254)
 	private String email;
 
 	@JsonIgnore
+	@Column(name = "password", length = 254)
 	private String password;
 
+	@Column(name = "role", length = 25)
 	private String role = "ROLE_USER";
 
-	private Instant created;
+	private Timestamp created;
 
-	protected Account() {
+	public Account() {
 
 	}
 
@@ -32,7 +39,7 @@ public class Account implements java.io.Serializable {
 		this.email = email;
 		this.password = password;
 		this.role = role;
-		this.created = Instant.now();
+		this.created = new Timestamp(System.currentTimeMillis());
 	}
 
 	public Account(String email, String password) {
@@ -75,7 +82,7 @@ public class Account implements java.io.Serializable {
 		this.role = role;
 	}
 
-	public Instant getCreated() {
+	public Timestamp getCreated() {
 		return created;
 	}
 

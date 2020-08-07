@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.zip.DataFormatException;
 
@@ -54,7 +55,7 @@ public class GenSpring {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String PROPKEY = "genSpring";
 	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.2.2";
+	public static final String genSpringVersion = "0.2.3";
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
@@ -76,37 +77,14 @@ public class GenSpring {
 	private int year = 2001;
 	private String schema = null;
 
+	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
+
 	public GenSpring() throws IOException {
 		this(PROPKEY);
 	}
 
 	public GenSpring(String bundleName) throws IOException {
 		this.bundleName = bundleName;
-		GregorianCalendar gc = new GregorianCalendar();
-		year = gc.get(Calendar.YEAR);
-
-		bundle = ResourceBundle.getBundle(bundleName);
-		renames = ResourceBundle.getBundle("rename");
-		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir");
-		schema = Utils.getProp(bundle, PROPKEY + ".schema");
-		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg");
-		baseModule = Utils.getProp(bundle, PROPKEY + ".module");
-		baseArtifactId = Utils.getProp(bundle, PROPKEY + ".artifactId", baseModule);
-		basePkg = baseGroupId + '.' + baseModule;
-		basePath = basePkg.replace('.', '/');
-		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
-		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
-		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
-
-		srcPkg = srcGroupId + '.' + srcArtifactId;
-		srcPath = srcPkg.replace('.', '/');
-		File outDir = Utils.getPath(baseDir).toFile();
-		if (!outDir.exists()) {
-			if (!outDir.mkdirs()) {
-				throw new IOException("Could not create output dir:" + baseDir);
-			}
-		}
-
 	}
 
 	/**
@@ -391,6 +369,34 @@ public class GenSpring {
 		});
 	}
 
+	protected void initVars() throws IOException {
+		GregorianCalendar gc = new GregorianCalendar();
+		year = gc.get(Calendar.YEAR);
+
+		bundle = ResourceBundle.getBundle(bundleName);
+		renames = ResourceBundle.getBundle("rename");
+		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir");
+		schema = Utils.getProp(bundle, PROPKEY + ".schema");
+		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg");
+		baseModule = Utils.getProp(bundle, PROPKEY + ".module");
+		baseArtifactId = Utils.getProp(bundle, PROPKEY + ".artifactId", baseModule);
+		basePkg = baseGroupId + '.' + baseModule;
+		basePath = basePkg.replace('.', '/');
+		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
+		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
+		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
+
+		srcPkg = srcGroupId + '.' + srcArtifactId;
+		srcPath = srcPkg.replace('.', '/');
+		File outDir = Utils.getPath(baseDir).toFile();
+		if (!outDir.exists()) {
+			if (!outDir.mkdirs()) {
+				throw new IOException("Could not create output dir:" + baseDir);
+			}
+		}
+
+	}
+
 	/**
 	 * Generate folder structure and project level files
 	 * 
@@ -398,6 +404,8 @@ public class GenSpring {
 	 * @throws Exception
 	 */
 	public void writeProject(List<String> tableNames) throws Exception {
+		initVars();
+
 		copyCommon();
 
 		writeAppProps();
@@ -406,7 +414,7 @@ public class GenSpring {
 		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {
 			String clsName = Utils.tabToStr(renames, tableName);
-			colsInfo.put(clsName, genFiles(tableName));
+			colsInfo.put(clsName, genTableMaintFiles(tableName));
 		}
 		writeMockBase(colsInfo.keySet());
 		writeApiController(colsInfo.keySet());
@@ -418,26 +426,25 @@ public class GenSpring {
 	}
 
 	/**
-	 * Entry point for generating all the files you need for Spring maint screens to
-	 * Add/Edit/Delete/Search record for a table.
-	 * 
-	 * @param tableName
-	 * @throws Exception
+	 * @return the bundleName
 	 */
-	public Map<String, ColInfo> genFiles(String tableName) throws Exception {
+	public String getBundleName() {
+		return bundleName;
+	}
 
-		String fakePK = null;
-		String pkCol = null;
-		TreeMap<String, ColInfo> namList = new TreeMap<String, ColInfo>();
-		String className = null;
-		String create = "";
-		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(100);
+	/**
+	 * @param bundleName the bundleName to set
+	 */
+	public void setBundleName(String bundleName) {
+		this.bundleName = bundleName;
+	}
 
-		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
+	public void getKeys(Db db, String tableName) {
+		String create;
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
-
+		// SELECT * FROM pragma_foreign_key_list('my_table');
 		if (db.getDbUrl().indexOf("mysql") > -1) {
-			String sql = "show create table " + tableName;
+			String sql = "SELECT * FROM pragma_foreign_key_list('" + tableName + "');";
 			try {
 				Statement stmt = conn.createStatement();
 				stmt.setMaxRows(1);
@@ -454,6 +461,54 @@ public class GenSpring {
 			}
 		}
 
+	}
+
+	/**
+	 * Entry point for generating all the files you need for Spring maint screens to
+	 * Add/Edit/Delete/Search record for a table.
+	 * 
+	 * @param tableName
+	 * @throws Exception
+	 */
+	public Map<String, ColInfo> genTableMaintFiles(String tableName) throws Exception {
+
+		String firstColumnName = null;
+		String pkCol = null;
+		String className = Utils.tabToStr(renames, tableName);
+		String create = "";
+
+		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
+		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
+
+		if (db.getDbUrl().indexOf("mysql") > -1) {
+			String sql = "show create table " + tableName;
+			try {
+				Statement stmt = conn.createStatement();
+				stmt.setMaxRows(1);
+				LOGGER.debug("query=" + sql);
+				ResultSet rs = stmt.executeQuery(sql);
+				if (rs.next()) {
+					create = rs.getString("Create Table");
+				}
+			} catch (SQLException e) {
+				LOGGER.error(sql + " failed", e);
+			}
+		}
+
+		// MySQL
+		// SHOW KEYS FROM table WHERE Key_name = 'PRIMARY'
+//		SELECT 
+//		  TABLE_NAME,COLUMN_NAME,CONSTRAINT_NAME, REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME
+//		FROM
+//		  INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+//		WHERE
+//		  REFERENCED_TABLE_SCHEMA = '<database>' AND
+//		  REFERENCED_TABLE_NAME = '<table>';
+
+		// SQLite
+		// SELECT * FROM pragma_table_info('my_table');
+		// SELECT * FROM pragma_foreign_key_list('my_table');
+
 		LOGGER.debug("tableName:" + tableName);
 		String query = "SELECT * FROM " + tableName;
 		Statement stmt = conn.createStatement();
@@ -462,16 +517,27 @@ public class GenSpring {
 		ResultSet rs = stmt.executeQuery(query);
 		ResultSetMetaData rm = rs.getMetaData();
 		int size = rm.getColumnCount();
-		for (int i = 1; i <= size; i++) {
-			ColInfo info = new ColInfo();
-			info.setfNum(i);
+		// Map indexed by column name
+		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(size);
+		List<String> jsonIgnoreCols = Utils.getPropList(bundle, className + ".JsonIgnore");
+		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
 
-			String cnam = rm.getColumnName(i);// .toUpperCase();
-			info.setColName(cnam);
-			if (fakePK == null) {
-				fakePK = cnam;
+		for (int i = 1; i <= size; i++) {
+			ColInfo colInfo = new ColInfo();
+			colInfo.setfNum(i);
+
+			String columnName = rm.getColumnName(i);
+			colInfo.setColName(columnName);
+			if (firstColumnName == null) {
+				firstColumnName = columnName;
 			}
-			info.setPk(rm.isAutoIncrement(i) || cnam.equals(pkCol));
+			colInfo.setPk(rm.isAutoIncrement(i) || columnName.equals(pkCol));
+			if (jsonIgnoreCols.contains(columnName)) {
+				colInfo.setJsonIgnore(true);
+			}
+			if (uniqueCols.contains(columnName)) {
+				colInfo.setUnique(true);
+			}
 			String type = rm.getColumnTypeName(i).toUpperCase();
 			int len = rm.getColumnDisplaySize(i);
 			if (len >= 2147483647) {
@@ -482,13 +548,13 @@ public class GenSpring {
 				}
 			}
 
-			info.setLength(len);
-			cnam = Utils.tabToStr(renames, cnam);
-			info.setVName(cnam.substring(0, 1).toLowerCase() + cnam.substring(1));
-			info.setGsName(cnam);
+			colInfo.setLength(len);
+			columnName = Utils.tabToStr(renames, columnName);
+			colInfo.setVName(columnName.substring(0, 1).toLowerCase() + columnName.substring(1));
+			colInfo.setGsName(columnName);
 			// a java.sql.Types
 			int stype = rm.getColumnType(i);
-			info.setStype(stype);
+			colInfo.setStype(stype);
 			switch (stype) {
 			case Types.VARCHAR:
 			case Types.NVARCHAR:
@@ -497,13 +563,13 @@ public class GenSpring {
 			case Types.BLOB:
 			case Types.CHAR:
 			case Types.SQLXML:
-				info.setType("String");
+				colInfo.setType("String");
 				break;
 
 			case Types.REAL:
-				info.setType("Float");
-				info.setColPrecision(rm.getPrecision(i));
-				info.setColScale(rm.getScale(i));
+				colInfo.setType("Float");
+				colInfo.setColPrecision(rm.getPrecision(i));
+				colInfo.setColScale(rm.getScale(i));
 				break;
 
 			case Types.FLOAT:
@@ -511,47 +577,51 @@ public class GenSpring {
 			case Types.DOUBLE:
 			case Types.NUMERIC:
 				if (useDouble) {
-					info.setType("Double");
+					colInfo.setType("Double");
 				} else {
-					info.setType("BigDecimal");
+					colInfo.setType("BigDecimal");
+					colInfo.setImportStr("import java.math.BigDecimal;");
 				}
-				info.setColPrecision(rm.getPrecision(i));
-				info.setColScale(rm.getScale(i));
+				colInfo.setColPrecision(rm.getPrecision(i));
+				colInfo.setColScale(rm.getScale(i));
 				break;
 
 			case Types.INTEGER:
 			case Types.SMALLINT:
 			case Types.TINYINT:
-				info.setType("Integer");
+				colInfo.setType("Integer");
 				break;
 			case Types.BIGINT:
-				info.setType("Long");
+				colInfo.setType("Long");
 				break;
 			case Types.TIMESTAMP:
-				info.setType("Timestamp");
-				break;
 			case Types.DATE:
-				info.setType("Date");
+				colInfo.setType("Date");
+//				colInfo.setImportStr("import java.sql.Timestamp;");
+				colInfo.setImportStr("import java.util.Date;" + System.lineSeparator()
+						+ "import org.springframework.format.annotation.DateTimeFormat;");
 				break;
+//			case Types.DATE:
+//				colInfo.setType("Date");
+//				colInfo.setImportStr("import java.sql.Date;");
+//				break;
 			case Types.VARBINARY:
 			case Types.CLOB:
-				info.setType("byte[]");
+				colInfo.setType("byte[]");
 				break;
 			default:
 				// if its something else treat it like a String for now
 				System.err.println("Type " + type + " Unknown treating like String");
-				info.setType("String");
+				colInfo.setType("String");
 			}
 
-			if (info.getColName() != null && info.getType() != null && info.getType().length() > 0) {
-				LOGGER.info("storing:" + info);
-				cols.put(info.getConstName(), info);
-				namList.put(info.getVName(), info);
+			if (colInfo.getColName() != null && colInfo.getType() != null && colInfo.getType().length() > 0) {
+				LOGGER.info("storing:" + colInfo);
+				cols.put(colInfo.getConstName(), colInfo);
 			}
 		}
 
 		// write bean with helpers
-		className = Utils.tabToStr(renames, tableName);
 
 		// TODO: add support for composite keys
 		DatabaseMetaData metaData = conn.getMetaData();
@@ -566,11 +636,9 @@ public class GenSpring {
 			LOGGER.info(" ");
 		}
 		if (StringUtils.isBlank(pkCol)) {
-			pkCol = fakePK;
+			pkCol = firstColumnName;
 			LOGGER.error(tableName + " does not have a primary key. Using " + pkCol);
 		}
-		ColInfo pkinfo = cols.get(pkCol.toUpperCase());
-		pkinfo.setPk(true);
 
 		rs = metaData.getImportedKeys("", schema, tableName);
 		while (rs.next()) {
@@ -598,13 +666,27 @@ public class GenSpring {
 		}
 		db.close(PROPKEY + ".genFiles()");
 
+		ColInfo pkinfo = cols.get(pkCol.toUpperCase());
+		pkinfo.setPk(true);
+
+		// Map indexed by field name
+		TreeMap<String, ColInfo> namList = new TreeMap<String, ColInfo>();
+		for (String colName : cols.keySet()) {
+			ColInfo info = cols.get(colName);
+			namList.put(info.getVName(), info);
+			if (info.isPk()) {
+				namList.put(PKEY_INFO, info);
+			}
+		}
+		cols.put(PKEY_INFO, pkinfo);
+
 		writeBean(tableName, className, namList, create);
 		writeRepo(className, pkinfo);
 		writeService(className, pkinfo);
-		writeListPage(className, namList, pkinfo);
+		writeListPage(className, namList);
 		writeObjController(className, pkinfo);
-		writeObjControllerTest(className, pkinfo, namList);
-		writeEditPage(className, namList, pkinfo);
+		writeObjControllerTest(className, namList);
+		writeEditPage(className, namList);
 
 		return cols;
 	}
@@ -709,6 +791,8 @@ public class GenSpring {
 					Iterator<String> it = namList.keySet().iterator();
 					while (it.hasNext()) {
 						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
 						ColInfo info = (ColInfo) namList.get(name);
 						data = data + clsName + "." + info.getVName() + "=" + info.getGsName() + System.lineSeparator();
 					}
@@ -730,6 +814,7 @@ public class GenSpring {
 	 * Created mock unit test of ApiController. TODO: need updated to use MockBase
 	 * 
 	 * @param colsInfo
+	 * @param pkinfo   TODO
 	 */
 	private void writeApiControllerTest(Map<String, Map<String, ColInfo>> colsInfo) {
 		Set<String> set = colsInfo.keySet();
@@ -776,6 +861,14 @@ public class GenSpring {
 				ps.println("");
 				for (String clsName : set) {
 					Map<String, ColInfo> namList = colsInfo.get(clsName);
+					ColInfo pkinfo = namList.get(PKEY_INFO);
+					if (pkinfo == null) {
+						LOGGER.error("No PK found for " + clsName);
+						System.exit(2);
+					}
+					String idMod = "";
+					if ("Long".equals(pkinfo.getType()))
+						idMod = "l";
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("");
 					ps.println("	/**");
@@ -787,16 +880,20 @@ public class GenSpring {
 					ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
 					ps.println("		List<" + clsName + "> list = new ArrayList<>();");
 					ps.println("		" + clsName + " o = new " + clsName + "();");
-					ps.println("		o.setId(1);");
+//					ps.println("		o.setId(1" + idMod + ");");
 					Iterator<String> it = namList.keySet().iterator();
 					while (it.hasNext()) {
 						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
 						ColInfo info = (ColInfo) namList.get(name);
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
-								ps.println("         o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
+								ps.println("        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
 							}
+						} else if (info.isPk()) {
+							ps.println("		o.set" + info.getGsName() + "(1" + idMod + ");");
 						}
 					}
 					ps.println("		list.add(o);");
@@ -808,7 +905,12 @@ public class GenSpring {
 					it = namList.keySet().iterator();
 					while (it.hasNext()) {
 						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
+
 						ColInfo info = (ColInfo) namList.get(name);
+						if (info.isJsonIgnore())
+							continue;
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
@@ -820,10 +922,9 @@ public class GenSpring {
 								+ "\")))");
 						if (it.hasNext()) {
 							ps.println("");
-						} else {
-							ps.println(";");
 						}
 					}
+					ps.println(";");
 					ps.println("	}");
 					ps.println("");
 				}
@@ -903,8 +1004,9 @@ public class GenSpring {
 				ps.println("@Repository");
 				ps.println("public interface " + clsName + "Repository extends JpaRepository<" + clsName + ", "
 						+ pkinfo.getType() + ">{");
-				if (pkinfo.getStype() != Types.INTEGER) {
-					ps.println("//Primary key is not int which will require custom code to be added below");
+				if ((pkinfo.getStype() != Types.INTEGER) && (pkinfo.getStype() != Types.BIGINT)) {
+					ps.println(
+							"//TODO: Primary key is not int or bigint which will require custom code to be added below");
 				}
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
@@ -915,7 +1017,8 @@ public class GenSpring {
 		}
 	}
 
-	private void writeEditPage(String clsName, TreeMap<String, ColInfo> namList, ColInfo pkinfo) {
+	private void writeEditPage(String clsName, TreeMap<String, ColInfo> namList) {
+		ColInfo pkinfo = namList.get(PKEY_INFO);
 		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 		String outFile = "/src/main/resources/templates/edit_" + fieldName + ".html";
 		Set<String> set = namList.keySet();
@@ -945,7 +1048,10 @@ public class GenSpring {
 				ps.println("				</tr>");
 				Iterator<String> it = set.iterator();
 				while (it.hasNext()) {
-					ColInfo info = (ColInfo) namList.get(it.next());
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
 					if (!pkinfo.getColName().equals(info.getColName())) {
 						ps.println("				<tr>");
 						ps.println("            		<td>" + info.getColName() + ":</td>");
@@ -972,6 +1078,14 @@ public class GenSpring {
 		}
 	}
 
+	/**
+	 * Get a list of all the columns to include in list pages
+	 * 
+	 * @param clsName
+	 * @param namList
+	 * @return
+	 * @throws DataFormatException
+	 */
 	private Set<String> getListKeys(String clsName, TreeMap<String, ColInfo> namList) throws DataFormatException {
 		Set<String> set = namList.keySet();
 		List<String> listCols = Utils.getPropList(bundle, clsName + ".list");
@@ -982,6 +1096,8 @@ public class GenSpring {
 			// validate list against DB data
 			Object[] names = set.toArray();
 			for (Object name : names) {
+				if (PKEY_INFO.equals(name))
+					continue;
 				ColInfo info = (ColInfo) namList.get(name);
 				if (info == null) {
 					info = (ColInfo) namList.get(((String) name).toLowerCase());
@@ -1001,7 +1117,8 @@ public class GenSpring {
 		return set;
 	}
 
-	private void writeListPage(String clsName, TreeMap<String, ColInfo> namList, ColInfo pkinfo) {
+	private void writeListPage(String clsName, TreeMap<String, ColInfo> namList) {
+		ColInfo pkinfo = namList.get(PKEY_INFO);
 		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 		String outFile = "/src/main/resources/templates/" + fieldName + "s.html";
 
@@ -1022,6 +1139,8 @@ public class GenSpring {
 				Iterator<String> it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					if (!processed.contains(name)) {
 
@@ -1051,6 +1170,8 @@ public class GenSpring {
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					if (!processed.contains(name)) {
 						if (namList.containsKey(name + "link")) {
@@ -1132,8 +1253,10 @@ public class GenSpring {
 				ps.println("import org.springframework.test.web.servlet.request.RequestPostProcessor;");
 				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
 				ps.println("import org.springframework.web.context.WebApplicationContext;");
-				ps.println("import " + basePkg + ".service.AccountService;");
-				ps.println("import " + basePkg + ".repo.AccountRepository;");
+				if (!set.contains("Account")) {
+					ps.println("import " + basePkg + ".service.AccountServices;");
+					ps.println("import " + basePkg + ".repo.AccountRepository;");
+				}
 				for (String clsName : set) {
 					ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
 					ps.println("import " + basePkg + ".service." + clsName + "Services;");
@@ -1144,10 +1267,12 @@ public class GenSpring {
 				ps.println("");
 				ps.println(getClassHeader("MockBase", "The base class for mock testing."));
 				ps.println("public class MockBase extends UnitBase {");
-				ps.println("    @MockBean");
-				ps.println("    protected AccountService accountService;");
-				ps.println("    @MockBean");
-				ps.println("    protected AccountRepository accountRepository;");
+				if (!set.contains("Account")) {
+					ps.println("    @MockBean");
+					ps.println("    protected AccountServices accountServices;");
+					ps.println("    @MockBean");
+					ps.println("    protected AccountRepository accountRepository;");
+				}
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("    @MockBean");
@@ -1178,7 +1303,7 @@ public class GenSpring {
 				ps.println("	 * @param model");
 				ps.println("	 * @param params");
 				ps.println("	 * @param login");
-				ps.println("	 * @param redirectedUrl");
+				ps.println("	 * @param redirectedUrl if null expects 200 return code.");
 				ps.println("	 * @return ResultActions object for further checks.");
 				ps.println("	 * @throws Exception");
 				ps.println("	 */");
@@ -1408,7 +1533,11 @@ public class GenSpring {
 		}
 	}
 
-	private void writeObjControllerTest(String clsName, ColInfo pkinfo, TreeMap<String, ColInfo> namList) {
+	private void writeObjControllerTest(String clsName, TreeMap<String, ColInfo> namList) {
+		ColInfo pkinfo = namList.get(PKEY_INFO);
+		String idMod = "";
+		if ("Long".equals(pkinfo.getType()))
+			idMod = "l";
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/test/java/" + relPath + '/' + clsName + "ControllerTest.java";
@@ -1432,12 +1561,15 @@ public class GenSpring {
 				ps.println(getClassHeader(clsName + "ControllerTest", clsName + "Controller."));
 				ps.println("@WebMvcTest(" + clsName + "Controller.class)");
 				ps.println("public class " + clsName + "ControllerTest extends MockBase {");
-				ps.println("	private " + clsName + " get" + clsName + "(Integer id) {");
+				ps.println("	private " + clsName + " get" + clsName + "(" + pkinfo.getType() + " "
+						+ pkinfo.getVName() + ") {");
 				ps.println("		" + clsName + " o = new " + clsName + "();");
-				ps.println("		o.setId(id);");
+				ps.println("		o.set" + pkinfo.getGsName() + "(" + pkinfo.getVName() + ");");
 				Iterator<String> it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					if (info.isString()) {
 						int endIndex = info.getLength();
@@ -1457,7 +1589,7 @@ public class GenSpring {
 				ps.println("	@Test");
 				ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
 				ps.println("		List<" + clsName + "> list = new ArrayList<>();");
-				ps.println("		" + clsName + " o = get" + clsName + "(1);");
+				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
 				ps.println("		list.add(o);");
 				ps.println("");
 				ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
@@ -1468,6 +1600,8 @@ public class GenSpring {
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					if (info.isString()) {
 						int endIndex = info.getLength();
@@ -1497,13 +1631,10 @@ public class GenSpring {
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
-//					if (it.hasNext()) {
-//						ps.println("");
-//					} else {
-//						ps.println(";");
-//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1514,7 +1645,7 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Cancel() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(1);");
+				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
 						+ "\", o, ImmutableMap.of(\"action\", \"cancel\"), ADMIN_USER,");
@@ -1528,7 +1659,7 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testSave" + clsName + "Save() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(0);");
+				ps.println("		" + clsName + " o = get" + clsName + "(0" + idMod + ");");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
 						+ "\", o, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
@@ -1544,14 +1675,16 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	@Test");
 				ps.println("	public void testShowEdit" + clsName + "Page() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(1);");
+				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
 				ps.println("");
-				ps.println("		given(" + fieldName + "Services.get(1)).willReturn(o);");
+				ps.println("		given(" + fieldName + "Services.get(1" + idMod + ")).willReturn(o);");
 				ps.println("");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s/edit/1\");");
 				it = set.iterator();
 				while (it.hasNext()) {
 					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
 					ColInfo info = (ColInfo) namList.get(name);
 					if (info.isString()) {
 						int endIndex = info.getLength();
@@ -1560,11 +1693,6 @@ public class GenSpring {
 						}
 					}
 					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
-//					if (it.hasNext()) {
-//						ps.println("");
-//					} else {
-//						ps.println(";");
-//					}
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1760,10 +1888,10 @@ public class GenSpring {
 				}
 				ps.println("spring.datasource.url=" + dbUrl);
 
-				String user = Utils.getProp(bundle, "user", null);
+				String user = Utils.getProp(bundle, "db.user", null);
 				if (!StringUtils.isBlank(user)) {
 					ps.println("spring.datasource.username=" + user);
-					ps.println("spring.datasource.password=" + Utils.getProp(bundle, "password", ""));
+					ps.println("spring.datasource.password=" + Utils.getProp(bundle, "db.password", ""));
 				}
 				ps.println("");
 				ps.println("logging.level.root=INFO");
@@ -1795,25 +1923,49 @@ public class GenSpring {
 				ps.println("");
 				ps.println("import java.io.Serializable;");
 				ps.println("import javax.persistence.*;");
-
+				Set<String> set = namList.keySet();
+				Iterator<String> it = set.iterator();
+				Set<String> imports = new TreeSet<String>();
+				while (it.hasNext()) {
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					if (!StringUtils.isBlank(info.getImportStr()))
+						imports.add(info.getImportStr());
+				}
+				for (String s : imports) {
+					ps.println(s);
+				}
 				ps.println("");
 				ps.println(
 						getClassHeader(viewName + " Bean", "Class for holding data from the " + viewName + " table."));
 				ps.println("@Entity");
-				ps.println("@Table(name = \"" + viewName + "\")");
+				ps.println("@Table(name = \"`" + viewName + "`\")");
 				ps.println("public class " + className + " implements Serializable {");
-				ps.println("private static final long serialVersionUID = 1L;");
+				ps.println("	private static final long serialVersionUID = 1L;");
 				ps.println("");
-				Set<String> set = namList.keySet();
-				Iterator<String> it = set.iterator();
+				it = set.iterator();
 				while (it.hasNext()) {
-					ColInfo info = (ColInfo) namList.get(it.next());
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isTimestamp())
+						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd hh:mm:ss\")");
+					if (info.isDate())
+						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd\")");
+
+					if (info.isJsonIgnore())
+						ps.println("    @JsonIgnore");
 					if (info.isPk()) {
 						ps.println("    @Id");
-						if (info.getStype() == Types.INTEGER)
+						if (info.getStype() == Types.INTEGER || info.getStype() == Types.BIGINT)
 							ps.println("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
 					}
 					StringBuilder sb = new StringBuilder("	@Column(name=\"" + info.getColName() + "\"");
+					if (info.isUnique())
+						sb.append(", unique=false");
 					if (info.isRequired())
 						sb.append(", nullable=false");
 					if ("String".equals(info.getType()) && info.getLength() > 0) {
@@ -1840,7 +1992,10 @@ public class GenSpring {
 				it = set.iterator();
 				boolean addCom = false;
 				while (it.hasNext()) {
-					ColInfo info = (ColInfo) namList.get(it.next());
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
 					if (addCom) {
 						sb.append(", ");
 					} else {
@@ -1853,7 +2008,10 @@ public class GenSpring {
 				set = namList.keySet();
 				it = set.iterator();
 				while (it.hasNext()) {
-					ColInfo info = (ColInfo) namList.get(it.next());
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
 					ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
 				}
 				ps.println("	}");
@@ -1870,7 +2028,10 @@ public class GenSpring {
 					set = namList.keySet();
 					it = set.iterator();
 					while (it.hasNext()) {
-						ColInfo info = (ColInfo) namList.get(it.next());
+						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
+						ColInfo info = (ColInfo) namList.get(name);
 						ps.println(
 								"		sb.append(\"" + info.getVName() + "= \" + " + info.getVName() + "+\'\\n\');");
 					}
@@ -1899,7 +2060,10 @@ public class GenSpring {
 					set = namList.keySet();
 					it = set.iterator();
 					while (it.hasNext()) {
-						ColInfo info = (ColInfo) namList.get(it.next());
+						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
+						ColInfo info = (ColInfo) namList.get(name);
 						ps.println("		if (get" + info.getGsName() + "() == null) {");
 						ps.println("			if (other.get" + info.getGsName() + "() != null)");
 						ps.println("				return false;");
@@ -1934,7 +2098,10 @@ public class GenSpring {
 		Set<String> set = namList.keySet();
 		Iterator<String> it = set.iterator();
 		while (it.hasNext()) {
-			ColInfo info = (ColInfo) namList.get(it.next());
+			String name = it.next();
+			if (PKEY_INFO.equals(name))
+				continue;
+			ColInfo info = (ColInfo) namList.get(name);
 			ps.println("	/**");
 			ps.println("	 * returns value of the " + info.getColName() + " column of this row of data");
 			ps.println("	 *");
@@ -1957,7 +2124,7 @@ public class GenSpring {
 			} else if ("BigDecimal".equals(info.getType())) {
 				ps.println("		if (" + info.getVName() + "== null)");
 				ps.println("	    	return BigDecimal.ZERO;");
-				ps.println("		return " + info.getVName() + ".doubleValue();");
+				ps.println("		return " + info.getVName() + ";");
 			} else if ("Integer".equals(info.getType())) {
 				ps.println("		if (" + info.getVName() + "== null)");
 				ps.println("	    	return 0;");

@@ -21,7 +21,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dea42.genspring.entity.Account;
 import com.dea42.genspring.form.SignupForm;
-import com.dea42.genspring.service.AccountService;
+import com.dea42.genspring.service.AccountServices;
 import com.dea42.genspring.utils.Utils;
 import com.dea42.genspring.utils.MessageHelper;
 
@@ -42,7 +42,7 @@ public class AppController {
 	public static final String HOME_NOT_SIGNED_VIEW_NAME = "home/homeNotSignedIn";
 
 	@Autowired
-	private AccountService accountService;
+	private AccountServices accountServices;
 
 	@ModelAttribute("module")
 	String module() {
@@ -73,12 +73,12 @@ public class AppController {
 		if (errors.hasErrors()) {
 			return SIGNUP_VIEW_NAME;
 		}
-		Account account = accountService.save(signupForm.createAccount());
+		Account account = accountServices.save(signupForm.createAccount());
 		if (account == null) {
 			MessageHelper.addErrorAttribute(ra, "db.failed");
 			return "redirect:/home";
 		}
-		if (accountService.login(account.getEmail(), account.getPassword())) {
+		if (accountServices.login(account.getEmail(), account.getPassword())) {
 			// see messages.properties and homeSignedIn.html
 			MessageHelper.addSuccessAttribute(ra, "signup.success");
 		} else {
@@ -108,7 +108,7 @@ public class AppController {
 		if (errors.hasErrors()) {
 			return SIGNIN_VIEW_NAME;
 		}
-		if (accountService.login(signupForm.getEmail(), signupForm.getPassword())) {
+		if (accountServices.login(signupForm.getEmail(), signupForm.getPassword())) {
 			// see messages.properties and homeSignedIn.html
 			MessageHelper.addSuccessAttribute(ra, "signin.success");
 			String referer = signupForm.getReferer();

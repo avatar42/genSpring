@@ -1,3 +1,28 @@
+# Properties that may be used by both programs
+## DB properties
+### DB to create tables in (note if blank and db.driver=org.sqlite.JDBC creates a SQLite DB in sheet.outdir folder. See Db.getUrl(ResourceBundle bundle, String folder))
+db.url=jdbc:sqlite:L:/sites/git/genSpring/target/watchlistDB.sqlite 
+### DB driver to use
+db.driver=org.sqlite.JDBC 
+### add these if needed
+db.user= <br>
+db.password= <br>
+db.name= <br>
+
+## keyed on Entity Class name
+### columns not to return in REST interface
+Account.JsonIgnore=password
+### columns that need unique values
+Account.unique=email
+### normal test values See Sheets2DBTest and Sheet2AppTest for examples of use
+Sheet1.testCols=5<br>
+Sheet2.testCols=5<br>
+Sheet1.testRows=8<br>
+Sheet2.testRows=8<br>
+### if some columns in Sheet1 flagged as user columns these would also be expected
+Sheet1User.testCols=5<br>
+Sheet1User.testRows=8<br>
+
 # Sheet2DB
 Creates a DB from a Google sheet with a table for each selected tab <br>
  
@@ -5,11 +30,7 @@ Creates a DB from a Google sheet with a table for each selected tab <br>
 Basically set your options in /genSpring/src/main/resources/sheet.properties <br>
 ** Note after a clean you will be asked to auth to Google to access the sheet. See target/tokens folder** 
  
-## DB to create tables in (note if blank and db.driver=org.sqlite.JDBC creates a SQLite DB in sheet.outdir folder. See Db.getUrl(ResourceBundle bundle, String folder))
-db.url=jdbc:sqlite:L:/sites/git/genSpring/target/watchlistDB.sqlite 
-## DB driver to use
-db.driver=org.sqlite.JDBC 
-## optional output location
+## optional SQLite db output location
 sheet.outdir=../genSpringTest
 ## Google sheet to read from
 sheet.id=1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE 
@@ -18,37 +39,21 @@ sheet.tabs=Networks,shows,Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard
  
 ## tab adjustments
 ### columns to export. If missing exports all existing
-shows.columns=A-I,Q-T,BC-BF <br>
-Roamio_Todo.columns=D-G,M-O <br>
-Roamio_sp.columns=A-J <br>
-Roamio_npl.columns=A-K <br>
+Sheet1.columns=A-C,F
+Sheet2.columns=A,C-E
 
-### required (not null) columns. Columns with null in the field will not be imported.
-Networks.required=A <br>
-shows.required=A <br>
-Roamio_npl.required=A <br>
-Roamio_sp.required=A <br>
-Roamio_Todo.required=A <br>
-OTA.required=H <br>
-CableCard.required=A,B <br>
+### required (not null) columns. Rows with null in the field will not be imported. Note ignored if not in exported columns
+Sheet1.required=A
+Sheet2.required=A,C-D
 
 ### set this if you need to ignore extra rows at bottom of sheet
-shows.lastRow=251 <br>
+Sheet1.lastRow=251 <br>
 
 ### [optional] Tables each row should be prefixed / linked to a user ID. ID 1 is used for the import.
 sheet.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
 
-### normal test values See Sheets2DBTest for example of use
-Sheet1.testCols=5<br>
-Sheet2.testCols=5<br>
-Sheet1.testRows=8<br>
-Sheet2.testRows=8<br>
-
 ### [optional] Columns to be placed in separate table linked to source table and account. 
-shows.user=E<br>
-## user column tests
-Sheet1User.testCols=5<br>
-Sheet1User.testRows=8<br>
+Sheet1.user=E<br>
 
 # genSpring
 Create a simple Spring boot CRUD app with both web and REST interfaces from a DB complete with basic hard coded, in mem, auth system.
@@ -57,13 +62,6 @@ Note for safety reasons it will not overwrite existing files so just delete the 
 
 # Setup
 Basically set your options in /genSpring/src/main/resources/genSpring.properties 
-
-db.url=jdbc:sqlite:L:/SpringTools4.6.1/workspace/watchlistDB.sqlite <br>
-db.driver=org.sqlite.JDBC <br>
-## add these if needed
-db.user= <br>
-db.password= <br>
-db.name= <br>
  
  
 ## top folder for output / new project root 
@@ -81,7 +79,11 @@ genSpring.module=genSpring
 ## Optional if the artifactId needs to be diff from module. Defaults to same as module.
 genSpring.artifactId=genSpringTest
 ## add a toString() to the entity bean class
-genSpring.beanToString=true 
+genSpring.beanToString=true
+## add a equals() to the entity bean class
+genSpring.beanEquals=true
+## restrict columns on list page to just these
+Account.list=id,email,role,created
 
 
 # Running the generator
@@ -90,7 +92,7 @@ Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Ja
 		Where options are:<br>
 		-double = use Double instead of BigDecimal for entities beans<br>
 		-toString = generate toString() methods for entities beans **(overridden by genSpring.beanToString in properties file)**<br>
-		-beanEquals = generate equals() methods for entities beans<br>
+		-beanEquals = generate equals() methods for entities beans **(overridden by genSpring.beanEquals in properties file)**<br><br>
 		<br>
 		if table names not given then runs on all tables in DB.<br>
 		<br>

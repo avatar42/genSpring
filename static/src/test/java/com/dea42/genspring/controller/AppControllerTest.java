@@ -75,8 +75,8 @@ public class AppControllerTest extends MockBase {
 		signupForm.setSignup(true);
 		Account account = signupForm.createAccount();
 
-		given(accountService.save(account)).willReturn(account);
-		given(accountService.login(account.getEmail(), account.getPassword())).willReturn(true);
+		given(accountServices.save(account)).willReturn(account);
+		given(accountServices.login(account.getEmail(), account.getPassword())).willReturn(true);
 
 		ResultActions ra = send(SEND_POST, "/signup", "signupForm", signupForm, ImmutableMap.of("action", "save"), null,
 				"/home");
@@ -113,8 +113,8 @@ public class AppControllerTest extends MockBase {
 		signupForm.setPassword(ADMIN_PASS);
 		Account account = signupForm.createAccount();
 
-		given(accountService.save(account)).willReturn(account);
-		given(accountService.login(account.getEmail(), account.getPassword())).willReturn(true);
+		given(accountServices.save(account)).willReturn(account);
+		given(accountServices.login(account.getEmail(), account.getPassword())).willReturn(true);
 
 		ResultActions ra = send(SEND_POST, "/authenticate", "signupForm", signupForm, null, null, "/home");
 		expectSuccessMsg(ra, "signin.success");

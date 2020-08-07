@@ -22,7 +22,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
 import org.springframework.web.servlet.i18n.SessionLocaleResolver;
 
-import com.dea42.genspring.service.AccountService;
+import com.dea42.genspring.service.AccountServices;
 
 /**
  * Title: SecurityConfiguration <br>
@@ -38,11 +38,11 @@ import com.dea42.genspring.service.AccountService;
 public class SecurityConfiguration extends WebSecurityConfigurerAdapter implements WebMvcConfigurer {
 
 	@Autowired
-	private AccountService accountService;
+	private AccountServices accountServices;
 
 	@Bean
 	public TokenBasedRememberMeServices rememberMeServices() {
-		return new TokenBasedRememberMeServices("remember-me-key", accountService);
+		return new TokenBasedRememberMeServices("remember-me-key", accountServices);
 	}
 
 	@Bean
@@ -53,7 +53,7 @@ public class SecurityConfiguration extends WebSecurityConfigurerAdapter implemen
 	@Bean
 	public DaoAuthenticationProvider authenticationProvider() {
 		DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-		authProvider.setUserDetailsService(accountService);
+		authProvider.setUserDetailsService(accountServices);
 		authProvider.setPasswordEncoder(passwordEncoder());
 		return authProvider;
 	}

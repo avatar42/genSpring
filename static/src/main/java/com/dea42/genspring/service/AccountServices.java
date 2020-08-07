@@ -1,6 +1,7 @@
 package com.dea42.genspring.service;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.ResourceBundle;
 
 import javax.annotation.PostConstruct;
@@ -30,8 +31,8 @@ import com.dea42.genspring.utils.Utils;
 
 @Service
 @Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)
-public class AccountService implements UserDetailsService {
-	private static final Logger LOGGER = LoggerFactory.getLogger(AccountService.class.getName());
+public class AccountServices implements UserDetailsService {
+	private static final Logger LOGGER = LoggerFactory.getLogger(AccountServices.class.getName());
 	public static final String ROLE_PREFIX = "ROLE_";
 
 	@Autowired
@@ -152,6 +153,18 @@ public class AccountService implements UserDetailsService {
 	private GrantedAuthority createAuthority(Account account) {
 		LOGGER.debug("logged in:" + account);
 		return new SimpleGrantedAuthority(account.getRole());
+	}
+
+	public List<Account> listAll() {
+		return (List<Account>) accountRepository.findAll();
+	}
+
+	public Account get(Long id) {
+		return accountRepository.findById(id).get();
+	}
+
+	public void delete(Long id) {
+		accountRepository.deleteById(id);
 	}
 
 }

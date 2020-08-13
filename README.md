@@ -82,6 +82,10 @@ genSpring.artifactId=genSpringTest
 genSpring.beanToString=true
 ## add a equals() to the entity bean class
 genSpring.beanEquals=true
+## use Double instead of BigDecimal for entities beans.
+genSpring.useDouble=true
+## Filter tables to gen code for by name
+genSpring.filteredTables=providers
 ## restrict columns on list page to just these
 Account.list=id,email,role,created
 
@@ -90,9 +94,9 @@ Account.list=id,email,role,created
 Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Java app. <br>
 		USAGE: Genspring [options] [table names]<br>
 		Where options are:<br>
-		-double = use Double instead of BigDecimal for entities beans<br>
-		-toString = generate toString() methods for entities beans **(overridden by genSpring.beanToString in properties file)**<br>
-		-beanEquals = generate equals() methods for entities beans **(overridden by genSpring.beanEquals in properties file)**<br><br>
+		-double = use Double instead of BigDecimal for entities beans **(also genSpring.useDouble in properties file)**<br>
+		-toString = generate toString() methods for entities beans **(also genSpring.beanToString in properties file)**<br>
+		-beanEquals = generate equals() methods for entities beans **(also genSpring.beanEquals in properties file)**<br><br>
 		<br>
 		if table names not given then runs on all tables in DB.<br>
 		<br>
@@ -215,7 +219,7 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate the
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.ttf<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff<br>
 ./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff2<br>
-## App url mapping file
+## App URL mapping file
 ./src/main/webapp/WEB-INF/web.xml<br>
 <br>
 ## Unit test files<br>

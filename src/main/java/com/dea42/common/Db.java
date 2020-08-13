@@ -121,10 +121,14 @@ public class Db {
 		return s_dbDriver.contains("db2");
 	}
 
+	public boolean isSupported() {
+		return isSQLite() || isMySQL() || isSqlserver();// || isDb2();
+	}
+
 	public String getUrl(ResourceBundle bundle, String folder) {
 		s_dbUrl = Utils.getProp(bundle, "db.url", null);
 		s_dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
-		if (StringUtils.isAllBlank(s_dbUrl) && s_dbDriver.contains("sqlite")) {
+		if (StringUtils.isAllBlank(s_dbUrl) && isSQLite()) {
 			// db.url=jdbc:sqlite:L:/sites/git/Watchlist/watchlistDB.sqlite
 			Path outPath = Utils.getPath(folder);
 			if (!outPath.toFile().isDirectory())

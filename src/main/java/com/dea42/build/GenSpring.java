@@ -76,6 +76,7 @@ public class GenSpring {
 	private String appVersion;
 	private int year = 2001;
 	private String schema = null;
+	private List<String> filteredTables;
 
 	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
 
@@ -85,6 +86,7 @@ public class GenSpring {
 
 	public GenSpring(String bundleName) throws IOException {
 		this.bundleName = bundleName;
+		initVars();
 	}
 
 	/**
@@ -385,6 +387,12 @@ public class GenSpring {
 		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
 		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
+		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
+		
+		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
+		// SQLite tables to always ignore
+		filteredTables.add("hibernate_sequence");
+		filteredTables.add("sqlite_sequence");
 
 		srcPkg = srcGroupId + '.' + srcArtifactId;
 		srcPath = srcPkg.replace('.', '/');
@@ -404,7 +412,6 @@ public class GenSpring {
 	 * @throws Exception
 	 */
 	public void writeProject(List<String> tableNames) throws Exception {
-		initVars();
 
 		copyCommon();
 
@@ -475,39 +482,10 @@ public class GenSpring {
 		String firstColumnName = null;
 		String pkCol = null;
 		String className = Utils.tabToStr(renames, tableName);
-		String create = "";
+		String comment = "";
 
 		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
-
-		if (db.getDbUrl().indexOf("mysql") > -1) {
-			String sql = "show create table " + tableName;
-			try {
-				Statement stmt = conn.createStatement();
-				stmt.setMaxRows(1);
-				LOGGER.debug("query=" + sql);
-				ResultSet rs = stmt.executeQuery(sql);
-				if (rs.next()) {
-					create = rs.getString("Create Table");
-				}
-			} catch (SQLException e) {
-				LOGGER.error(sql + " failed", e);
-			}
-		}
-
-		// MySQL
-		// SHOW KEYS FROM table WHERE Key_name = 'PRIMARY'
-//		SELECT 
-//		  TABLE_NAME,COLUMN_NAME,CONSTRAINT_NAME, REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME
-//		FROM
-//		  INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-//		WHERE
-//		  REFERENCED_TABLE_SCHEMA = '<database>' AND
-//		  REFERENCED_TABLE_NAME = '<table>';
-
-		// SQLite
-		// SELECT * FROM pragma_table_info('my_table');
-		// SELECT * FROM pragma_foreign_key_list('my_table');
 
 		LOGGER.debug("tableName:" + tableName);
 		String query = "SELECT * FROM " + tableName;
@@ -623,7 +601,20 @@ public class GenSpring {
 
 		// write bean with helpers
 
-		// TODO: add support for composite keys
+		// MySQL
+		// SHOW KEYS FROM table WHERE Key_name = 'PRIMARY'
+//		SELECT 
+//		  TABLE_NAME,COLUMN_NAME,CONSTRAINT_NAME, REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME
+//		FROM
+//		  INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+//		WHERE
+//		  REFERENCED_TABLE_SCHEMA = '<database>' AND
+//		  REFERENCED_TABLE_NAME = '<table>';
+
+		// SQLite
+		// SELECT * FROM pragma_table_info('my_table');
+		// SELECT * FROM pragma_foreign_key_list('my_table');
+		// TODO: add support for composite keys issue #17
 		DatabaseMetaData metaData = conn.getMetaData();
 		rs = metaData.getPrimaryKeys("", null, tableName);
 		while (rs.next()) {
@@ -680,7 +671,7 @@ public class GenSpring {
 		}
 		cols.put(PKEY_INFO, pkinfo);
 
-		writeBean(tableName, className, namList, create);
+		writeBean(tableName, className, namList, comment);
 		writeRepo(className, pkinfo);
 		writeService(className, pkinfo);
 		writeListPage(className, namList);
@@ -694,11 +685,12 @@ public class GenSpring {
 	/**
 	 * Generate comment header for a class
 	 * 
-	 * @param className
-	 * @param description
+	 * @param className   Used for Title:
+	 * @param description What to put after Description:
+	 * @param comment     Any additional comment to add the header
 	 * @return
 	 */
-	private String getClassHeader(String className, String description) {
+	private String getClassHeader(String className, String description, String comment) {
 		StringBuilder sb = new StringBuilder();
 		sb.append("/**").append(System.lineSeparator());
 		sb.append(" * Title: " + className + " <br>").append(System.lineSeparator());
@@ -738,7 +730,7 @@ public class GenSpring {
 				}
 				ps.println("");
 				ps.println("import java.util.List;");
-				ps.println(getClassHeader("ApiController", "Api REST Controller."));
+				ps.println(getClassHeader("ApiController", "Api REST Controller.", null));
 				ps.println("@RestController");
 				ps.println("@RequestMapping(\"/api\")");
 				ps.println("public class ApiController {");
@@ -811,10 +803,9 @@ public class GenSpring {
 	}
 
 	/**
-	 * Created mock unit test of ApiController. TODO: need updated to use MockBase
+	 * Created mock unit test of ApiController.
 	 * 
 	 * @param colsInfo
-	 * @param pkinfo   TODO
 	 */
 	private void writeApiControllerTest(Map<String, Map<String, ColInfo>> colsInfo) {
 		Set<String> set = colsInfo.keySet();
@@ -837,24 +828,17 @@ public class GenSpring {
 				ps.println("import java.util.ArrayList;");
 				ps.println("import java.util.List;");
 				ps.println("");
-//				ps.println("import org.junit.Before;");
 				ps.println("import org.junit.Test;");
 				ps.println("import org.junit.runner.RunWith;");
-//				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
-//				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
 				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
-//				ps.println("import org.springframework.test.web.servlet.MockMvc;");
-//				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
-//				ps.println("import org.springframework.web.context.WebApplicationContext;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
 				for (String clsName : set) {
 					ps.println("import " + basePkg + ".entity." + clsName + ";");
-//					ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				}
 				ps.println("");
-				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test."));
+				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test.", null));
 				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
 				ps.println("@WebMvcTest(ApiController.class)");
 				ps.println("public class ApiControllerTest extends MockBase {");
@@ -880,7 +864,6 @@ public class GenSpring {
 					ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
 					ps.println("		List<" + clsName + "> list = new ArrayList<>();");
 					ps.println("		" + clsName + " o = new " + clsName + "();");
-//					ps.println("		o.setId(1" + idMod + ");");
 					Iterator<String> it = namList.keySet().iterator();
 					while (it.hasNext()) {
 						String name = it.next();
@@ -1000,7 +983,7 @@ public class GenSpring {
 				ps.println("import org.springframework.stereotype.Repository;");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "Repository", "Class for the " + clsName + " Repository."));
+				ps.println(getClassHeader(clsName + "Repository", "Class for the " + clsName + " Repository.", null));
 				ps.println("@Repository");
 				ps.println("public interface " + clsName + "Repository extends JpaRepository<" + clsName + ", "
 						+ pkinfo.getType() + ">{");
@@ -1265,7 +1248,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".utils.Message;");
 				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
-				ps.println(getClassHeader("MockBase", "The base class for mock testing."));
+				ps.println(getClassHeader("MockBase", "The base class for mock testing.", null));
 				ps.println("public class MockBase extends UnitBase {");
 				if (!set.contains("Account")) {
 					ps.println("    @MockBean");
@@ -1558,7 +1541,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".MockBase;");
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "ControllerTest", clsName + "Controller."));
+				ps.println(getClassHeader(clsName + "ControllerTest", clsName + "Controller.", null));
 				ps.println("@WebMvcTest(" + clsName + "Controller.class)");
 				ps.println("public class " + clsName + "ControllerTest extends MockBase {");
 				ps.println("	private " + clsName + " get" + clsName + "(" + pkinfo.getType() + " "
@@ -1742,7 +1725,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("import " + basePkg + ".service." + clsName + "Services;");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "Controller", clsName + "Controller."));
+				ps.println(getClassHeader(clsName + "Controller", clsName + "Controller.", null));
 				ps.println("@Controller");
 				ps.println("@RequestMapping(\"/" + fieldName + "s\")");
 				ps.println("public class " + clsName + "Controller {");
@@ -1825,7 +1808,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".entity." + clsName + ";");
 				ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "Services", clsName + "Services."));
+				ps.println(getClassHeader(clsName + "Services", clsName + "Services.", null));
 				ps.println("@Service");
 				ps.println("public class " + clsName + "Services {");
 				ps.println("    @Autowired");
@@ -1909,10 +1892,10 @@ public class GenSpring {
 	 * @param viewName  String
 	 * @param className
 	 * @param namList
-	 * @param create    SQL statement if available
+	 * @param comment   any addition header comments
 	 * @throws FileNotFoundException
 	 */
-	private void writeBean(String viewName, String className, TreeMap<String, ColInfo> namList, String create) {
+	private void writeBean(String viewName, String className, TreeMap<String, ColInfo> namList, String comment) {
 		String pkgNam = basePkg + ".entity";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
@@ -1938,8 +1921,8 @@ public class GenSpring {
 					ps.println(s);
 				}
 				ps.println("");
-				ps.println(
-						getClassHeader(viewName + " Bean", "Class for holding data from the " + viewName + " table."));
+				ps.println(getClassHeader(viewName + " Bean", "Class for holding data from the " + viewName + " table.",
+						comment));
 				ps.println("@Entity");
 				ps.println("@Table(name = \"`" + viewName + "`\")");
 				ps.println("public class " + className + " implements Serializable {");
@@ -2196,7 +2179,7 @@ public class GenSpring {
 		List<String> tableNames = new ArrayList<String>();
 		String dbName = db.getDbName();
 
-		String query = "SHOW TABLES"; // mySQL
+		String query = "SHOW TABLES;"; // mySQL
 		if (db.getDbUrl().indexOf("sqlserver") > -1) {
 			query = "SELECT NAME,INFO FROM sysobjects WHERE type= 'U'";
 		} else if (db.getDbUrl().indexOf("sqlite") > -1) {
@@ -2221,28 +2204,31 @@ public class GenSpring {
 		}
 		while (rs.next()) {
 			try {
-				// TODO: get these table filters from a props file.
-				if (db.getDbUrl().indexOf("mysql") > -1) {
+				if (db.isMySQL()) {
 					String name = rs.getString("Tables_in_" + dbName);
-					if (!name.startsWith("gl_") && !name.startsWith("hostinfo")) {
-						tableNames.add(rs.getString("Tables_in_" + dbName));
-					}
-				} else if (db.getDbUrl().indexOf("sqlite") > -1) {
-					String name = rs.getString("name").toLowerCase();
-					if (!name.startsWith("old_") && !name.startsWith("sqlite_sequence") && !name.equals("providers")
-							&& !name.equals("account") && !name.equals("hibernate_sequence")) {
+					if (!filteredTables.contains(name))
 						tableNames.add(name);
+					else
+						LOGGER.info("skipping:" + name);
+				} else if (db.isSQLite()) {
+					String name = rs.getString("name").toLowerCase();
+					if (!name.equals("hibernate_sequence")) {
+						if (!filteredTables.contains(name))
+							tableNames.add(name);
+						else
+							LOGGER.info("skipping:" + name);
 					}
-				} else if (db.getDbUrl().indexOf("sqlserver") > -1) {
+				} else if (db.isSqlserver()) {
 					int info = rs.getInt("INFO"); // check for hidden or
 													// bad table
 					String name = rs.getString("name").toLowerCase();
 					// filter tables that don't show in enterprise
 					// manager but do here
 					LOGGER.info("read:" + name + ':' + info);
-					if (info > 0 && !name.startsWith("dtproperties")) {
+					if (info > 0 && !name.startsWith("dtproperties"))
 						tableNames.add(name);
-					}
+					else
+						LOGGER.info("skipping:" + name + ':' + info);
 				}
 			} catch (Exception e) {
 				printUsage("main() crashed ", e);
@@ -2285,6 +2271,7 @@ public class GenSpring {
 					tableNames.add(args[i]);
 				}
 			}
+			obj.initVars();
 
 			if (tableNames.isEmpty()) {
 				tableNames = obj.getTablesNames(db);

@@ -64,6 +64,7 @@ import com.google.api.services.sheets.v4.model.ValueRange;
  *
  */
 public class Sheets2DB {
+
 	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DB.class.getName());
 	public static long ONE_DAY_MILS = 86400000l;
 
@@ -715,25 +716,25 @@ public class Sheets2DB {
 		LOGGER.debug("maxFieldLenghts:" + maxFieldLenghts.toString());
 		LOGGER.debug("fieldTypes:" + fieldTypes.toString());
 
-		String schema = db.getDbName();
-		if (schema == null)
-			schema = "";
-		else
-			schema = schema + ".";
+		String schema = db.getPrefix();
 
 		// Drop old table if there is one
-//		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
+		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
 
+//		CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY KEY, created DATETIME, email varchar(254), password varchar(254), 
+//		role varchar(25), CONSTRAINT UC_email UNIQUE (email));
 		String idType = "BIGINT";
-		String autoincrement = "auto_increment";
+		String autoincrement = " NOT NULL primary key auto_increment";
 		if (db.isSQLite()) {
 			idType = "INTEGER";
-			autoincrement = "autoincrement";
+			autoincrement = " NOT NULL primary key autoincrement";
+		}
+		if (db.isSqlserver()) {
+			autoincrement = " IDENTITY(1, 1) PRIMARY KEY";
 		}
 
 		// create new table
-		StringBuilder sb = new StringBuilder(
-				"CREATE TABLE " + schema + tableName + "(id " + idType + " NOT NULL primary key " + autoincrement);
+		StringBuilder sb = new StringBuilder("CREATE TABLE " + schema + tableName + "(id " + idType + autoincrement);
 		if (addUserFK)
 			sb.append(", userId bigint");
 
@@ -888,6 +889,7 @@ public class Sheets2DB {
 				failed++;
 			}
 		}
+
 	}
 
 	/**
@@ -906,14 +908,11 @@ public class Sheets2DB {
 		int roleNameLen = 25;
 
 		LOGGER.debug("Creating account table");
-		String schema = db.getDbName();
-		if (schema == null)
-			schema = "";
-		else
-			schema = schema + ".";
-		// Drop old table if there is one
+		String schema = db.getPrefix();
+
+		runSQL("DROP TABLE IF EXISTS " + schema + "account;");
 		if (db.isSQLite()) {
-			runSQL("CREATE TABLE account (id bigint not null, created timestamp, email varchar(" + varcharLen
+			runSQL("CREATE TABLE account (id bigint not null, created DATETIME, email varchar(" + varcharLen
 					+ ") UNIQUE, password varchar(" + varcharLen + "), role varchar(" + roleNameLen
 					+ "), primary key (id));");
 			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
@@ -934,6 +933,18 @@ public class Sheets2DB {
 			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
 					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
 			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (2,NOW()"
+					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+		} else if (db.isSqlserver()) {
+			// CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY
+			// KEY, created DATETIME, email varchar(254), password varchar(254), role
+			// varchar(25), CONSTRAINT UC_email UNIQUE (email));
+			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT IDENTITY(1, 1) PRIMARY KEY,\n"
+					+ "	created DATETIME,\n" + "	email VARCHAR(" + varcharLen + "),\n" + "	password VARCHAR("
+					+ varcharLen + "),\n" + "	role VARCHAR(" + roleNameLen
+					+ "), CONSTRAINT UC_email UNIQUE (email));");
+			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()"
+					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
+			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()"
 					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
 		} else {
 			LOGGER.warn("Doing best guess for table create.");
@@ -970,6 +981,9 @@ public class Sheets2DB {
 				rtn = (cnt == 1);
 				LOGGER.trace("SQL return was" + cnt);
 			}
+		} catch (SQLException e) {
+			LOGGER.warn(e.getMessage());
+			throw e;
 		} finally {
 			db.close(PROPKEY + ".runSQL()");
 		}
@@ -980,11 +994,7 @@ public class Sheets2DB {
 		List<String> tabs = null;
 		try {
 			db = new Db(bundelName + ".getSheet()", bundelName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
-			String schema = db.getDbName();
-			if (schema == null)
-				schema = "";
-			else
-				schema = schema + ".";
+			String schema = db.getPrefix();
 
 			// Build a new authorized API client service.
 			final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
@@ -1010,7 +1020,7 @@ public class Sheets2DB {
 					runSQL("DROP TABLE IF EXISTS " + schema + tableName + ";");
 				}
 			}
-			runSQL("DROP TABLE IF EXISTS " + schema + "account;");
+
 			addAccountTable();
 
 			for (Sheet sheet : sheets) {

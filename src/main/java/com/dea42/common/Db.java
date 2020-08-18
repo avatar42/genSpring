@@ -38,8 +38,8 @@ public class Db {
 	/**
 	 * Get connection to display / log utils
 	 */
-	private static int s_openCount = 0;
-	private static int s_totalCount = 0;
+	private static int openCount = 0;
+	private static int totalCount = 0;
 
 	/**
 	 * SimpleDateFormat for writing date to DB
@@ -48,38 +48,43 @@ public class Db {
 	/**
 	 * hold name of DB connected to
 	 */
-	private String s_dbName = null;
+	private String dbName = null;
+	/**
+	 * holds schema if one
+	 */
+	private String schema = null;
+
 	/**
 	 * hold url of DB connected to
 	 */
-	private String s_dbUrl = null;
+	private String dbUrl = null;
 	/**
 	 * hold driver name of DB connected to
 	 */
-	private String s_dbDriver = null;
+	private String dbDriver = null;
 
 	/**
 	 * hold driver name of version 3 DB connected to
 	 */
-	private String s_dbDriver2 = null;
+	private String dbDriver2 = null;
 	/**
 	 * hold user of DB connected to
 	 */
-	private String s_dbUser = null;
+	private String dbUser = null;
 	/**
 	 * hold password of DB connected to
 	 */
-	private String s_dbPass = null;
+	private String dbPass = null;
 	/**
 	 * hold pool name of DB connected to
 	 */
-	private String s_dbPool = null;
+	private String dbPool = null;
 	/**
 	 * hold DataSource of pool connected to DB
 	 */
 	private DataSource ds = null;
 
-	private boolean s_loaded = false;
+	private boolean loaded = false;
 	/**
 	 * holds Connection in use
 	 */
@@ -102,23 +107,23 @@ public class Db {
 	}
 
 	public void reset() {
-		s_loaded = false;
+		loaded = false;
 	}
 
 	public boolean isSQLite() {
-		return s_dbDriver.contains("sqlite");
+		return dbDriver.contains("sqlite");
 	}
 
 	public boolean isMySQL() {
-		return s_dbDriver.contains("mysql");
+		return dbDriver.contains("mysql");
 	}
 
 	public boolean isSqlserver() {
-		return s_dbDriver.contains("sqlserver");
+		return dbDriver.contains("sqlserver");
 	}
 
 	public boolean isDb2() {
-		return s_dbDriver.contains("db2");
+		return dbDriver.contains("db2");
 	}
 
 	public boolean isSupported() {
@@ -126,18 +131,18 @@ public class Db {
 	}
 
 	public String getUrl(ResourceBundle bundle, String folder) {
-		s_dbUrl = Utils.getProp(bundle, "db.url", null);
-		s_dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
-		if (StringUtils.isAllBlank(s_dbUrl) && isSQLite()) {
+		dbUrl = Utils.getProp(bundle, "db.url", null);
+		dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
+		if (StringUtils.isAllBlank(dbUrl) && isSQLite()) {
 			// db.url=jdbc:sqlite:L:/sites/git/Watchlist/watchlistDB.sqlite
 			Path outPath = Utils.getPath(folder);
 			if (!outPath.toFile().isDirectory())
 				outPath.toFile().mkdirs();
 
-			s_dbUrl = "jdbc:sqlite:" + outPath.normalize().toString().replace('\\', '/') + "/" + config + "DB.sqlite";
+			dbUrl = "jdbc:sqlite:" + outPath.normalize().toString().replace('\\', '/') + "/" + config + "DB.sqlite";
 		}
 
-		return s_dbUrl;
+		return dbUrl;
 	}
 
 	/**
@@ -148,16 +153,16 @@ public class Db {
 	 * @param folder TODO
 	 */
 	public void init(String config, String folder) {
-		if (!s_loaded) {
+		if (!loaded) {
 			ResourceBundle bundle = ResourceBundle.getBundle(config);
-			s_dbDriver2 = Utils.getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
-			s_dbPool = Utils.getProp(bundle, "db.pool", null);
-			LOGGER.info("db.pool =" + s_dbPool);
+			dbDriver2 = Utils.getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
+			dbPool = Utils.getProp(bundle, "db.pool", null);
+			LOGGER.info("db.pool =" + dbPool);
 
-			if (s_dbPool != null) {
+			if (dbPool != null) {
 				try {
 					Context env = (Context) new InitialContext().lookup("java:comp/env");
-					ds = (DataSource) env.lookup(s_dbPool);
+					ds = (DataSource) env.lookup(dbPool);
 				} catch (Exception e) {
 					ds = null;
 				}
@@ -165,28 +170,29 @@ public class Db {
 
 			if (ds == null) {
 				StringBuffer sb = new StringBuffer(16);
-				sb.append(s_dbPool).append(" is an unknown DataSource ");
-				sb.append("db.pool= ").append(s_dbPool).append('\n');
+				sb.append(dbPool).append(" is an unknown DataSource ");
+				sb.append("db.pool= ").append(dbPool).append('\n');
 				LOGGER.warn(sb.toString());
 
 				for (String key : bundle.keySet()) {
 					LOGGER.info(key + "=" + bundle.getString(key));
 				}
-				s_dbUser = Utils.getProp(bundle, "db.user", null);
-				s_dbPass = Utils.getProp(bundle, "db.password", null);
-				s_dbName = Utils.getProp(bundle, "db.name", null);
-				s_dbUrl = getUrl(bundle, folder);
-				s_loaded = true;
+				dbUser = Utils.getProp(bundle, "db.user", null);
+				dbPass = Utils.getProp(bundle, "db.password", null);
+				dbName = Utils.getProp(bundle, "db.name", null);
+				schema = Utils.getProp(bundle, "db.schema", null);
+				dbUrl = getUrl(bundle, folder);
+				loaded = true;
 
 			} else {
-				s_loaded = true;
+				loaded = true;
 			}
 		}
 
 	}
 
 	public static int getOpenCount() {
-		return s_openCount;
+		return openCount;
 	}
 
 	/**
@@ -199,12 +205,12 @@ public class Db {
 		try {
 			if (connection == null || connection.isClosed()) {
 				if (connection != null) {
-					s_openCount--;
-					LOGGER.error("Connection timed out=" + s_openCount);
+					openCount--;
+					LOGGER.error("Connection timed out=" + openCount);
 				}
 				if (ds == null) {
 					connection = doConnect();
-					LOGGER.info(config + ".getConnection(" + calledBy + ')' + s_dbUrl + "=" + s_openCount);
+					LOGGER.info(config + ".getConnection(" + calledBy + ')' + dbUrl + "=" + openCount);
 				} else {
 					try {
 						connection = ds.getConnection();
@@ -212,29 +218,46 @@ public class Db {
 						// if connection is stale might get error so grab again.
 						connection = ds.getConnection();
 					}
-					LOGGER.info(config + ".getConnection(" + calledBy + ")" + s_dbPool + "=" + s_openCount);
+					LOGGER.info(config + ".getConnection(" + calledBy + ")" + dbPool + "=" + openCount);
 				}
-				s_openCount++;
-				s_totalCount++;
+				openCount++;
+				totalCount++;
 			}
 		} catch (ClassNotFoundException e) {
 			LOGGER.error("Exception caught", e);
 
 		} catch (SQLException e) {
 			LOGGER.error("getConnection() error: ", e);
-			LOGGER.error("Open connections=" + s_openCount);
-			LOGGER.error("Total connections=" + s_totalCount);
+			LOGGER.error("Open connections=" + openCount);
+			LOGGER.error("Total connections=" + totalCount);
 
 		}
 		return connection;
 	}
 
 	public String getDbUrl() {
-		return s_dbUrl;
+		return dbUrl;
 	}
 
 	public String getDbName() {
-		return s_dbName;
+		return dbName;
+	}
+
+	/**
+	 * Return schema prefix
+	 * 
+	 * @return if dbName not blank returns dbName + "." otherwise ""
+	 */
+	public String getPrefix() {
+		if (StringUtils.isBlank(dbName))
+			return "";
+		else {
+			if (StringUtils.isBlank(schema))
+				return dbName + ".";
+			else {
+				return dbName + "." + schema + ".";
+			}
+		}
 	}
 
 	/**
@@ -246,31 +269,31 @@ public class Db {
 
 		// load the driver
 		try {
-			Class.forName(s_dbDriver);
-			props.put("db.driver", s_dbDriver);
-			LOGGER.info("Loaded driver =" + s_dbDriver);
+			Class.forName(dbDriver);
+			props.put("db.driver", dbDriver);
+			LOGGER.info("Loaded driver =" + dbDriver);
 		} catch (ClassNotFoundException e) {
-			LOGGER.error("Could not load prefered driver " + s_dbDriver, e);
-			Class.forName(s_dbDriver2);
-			props.put("db.driver", s_dbDriver2);
-			LOGGER.info("Loaded driver =" + s_dbDriver2);
+			LOGGER.error("Could not load prefered driver " + dbDriver, e);
+			Class.forName(dbDriver2);
+			props.put("db.driver", dbDriver2);
+			LOGGER.info("Loaded driver =" + dbDriver2);
 		}
 
-		if (s_dbUser != null)
-			props.put("user", s_dbUser);
-		if (s_dbPass != null)
-			props.put("password", s_dbPass);
-		props.put("db.url", s_dbUrl);
+		if (dbUser != null)
+			props.put("user", dbUser);
+		if (dbPass != null)
+			props.put("password", dbPass);
+		props.put("db.url", dbUrl);
 		props.put("zeroDateTimeBehavior", "convertToNull");
 
-		LOGGER.info(config + ".Connecting to:" + s_dbUrl);
+		LOGGER.info(config + ".Connecting to:" + dbUrl);
 		LOGGER.trace("props=" + props);
 
 		try {
-			return DriverManager.getConnection(s_dbUrl, props);
+			return DriverManager.getConnection(dbUrl, props);
 		} catch (SQLException e) {
 
-			LOGGER.error("Connecting to:" + s_dbUrl);
+			LOGGER.error("Connecting to:" + dbUrl);
 			throw e;
 		}
 	}
@@ -389,7 +412,7 @@ public class Db {
 		try {
 			if (connection != null) {
 				connection.close();
-				s_openCount--;
+				openCount--;
 				if (!connection.isClosed()) {
 					LOGGER.error("Connection did not close.");
 				}
@@ -398,7 +421,7 @@ public class Db {
 		} catch (SQLException ex) {
 			LOGGER.error("Unable to close connection to DB");
 		}
-		LOGGER.info("close(" + calledBy + ')' + s_openCount);
+		LOGGER.info("close(" + calledBy + ')' + openCount);
 	}
 
 	/**

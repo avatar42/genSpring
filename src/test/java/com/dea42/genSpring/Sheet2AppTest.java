@@ -251,11 +251,8 @@ public class Sheet2AppTest {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
-		String schema = db.getDbName();
-		if (schema == null)
-			schema = "";
-		else
-			schema = schema + ".";
+		String schema = db.getPrefix();
+
 		Connection conn = db.getConnection("Sheet2AppTest");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {

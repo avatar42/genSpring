@@ -19,6 +19,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -145,6 +146,20 @@ public class Sheets2DBTest {
 	}
 
 	/**
+	 * Run Sheets2DB with genSpringMSSQLTest.properties file and validate the
+	 * results. Note will skip if enable=false in properties file.
+	 */
+	@Test
+	public void testWithgenSpringMSSQLTest() {
+		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
+		// Drivers check
+		com.microsoft.sqlserver.jdbc.SQLServerDriver sQLServerDriver;
+
+		genDB("genSpringMSSQLTest");
+
+	}
+
+	/**
 	 * Run Sheets2DB with genSpringTest2.properties file and validate the results
 	 */
 	@Test
@@ -161,11 +176,8 @@ public class Sheets2DBTest {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
-		String schema = db.getDbName();
-		if (schema == null)
-			schema = "";
-		else
-			schema = schema + ".";
+		String schema = db.getPrefix();
+
 		Connection conn = db.getConnection("Sheet2AppTest");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {
@@ -186,7 +198,7 @@ public class Sheets2DBTest {
 				stmt = conn.createStatement();
 				rs = stmt.executeQuery(query);
 				assertNotNull("Check ResultSet", rs);
-				if (db.isMySQL())
+				if (!db.isSQLite())
 					rs.next();
 				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));

@@ -35,10 +35,12 @@ public abstract class UnitBase extends TestCase {
 
 	protected Set<String> headless = new HashSet<String>();
 
+	protected static long TEST_USER_ID;
 	protected static String TEST_USER;
 	protected static String TEST_PASS;
 	protected static String TEST_ROLE;
 
+	protected static long ADMIN_USER_ID;
 	protected static String ADMIN_USER;
 	protected static String ADMIN_PASS;
 	protected static String ADMIN_ROLE;
@@ -48,11 +50,13 @@ public abstract class UnitBase extends TestCase {
 		msgEnBundle = ResourceBundle.getBundle("messages");
 
 		if (TEST_USER == null) {
+			TEST_USER_ID = Utils.getProp(appBundle, "default.userid", 1l);
 			TEST_USER = Utils.getProp(appBundle, "default.user", null);
 			TEST_PASS = Utils.getProp(appBundle, "default.userpass", null);
 			TEST_ROLE = Utils.getProp(appBundle, "default.userrole", null);
 		}
 		if (ADMIN_USER == null) {
+			ADMIN_USER_ID = Utils.getProp(appBundle, "default.adminid", 2l);
 			ADMIN_USER = Utils.getProp(appBundle, "default.admin", null);
 			ADMIN_PASS = Utils.getProp(appBundle, "default.adminpass", null);
 			ADMIN_ROLE = Utils.getProp(appBundle, "default.adminrole", null);
@@ -66,6 +70,43 @@ public abstract class UnitBase extends TestCase {
 		headless.add(AppController.HOME_SIGNED_VIEW_NAME);
 		headless.add(AppController.HOME_NOT_SIGNED_VIEW_NAME);
 
+	}
+
+	/**
+	 * Create a max length email string for testing
+	 * 
+	 * @param length
+	 * @return
+	 */
+	protected String getTestPasswordString(int length) {
+		StringBuilder sb = new StringBuilder();
+		sb.append("P@$$w0rd");
+		if (length > 8)
+			sb.append(getTestString(length - 8));
+
+		return sb.toString();
+	}
+
+	/**
+	 * Create a max length email string for testing
+	 * 
+	 * @param length
+	 * @return
+	 */
+	protected String getTestEmailString(int length) {
+		int partLen = length / 3;
+		// user must be 60 or less to pass built in Email validator though RFC allows 64
+		if (partLen > 60)
+			partLen = 60;
+		int diff = length - 2 - (partLen * 2);
+		StringBuilder sb = new StringBuilder();
+		sb.append(getTestString(partLen));
+		sb.append("@");
+		sb.append(getTestString(diff));
+		sb.append(".");
+		sb.append(getTestString(partLen));
+
+		return sb.toString();
 	}
 
 	/**

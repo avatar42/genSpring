@@ -12,13 +12,13 @@
 </head>
 <body>
 	<div class="container">
-		<form id="signinForm" class="form-narrow form-horizontal" method="post"
-			th:action="@{/authenticate}" th:object="${signupForm}"
-			th:fragment="signupForm">
+		<form id="signinForm" class="form-narrow form-horizontal"
+			method="post" th:action="@{/authenticate}" th:object="${loginForm}"
+			th:fragment="loginForm">
 			<!--/* Show general error message when form contains errors */-->
-			<th:block th:if="${#fields.hasErrors('${signupForm.*}')}">
+			<th:block th:if="${#fields.hasErrors('${loginForm.*}')}">
 				<div
-					th:replace="fragments/alert :: alert (type='danger', message='Form contains errors. Please try again.')">Alert</div>
+					th:replace="fragments/alert :: alert (type='danger', message=#{form.errors})">Alert</div>
 			</th:block>
 			<!-- /* Handle the flash message */-->
 			<th:block th:if="${message != null}">

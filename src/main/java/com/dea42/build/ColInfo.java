@@ -26,6 +26,8 @@ public class ColInfo implements Serializable {
 
 	// name of column in DB
 	private String colName;
+	// message key
+	private String msgKey;
 	// variable name
 	private String vName;
 	// Java type
@@ -34,16 +36,17 @@ public class ColInfo implements Serializable {
 	private int stype;
 	// getter/setter name (the bit after get/set
 	private String gsName;
+	// length where needed
 	private int length;
 	// needed import(s) for field type and annotation
 	private String importStr;
-	/**
-	 * This column is the primary key
-	 */
+	// This column is the primary key
 	private boolean pk = false;
+	// default value
 	private String defaultVal;
+	// constraint if there is one
 	private String constraint;
-
+	// is this a non nullable field
 	private boolean required = false;
 	// show in list pages
 	private boolean list = true;
@@ -51,8 +54,12 @@ public class ColInfo implements Serializable {
 	private boolean jsonIgnore = false;
 	// add unique flag
 	private boolean unique = false;
-	// Framework set field not to be exposed in GUI or REST
+	// Framework set field not to be exposed in GUI lists or REST returns
 	private boolean hidden = false;
+	// treat as password field
+	private boolean password = false;
+	// treat as email field
+	private boolean email = false;
 
 	private String foreignTable;
 	private String foreignCol;
@@ -69,8 +76,8 @@ public class ColInfo implements Serializable {
 		return required;
 	}
 
-	public void setRequired(boolean required) {
-		this.required = required;
+	public void setRequired(boolean trueFalse) {
+		this.required = trueFalse;
 	}
 
 	/**
@@ -216,8 +223,8 @@ public class ColInfo implements Serializable {
 		return length;
 	}
 
-	public void setPk(boolean pk) {
-		this.pk = pk;
+	public void setPk(boolean trueFalse) {
+		this.pk = trueFalse;
 	}
 
 	/**
@@ -318,10 +325,10 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * @param list the list to set
+	 * @param trueFalse the list to set
 	 */
-	public void setList(boolean list) {
-		this.list = list;
+	public void setList(boolean trueFalse) {
+		this.list = trueFalse;
 	}
 
 	/**
@@ -332,10 +339,10 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * @param hidden the hidden to set
+	 * @param trueFalse the hidden to set
 	 */
-	public void setHidden(boolean hidden) {
-		this.hidden = hidden;
+	public void setHidden(boolean trueFalse) {
+		this.hidden = trueFalse;
 	}
 
 	/**
@@ -346,10 +353,10 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * @param jsonIgnore the jsonIgnore to set
+	 * @param trueFalse the jsonIgnore to set
 	 */
-	public void setJsonIgnore(boolean jsonIgnore) {
-		this.jsonIgnore = jsonIgnore;
+	public void setJsonIgnore(boolean trueFalse) {
+		this.jsonIgnore = trueFalse;
 	}
 
 	/**
@@ -360,10 +367,10 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * @param unique the unique to set
+	 * @param trueFalse the unique to set
 	 */
-	public void setUnique(boolean unique) {
-		this.unique = unique;
+	public void setUnique(boolean trueFalse) {
+		this.unique = trueFalse;
 	}
 
 	/**
@@ -380,15 +387,59 @@ public class ColInfo implements Serializable {
 		this.importStr = importStr;
 	}
 
+	/**
+	 * @return the password
+	 */
+	public boolean isPassword() {
+		return password;
+	}
+
+	/**
+	 * @param trueFalse the password to set. Note if true set hidden as well
+	 */
+	public void setPassword(boolean trueFalse) {
+		this.password = trueFalse;
+		this.hidden = trueFalse;
+	}
+
+	/**
+	 * @return the msgKey
+	 */
+	public String getMsgKey() {
+		return msgKey;
+	}
+
+	/**
+	 * @param msgKey the msgKey to set
+	 */
+	public void setMsgKey(String msgKey) {
+		this.msgKey = msgKey;
+	}
+
+	/**
+	 * @return the email
+	 */
+	public boolean isEmail() {
+		return email;
+	}
+
+	/**
+	 * @param trueFalse the email to set
+	 */
+	public void setEmail(boolean trueFalse) {
+		this.email = trueFalse;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
-		builder.append("ColInfo [colName=").append(colName).append(", vName=").append(vName).append(", type=")
-				.append(type).append(", stype=").append(stype).append(", gsName=").append(gsName).append(", length=")
-				.append(length).append(", importStr=").append(importStr).append(", pk=").append(pk)
-				.append(", defaultVal=").append(defaultVal).append(", constraint=").append(constraint)
-				.append(", required=").append(required).append(", list=").append(list).append(", jsonIgnore=")
-				.append(jsonIgnore).append(", unique=").append(unique).append(", hidden=").append(hidden)
+		builder.append("ColInfo [colName=").append(colName).append(", msgKey=").append(msgKey).append(", vName=")
+				.append(vName).append(", type=").append(type).append(", stype=").append(stype).append(", gsName=")
+				.append(gsName).append(", length=").append(length).append(", importStr=").append(importStr)
+				.append(", pk=").append(pk).append(", defaultVal=").append(defaultVal).append(", constraint=")
+				.append(constraint).append(", required=").append(required).append(", list=").append(list)
+				.append(", jsonIgnore=").append(jsonIgnore).append(", unique=").append(unique).append(", hidden=")
+				.append(hidden).append(", password=").append(password).append(", email=").append(email)
 				.append(", foreignTable=").append(foreignTable).append(", foreignCol=").append(foreignCol)
 				.append(", colScale=").append(colScale).append(", colPrecision=").append(colPrecision).append(", fNum=")
 				.append(fNum).append("]");

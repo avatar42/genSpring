@@ -7,6 +7,8 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.validation.constraints.Email;
+import javax.validation.constraints.NotBlank;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -20,13 +22,17 @@ public class Account implements java.io.Serializable {
 	private Long id = 0l;
 
 	@Column(unique = true, name = "email", length = 254)
+	@NotBlank
+	@Email
 	private String email;
 
 	@JsonIgnore
 	@Column(name = "password", length = 254)
+	@NotBlank
 	private String password;
 
 	@Column(name = "role", length = 25)
+	@NotBlank
 	private String role = "ROLE_USER";
 
 	private Timestamp created;
@@ -36,10 +42,15 @@ public class Account implements java.io.Serializable {
 	}
 
 	public Account(String email, String password, String role) {
+		this(0, email, password, role, new Timestamp(System.currentTimeMillis()));
+	}
+
+	public Account(long id, String email, String password, String role, Timestamp created) {
+		this.id = id;
 		this.email = email;
 		this.password = password;
 		this.role = role;
-		this.created = new Timestamp(System.currentTimeMillis());
+		this.created = created;
 	}
 
 	public Account(String email, String password) {

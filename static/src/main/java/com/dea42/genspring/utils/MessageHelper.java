@@ -7,6 +7,9 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 public final class MessageHelper {
 
+	public static final String NOT_BLANK_MESSAGE = "{notBlank.message}";
+	public static final String EMAIL_MESSAGE = "{email.message}";
+
     private MessageHelper() {
 
     }

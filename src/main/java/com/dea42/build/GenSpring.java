@@ -102,6 +102,7 @@ public class GenSpring {
 						ps.println(key + "=");
 					else
 						ps.println(key + "=" + val);
+					LOGGER.debug(key + "=" + val);
 				}
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -388,7 +389,7 @@ public class GenSpring {
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
 		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
 		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
-		
+
 		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
 		// SQLite tables to always ignore
 		filteredTables.add("hibernate_sequence");
@@ -470,6 +471,12 @@ public class GenSpring {
 
 	}
 
+	private StringBuilder commentAdd(StringBuilder sb, String comment) {
+		if (sb.length() > 0)
+			sb.append(System.lineSeparator());
+		return sb.append(" * ").append(comment).append("<br>");
+	}
+
 	/**
 	 * Entry point for generating all the files you need for Spring maint screens to
 	 * Add/Edit/Delete/Search record for a table.
@@ -482,7 +489,7 @@ public class GenSpring {
 		String firstColumnName = null;
 		String pkCol = null;
 		String className = Utils.tabToStr(renames, tableName);
-		String comment = "";
+		StringBuilder comment = new StringBuilder();
 
 		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
@@ -499,6 +506,8 @@ public class GenSpring {
 		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(size);
 		List<String> jsonIgnoreCols = Utils.getPropList(bundle, className + ".JsonIgnore");
 		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
+		List<String> passwordCols = Utils.getPropList(bundle, className + ".passwords");
+		List<String> emailCols = Utils.getPropList(bundle, className + ".emails");
 
 		for (int i = 1; i <= size; i++) {
 			ColInfo colInfo = new ColInfo();
@@ -508,6 +517,12 @@ public class GenSpring {
 			colInfo.setColName(columnName);
 			if (firstColumnName == null) {
 				firstColumnName = columnName;
+			}
+			if (passwordCols.contains(columnName)) {
+				colInfo.setPassword(true);
+			}
+			if (emailCols.contains(columnName)) {
+				colInfo.setEmail(true);
 			}
 			colInfo.setPk(rm.isAutoIncrement(i) || columnName.equals(pkCol));
 			if (jsonIgnoreCols.contains(columnName)) {
@@ -529,6 +544,7 @@ public class GenSpring {
 			colInfo.setLength(len);
 			columnName = Utils.tabToStr(renames, columnName);
 			colInfo.setVName(columnName.substring(0, 1).toLowerCase() + columnName.substring(1));
+			colInfo.setMsgKey(className + "." + colInfo.getVName());
 			colInfo.setGsName(columnName);
 			// a java.sql.Types
 			int stype = rm.getColumnType(i);
@@ -619,12 +635,12 @@ public class GenSpring {
 		rs = metaData.getPrimaryKeys("", null, tableName);
 		while (rs.next()) {
 			pkCol = rs.getString("COLUMN_NAME");
-			LOGGER.info("Table name: " + rs.getString("TABLE_NAME"));
-			LOGGER.info("Column name: " + pkCol);
-			LOGGER.info("Catalog name: " + rs.getString("TABLE_CAT"));
-			LOGGER.info("Primary key sequence: " + rs.getString("KEY_SEQ"));
-			LOGGER.info("Primary key name: " + rs.getString("PK_NAME"));
-			LOGGER.info(" ");
+			comment = commentAdd(comment, "Table name: " + rs.getString("TABLE_NAME"));
+			comment = commentAdd(comment, "Column name: " + pkCol);
+			comment = commentAdd(comment, "Catalog name: " + rs.getString("TABLE_CAT"));
+			comment = commentAdd(comment, "Primary key sequence: " + rs.getString("KEY_SEQ"));
+			comment = commentAdd(comment, "Primary key name: " + rs.getString("PK_NAME"));
+			comment = commentAdd(comment, " ");
 		}
 		if (StringUtils.isBlank(pkCol)) {
 			pkCol = firstColumnName;
@@ -636,24 +652,27 @@ public class GenSpring {
 			ColInfo ci = cols.get(rs.getString("FKCOLUMN_NAME").toUpperCase());
 			ci.setForeignTable(rs.getString("PKTABLE_NAME"));
 			ci.setForeignCol(rs.getString("PKCOLUMN_NAME"));
-			LOGGER.info(rs.getString("PKTABLE_CAT") + " => primary key table catalog being imported (may be null)");
-			LOGGER.info(rs.getString("PKTABLE_SCHEM") + " => primary key table schema being imported (may be null) ");
-			LOGGER.info(rs.getString("PKTABLE_NAME") + " => primary key table name being imported ");
-			LOGGER.info(rs.getString("PKCOLUMN_NAME") + " => primary key column name being imported");
-			LOGGER.info(rs.getString("FKTABLE_CAT") + " => foreign key table catalog (may be null)");
-			LOGGER.info(rs.getString("FKTABLE_SCHEM") + " => foreign key table schema (may be null)");
-			LOGGER.info(rs.getString("FKTABLE_NAME") + " => foreign key table name ");
-			LOGGER.info(rs.getString("FKCOLUMN_NAME") + " => foreign key column name");
-			LOGGER.info(rs.getString("KEY_SEQ")
+			comment = commentAdd(comment,
+					rs.getString("PKTABLE_CAT") + " => primary key table catalog being imported (may be null)");
+			comment = commentAdd(comment,
+					rs.getString("PKTABLE_SCHEM") + " => primary key table schema being imported (may be null) ");
+			comment = commentAdd(comment, rs.getString("PKTABLE_NAME") + " => primary key table name being imported ");
+			comment = commentAdd(comment, rs.getString("PKCOLUMN_NAME") + " => primary key column name being imported");
+			comment = commentAdd(comment, rs.getString("FKTABLE_CAT") + " => foreign key table catalog (may be null)");
+			comment = commentAdd(comment, rs.getString("FKTABLE_SCHEM") + " => foreign key table schema (may be null)");
+			comment = commentAdd(comment, rs.getString("FKTABLE_NAME") + " => foreign key table name ");
+			comment = commentAdd(comment, rs.getString("FKCOLUMN_NAME") + " => foreign key column name");
+			comment = commentAdd(comment, rs.getString("KEY_SEQ")
 					+ " => sequence number within a foreign key( a valueof 1 represents the first column of the foreign key, a value of 2 would represent the second column within the foreign key).");
-			LOGGER.info(
+			comment = commentAdd(comment,
 					rs.getString("UPDATE_RULE") + " => What happens to a foreign key when the primary key is updated:");
 
-			LOGGER.info(rs.getString("DELETE_RULE") + " => What happens to the foreign key when primary is deleted.");
-			LOGGER.info(rs.getString("FK_NAME") + " => foreign key name (may be null) ");
-			LOGGER.info(rs.getString("PK_NAME") + " => primary key name (may be null) ");
-			LOGGER.info(rs.getString("DEFERRABILITY") + " DEFERRABILITY");
-			LOGGER.info(" ");
+			comment = commentAdd(comment,
+					rs.getString("DELETE_RULE") + " => What happens to the foreign key when primary is deleted.");
+			comment = commentAdd(comment, rs.getString("FK_NAME") + " => foreign key name (may be null) ");
+			comment = commentAdd(comment, rs.getString("PK_NAME") + " => primary key name (may be null) ");
+			comment = commentAdd(comment, rs.getString("DEFERRABILITY") + " DEFERRABILITY");
+			comment = commentAdd(comment, " ");
 		}
 		db.close(PROPKEY + ".genFiles()");
 
@@ -671,7 +690,7 @@ public class GenSpring {
 		}
 		cols.put(PKEY_INFO, pkinfo);
 
-		writeBean(tableName, className, namList, comment);
+		writeBean(tableName, className, namList, comment.toString());
 		writeRepo(className, pkinfo);
 		writeService(className, pkinfo);
 		writeListPage(className, namList);
@@ -706,6 +725,8 @@ public class GenSpring {
 		sb.append(" * @author Gened by " + this.getClass().getCanonicalName() + " version " + genSpringVersion + "<br>")
 				.append(System.lineSeparator());
 		sb.append(" * @version " + appVersion + "<br>").append(System.lineSeparator());
+		if (!StringUtils.isBlank(comment))
+			sb.append(comment);
 		sb.append(" */");
 
 		return sb.toString();
@@ -786,7 +807,11 @@ public class GenSpring {
 						if (PKEY_INFO.equals(name))
 							continue;
 						ColInfo info = (ColInfo) namList.get(name);
-						data = data + clsName + "." + info.getVName() + "=" + info.getGsName() + System.lineSeparator();
+						data = data + info.getMsgKey() + "=" + info.getGsName() + System.lineSeparator();
+						if (info.isPassword()) {
+							data = data + info.getMsgKey() + "Confirm=" + info.getGsName() + " Confirm"
+									+ System.lineSeparator();
+						}
 					}
 					data = data + System.lineSeparator();
 				}
@@ -873,7 +898,15 @@ public class GenSpring {
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
-								ps.println("        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
+								if (info.isPassword())
+									ps.println("        o.set" + info.getGsName() + "(getTestPasswordString(" + endIndex
+											+ "));");
+								else if (info.isEmail())
+									ps.println("        o.set" + info.getGsName() + "(getTestEmailString(" + endIndex
+											+ "));");
+								else
+									ps.println(
+											"        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
 							}
 						} else if (info.isPk()) {
 							ps.println("		o.set" + info.getGsName() + "(1" + idMod + ");");
@@ -1022,8 +1055,8 @@ public class GenSpring {
 				ps.println("			<table >");
 				ps.println("				<tr th:if=\"${" + fieldName + "." + pkinfo.getVName()
 						+ " > 0}\">				");
-				ps.println("					<td th:text=\"#{" + clsName + "." + pkinfo.getVName() + "} + ':'\">"
-						+ pkinfo.getColName() + ":</td>");
+				ps.println("					<td th:text=\"#{" + pkinfo.getMsgKey() + "} + ':'\">"
+						+ pkinfo.getGsName() + ":</td>");
 				ps.println("					<td>");
 				ps.println("						<input type=\"text\" th:field=\"*{" + pkinfo.getVName()
 						+ "}\" readonly=\"readonly\" />");
@@ -1035,12 +1068,23 @@ public class GenSpring {
 					if (PKEY_INFO.equals(name))
 						continue;
 					ColInfo info = (ColInfo) namList.get(name);
-					if (!pkinfo.getColName().equals(info.getColName())) {
+					if (!info.isPk()) {
 						ps.println("				<tr>");
-						ps.println("            		<td>" + info.getColName() + ":</td>");
+						ps.println("					<td th:text=\"#{" + info.getMsgKey() + "} + ':'\">"
+								+ info.getColName() + ":</td>");
 						ps.println("					<td>");
 						ps.println("						<input type=\"text\" th:field=\"*{" + info.getVName()
 								+ "}\" />");
+						ps.println("					</td>");
+						ps.println("				</tr>");
+					}
+					if (info.isPassword()) {
+						ps.println("				<tr>");
+						ps.println("					<td th:text=\"#{" + info.getMsgKey() + "Confirm} + ':'\">"
+								+ info.getColName() + "Confirm:</td>");
+						ps.println("					<td>");
+						ps.println("						<input type=\"text\" th:field=\"*{" + info.getVName()
+								+ "Confirm}\" />");
 						ps.println("					</td>");
 						ps.println("				</tr>");
 					}
@@ -1128,20 +1172,20 @@ public class GenSpring {
 					if (!processed.contains(name)) {
 
 						if (namList.containsKey(name + "link")) {
-							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
-									+ info.getColName() + "</th>");
+							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
+									+ "</th>");
 							processed.add(name);
 							processed.add(name + "link");
 						} else if (name.endsWith("link") && namList.containsKey(name.substring(0, name.length() - 4))) {
 							name = name.substring(0, name.length() - 4);
 							info = (ColInfo) namList.get(name);
-							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
-									+ info.getColName() + "</th>");
+							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
+									+ "</th>");
 							processed.add(name);
 							processed.add(name + "link");
 						} else {
-							ps.println("            <th th:text=\"#{" + clsName + "." + info.getVName() + "}\">"
-									+ info.getColName() + "</th>");
+							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
+									+ "</th>");
 							processed.add(name);
 						}
 					}
@@ -1344,27 +1388,27 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println("	public void checkHeader(ResultActions result, String user) throws Exception {");
 				ps.println("		result.andExpect(status().isOk());");
-				ps.println("		contentContainsKey(result, \"app.name\", false);");
+				ps.println("		contentContainsKey(result, \"app.name\");");
 				ps.println("		// GUI menu");
-				ps.println("		contentContainsKey(result, \"header.gui\", false);");
+				ps.println("		contentContainsKey(result, \"header.gui\");");
 				for (String clsName : set) {
 					ps.println("		contentContainsKey(result, \"class." + clsName + "\", false);");
 				}
 				ps.println("// REST menu");
-				ps.println("		contentContainsKey(result, \"header.restApi\", false);");
+				ps.println("		contentContainsKey(result, \"header.restApi\");");
 				for (String clsName : set) {
 					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
 					ps.println("		contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);");
 				}
 				ps.println("// Login / out");
-				ps.println("		contentContainsKey(result, \"lang.eng\", false);");
-				ps.println("		contentContainsKey(result, \"lang.fr\", false);");
-				ps.println("		contentContainsKey(result, \"lang.de\", false);");
+				ps.println("		contentContainsKey(result, \"lang.eng\");");
+				ps.println("		contentContainsKey(result, \"lang.fr\");");
+				ps.println("		contentContainsKey(result, \"lang.de\");");
 				ps.println("");
 				ps.println("		if (user == null)");
-				ps.println("			contentContainsKey(result, \"signin.signin\", false);");
+				ps.println("			contentContainsKey(result, \"signin.signin\");");
 				ps.println("		else");
-				ps.println("			contentContainsKey(result, \"signin.logout\", false);");
+				ps.println("			contentContainsKey(result, \"signin.logout\");");
 				ps.println("");
 				ps.println("	}");
 				ps.println("");
@@ -1412,6 +1456,14 @@ public class GenSpring {
 				ps.println("		return send(SEND_GET, relURL, null, null, null, null, null);");
 				ps.println("	}");
 				ps.println("");
+				ps.println("	public void contentContainsKey(ResultActions result, String key, String... args) {");
+				ps.println("		contentContainsKey(result, key, false, args);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	public void contentNotContainsKey(ResultActions result, String key, String... args) {");
+				ps.println("		contentContainsKey(result, key, true, args);");
+				ps.println("	}");
+				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Confirm text of key is in content");
 				ps.println("	 * ");
@@ -1420,8 +1472,12 @@ public class GenSpring {
 				ps.println("	 * @param failIfExists flip to fail if there");
 				ps.println("	 */");
 				ps.println(
-						"	public void contentContainsKey(ResultActions result, String key, boolean failIfExists) {");
+						"	public void contentContainsKey(ResultActions result, String key, boolean failIfExists, String... args) {");
 				ps.println("		String expectedText = Utils.getProp(getMsgBundle(), key);");
+				ps.println("		for (int i = 0; i < args.length; i++) {");
+				ps.println("			String argkey = \"%\" + (i+1) + \"$s\";");
+				ps.println("			expectedText = expectedText.replace(argkey, args[i]);");
+				ps.println("		}");
 				ps.println("		contentContainsMarkup(result, expectedText, failIfExists);");
 				ps.println("	}");
 				ps.println("");
@@ -1593,8 +1649,7 @@ public class GenSpring {
 						}
 					}
 					if (!info.getVName().endsWith("link"))
-						ps.println("		contentContainsMarkup(ra,getMsg(\"" + clsName + "." + info.getVName()
-								+ "\"));");
+						ps.println("		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1617,7 +1672,8 @@ public class GenSpring {
 					if (PKEY_INFO.equals(name))
 						continue;
 					ColInfo info = (ColInfo) namList.get(name);
-					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
+					if (!info.isPk())
+						ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1675,7 +1731,7 @@ public class GenSpring {
 							ps.println("		contentContainsMarkup(ra,o.get" + info.getGsName() + "());");
 						}
 					}
-					ps.println("		contentContainsMarkup(ra,\"" + info.getColName() + "\");");
+					ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
 				}
 				ps.println("	}");
 				ps.println("");
@@ -1886,6 +1942,189 @@ public class GenSpring {
 		}
 	}
 
+	private void writeForm(String viewName, String className, TreeMap<String, ColInfo> namList, String comment) {
+		String pkgNam = basePkg + ".form";
+		String relPath = pkgNam.replace('.', '/');
+		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
+		Path p = createFile(outFile);
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				ps.println("import java.io.Serializable;");
+				ps.println("import javax.persistence.*;");
+				Set<String> set = namList.keySet();
+				Iterator<String> it = set.iterator();
+				Set<String> imports = new TreeSet<String>();
+				while (it.hasNext()) {
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					if (!StringUtils.isBlank(info.getImportStr()))
+						imports.add(info.getImportStr());
+					if (info.isPassword()) {
+						imports.add("import javax.persistence.Transient;");
+					}
+				}
+				for (String s : imports) {
+					ps.println(s);
+				}
+				ps.println("");
+				ps.println(getClassHeader(viewName + " Form",
+						"Class for holding data from the " + viewName + " table for editing.", comment));
+				ps.println("@Entity");
+				ps.println("@Table(name = \"`" + viewName + "`\")");
+				ps.println("public class " + className + "Form implements Serializable {");
+				ps.println("	private static final long serialVersionUID = 1L;");
+				ps.println("");
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					if (info.isTimestamp())
+						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd hh:mm:ss\")");
+					if (info.isDate())
+						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd\")");
+
+					if (info.isJsonIgnore())
+						ps.println("    @JsonIgnore");
+					if (info.isPk()) {
+						ps.println("    @Id");
+						if (info.getStype() == Types.INTEGER || info.getStype() == Types.BIGINT)
+							ps.println("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
+					}
+					StringBuilder sb = new StringBuilder("	@Column(name=\"" + info.getColName() + "\"");
+					if (info.isUnique())
+						sb.append(", unique=false");
+					if (info.isRequired())
+						sb.append(", nullable=false");
+					if ("String".equals(info.getType()) && info.getLength() > 0) {
+						sb.append(", length=" + info.getLength());
+					}
+					sb.append(")");
+					ps.println(sb.toString());
+					ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
+					if (info.isPassword()) {
+						ps.println("@Transient");
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Confirm;");
+					}
+				}
+
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Basic constructor");
+				ps.println("	 */");
+				ps.println("	public " + className + "() {");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Full constructor");
+				ps.println("	 *");
+				ps.println("	 */");
+				StringBuilder sb = new StringBuilder("	public " + className + "(");
+				set = namList.keySet();
+				it = set.iterator();
+				boolean addCom = false;
+				while (it.hasNext()) {
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					if (addCom) {
+						sb.append(", ");
+					} else {
+						addCom = true;
+					}
+					sb.append(info.getType() + ' ' + info.getVName());
+				}
+				sb.append(") {");
+				ps.println(sb.toString());
+				set = namList.keySet();
+				it = set.iterator();
+				while (it.hasNext()) {
+					String name = it.next();
+					if (PKEY_INFO.equals(name))
+						continue;
+					ColInfo info = (ColInfo) namList.get(name);
+					ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
+				}
+				ps.println("	}");
+				writeBeanGetSets(ps, namList);
+				LOGGER.debug("Done with get/sets writing");
+				if (beanToString) {
+					ps.println("	/**");
+					ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
+					ps.println("	 *");
+					ps.println("	 * @return String");
+					ps.println("	 */");
+					ps.println("	public String toString(){");
+					ps.println("		StringBuffer sb = new StringBuffer();");
+					set = namList.keySet();
+					it = set.iterator();
+					while (it.hasNext()) {
+						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
+						ColInfo info = (ColInfo) namList.get(name);
+						ps.println(
+								"		sb.append(\"" + info.getVName() + "= \" + " + info.getVName() + "+\'\\n\');");
+					}
+					ps.println("		return sb.toString();");
+					ps.println("	}");
+				}
+
+				ps.println("");
+
+				if (beanEquals) {
+					ps.println("	/**");
+					ps.println("	 * Mainly for mock testing");
+					ps.println("	 *");
+					ps.println("	 * @return boolean");
+					ps.println("	 */");
+					ps.println("	@Override");
+					ps.println("	public boolean equals(Object obj) {");
+					ps.println("		if (this == obj)");
+					ps.println("			return true;");
+					ps.println("		if (obj == null)");
+					ps.println("			return false;");
+					ps.println("		if (getClass() != obj.getClass())");
+					ps.println("			return false;");
+					ps.println("		" + className + " other = (" + className + ") obj;");
+					ps.println("");
+					set = namList.keySet();
+					it = set.iterator();
+					while (it.hasNext()) {
+						String name = it.next();
+						if (PKEY_INFO.equals(name))
+							continue;
+						ColInfo info = (ColInfo) namList.get(name);
+						ps.println("		if (get" + info.getGsName() + "() == null) {");
+						ps.println("			if (other.get" + info.getGsName() + "() != null)");
+						ps.println("				return false;");
+						ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get"
+								+ info.getGsName() + "()))");
+						ps.println("			return false;");
+						ps.println("");
+					}
+					ps.println("		return true;");
+					ps.println("	}");
+				}
+
+				ps.println("");
+				ps.println("}");
+				LOGGER.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				LOGGER.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+
+			LOGGER.debug("Created bean" + outFile);
+		}
+	}
+
 	/**
 	 * write pojo class
 	 * 
@@ -1916,6 +2155,9 @@ public class GenSpring {
 					ColInfo info = (ColInfo) namList.get(name);
 					if (!StringUtils.isBlank(info.getImportStr()))
 						imports.add(info.getImportStr());
+					if (info.isPassword()) {
+						imports.add("import javax.persistence.Transient;");
+					}
 				}
 				for (String s : imports) {
 					ps.println(s);
@@ -1957,6 +2199,10 @@ public class GenSpring {
 					sb.append(")");
 					ps.println(sb.toString());
 					ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
+					if (info.isPassword()) {
+						ps.println("@Transient");
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Confirm;");
+					}
 				}
 
 				ps.println("");
@@ -2120,6 +2366,12 @@ public class GenSpring {
 				ps.println("		return " + info.getVName() + ';');
 			}
 			ps.println("	}");
+			if (info.isPassword()) {
+				ps.println("	public " + info.getType() + " get" + info.getGsName() + "Confirm() {");
+				ps.println("		return " + info.getVName() + "Confirm;");
+				ps.println("	}");
+
+			}
 			ps.println("");
 
 			ps.println("	/**");

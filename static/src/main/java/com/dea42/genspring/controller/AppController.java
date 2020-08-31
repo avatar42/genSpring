@@ -20,16 +20,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.dea42.genspring.entity.Account;
-import com.dea42.genspring.form.SignupForm;
+import com.dea42.genspring.form.AccountForm;
+import com.dea42.genspring.form.LoginForm;
 import com.dea42.genspring.service.AccountServices;
-import com.dea42.genspring.utils.Utils;
 import com.dea42.genspring.utils.MessageHelper;
+import com.dea42.genspring.utils.Utils;
 
 /**
  * Title: AppController <br>
  * Description: Class main web Controller. <br>
  * 
- * @author Gened by com.dea42.build.GenSpring version genSpringVersion<br>
+ * @author Gened by com.dea42.build.GenSpring version 0.2.3<br>
  * @version 1.0<br>
  */
 @Controller
@@ -61,19 +62,24 @@ public class AppController {
 
 	@GetMapping("signup")
 	String signup(Model model, @RequestHeader(value = "X-Requested-With", required = false) String requestedWith) {
-		model.addAttribute(new SignupForm());
+		model.addAttribute(new AccountForm());
 		if (Utils.isAjaxRequest(requestedWith)) {
-			return SIGNUP_VIEW_NAME.concat(" :: signupForm");
+			return SIGNUP_VIEW_NAME.concat(" :: accountForm");
 		}
 		return SIGNUP_VIEW_NAME;
 	}
 
 	@PostMapping("signup")
-	public String signup(@Valid @ModelAttribute SignupForm signupForm, Errors errors, RedirectAttributes ra) {
+	public String signup(@Valid @ModelAttribute AccountForm accountForm, Errors errors, RedirectAttributes ra) {
 		if (errors.hasErrors()) {
 			return SIGNUP_VIEW_NAME;
 		}
-		Account account = accountServices.save(signupForm.createAccount());
+		Account account = null;
+		if (accountForm.getId() == 0)
+			account = new Account(accountForm.getEmail(), accountForm.getPassword(), accountForm.getRole());
+
+		account = accountServices.save(account);
+
 		if (account == null) {
 			MessageHelper.addErrorAttribute(ra, "db.failed");
 			return "redirect:/home";
@@ -88,30 +94,30 @@ public class AppController {
 	}
 
 	@RequestMapping("login")
-	String login(HttpServletRequest request, @ModelAttribute SignupForm signupForm,
+	String login(HttpServletRequest request, @ModelAttribute LoginForm loginForm,
 			@RequestHeader(value = "X-Requested-With", required = false) String requestedWith,
 			@RequestHeader(value = "Referer", required = false) String ref) {
 		// deal with loop backs and lost attributes
 		if (!StringUtils.isAllBlank(ref) && !ref.contains("/login")) {
-			signupForm.setReferer(ref);
+			loginForm.setReferer(ref);
 		}
 
 		if (Utils.isAjaxRequest(requestedWith)) {
-			return SIGNIN_VIEW_NAME.concat(" :: signupForm");
+			return SIGNIN_VIEW_NAME.concat(" :: loginForm");
 		}
 		return SIGNIN_VIEW_NAME;
 	}
 
 	@PostMapping("authenticate")
-	public String login(Model model, @Valid @ModelAttribute SignupForm signupForm, Errors errors,
+	public String login(Model model, @Valid @ModelAttribute LoginForm loginForm, Errors errors,
 			RedirectAttributes ra) {
 		if (errors.hasErrors()) {
 			return SIGNIN_VIEW_NAME;
 		}
-		if (accountServices.login(signupForm.getEmail(), signupForm.getPassword())) {
+		if (accountServices.login(loginForm.getEmail(), loginForm.getPassword())) {
 			// see messages.properties and homeSignedIn.html
 			MessageHelper.addSuccessAttribute(ra, "signin.success");
-			String referer = signupForm.getReferer();
+			String referer = loginForm.getReferer();
 			if (StringUtils.isAllBlank(referer)) {
 				// TODO: add /?lang=en to set lang to preferred / last selected.
 				referer = "/home";

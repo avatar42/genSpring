@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8" />
+<title th:text="#{edit.listView} + ' ' + #{class.Account}"></title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<link rel="stylesheet" media="screen"
+	th:href="@{/resources/css/bootstrap.min.css}" />
+<link rel="stylesheet" media="screen"
+	th:href="@{/resources/css/site.css}" />
+<script th:src="@{/resources/js/jquery.min.js}"></script>
+<script th:src="@{/resources/js/bootstrap.min.js}"></script>
+</head>
+<body>
+	<div th:replace="fragments/header :: header">&nbsp;</div>
+
+	<div class="container">
+		<h1 th:text="#{class.Account} + ' ' + #{edit.list}"></h1>
+		<a th:href="@{/accounts/new}" th:text="#{edit.new} + ' ' + #{class.Account}"></a> <br /><br />
+
+	    <table>
+	        <tr>
+            <th th:text="#{Account.role}">role</th>
+            <th th:text="#{Account.created}">created</th>
+            <th th:text="#{Account.id}">id</th>
+            <th th:text="#{Account.email}">email</th>
+            <th th:text="#{edit.actions}"></th>
+	        </tr>
+	        <tr th:each="account:${accounts}">
+	            <td th:text="${account.role}"></td>
+	            <td th:text="${account.created}"></td>
+	            <td th:text="${account.id}"></td>
+	            <td th:text="${account.email}"></td>
+				<td><a th:href="@{'/accounts/edit/' + ${account.id}}" th:text="#{edit.edit}"></a>
+					&nbsp;&nbsp;&nbsp; <a th:href="@{'/accounts/delete/' + ${account.id}}" th:text="#{edit.delete}"></a>
+				</td>
+
+	        </tr>
+	    </table>
+    </div>
+
+	<div th:insert="fragments/footer :: footer">&copy; 2020 default</div>
+</body></html>

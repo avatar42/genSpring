@@ -123,6 +123,13 @@ public class Utils {
 		return defaultVal;
 	}
 
+	/**
+	 * 
+	 * @param bundle
+	 * @param key
+	 * @param defaultVal
+	 * @return returns bundle value or defaultVal if not found
+	 */
 	public static int getProp(final ResourceBundle bundle, final String key, final int defaultVal) {
 		try {
 			return Integer.parseInt(bundle.getString(key));
@@ -133,6 +140,13 @@ public class Utils {
 		return defaultVal;
 	}
 
+	/**
+	 * 
+	 * @param bundle
+	 * @param key
+	 * @param defaultVal
+	 * @return returns bundle value or defaultVal if not found
+	 */
 	public static boolean getProp(final ResourceBundle bundle, final String key, final boolean defaultVal) {
 		try {
 			return Boolean.parseBoolean(bundle.getString(key));
@@ -143,10 +157,34 @@ public class Utils {
 		return defaultVal;
 	}
 
+	/**
+	 * 
+	 * @param bundle
+	 * @param key
+	 * @param defaultVal
+	 * @return returns bundle value or defaultVal if not found
+	 */
+	public static long getProp(ResourceBundle bundle, String key, long defaultVal) {
+		try {
+			return Long.parseLong(bundle.getString(key));
+		} catch (MissingResourceException e) {
+			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+		}
+
+		return defaultVal;
+	}
+
+	/**
+	 * 
+	 * @param bundleName
+	 * @param key
+	 * @param defaultVal
+	 * @return returns bundle (named bundleName) value or defaultVal if not found
+	 */
 	public static boolean getProp(final String bundleName, final String key, final boolean defaultVal) {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 
-			return getProp(bundle, key, defaultVal);
+		return getProp(bundle, key, defaultVal);
 	}
 
 	/**

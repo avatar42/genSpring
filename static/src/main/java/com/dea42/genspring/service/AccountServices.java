@@ -2,6 +2,7 @@ package com.dea42.genspring.service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 import javax.annotation.PostConstruct;
@@ -70,37 +71,51 @@ public class AccountServices implements UserDetailsService {
 		if (doinit) {
 
 			String user = Utils.getProp(bundle, "default.user", null);
-			String userpass = Utils.getProp(bundle, "default.userpass", null);
-			String userrole = ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", null);
-			update(1l, user, userpass, userrole);
+			if (!StringUtils.isBlank(user)) {
+				long id = Utils.getProp(bundle, "default.userid", 1l);
+				String userpass = Utils.getProp(bundle, "default.userpass", null);
+				String userrole = ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", null);
+				update(id, user, userpass, userrole);
+			}
 
 			user = Utils.getProp(bundle, "default.admin", null);
-			userpass = Utils.getProp(bundle, "default.adminpass", null);
-			userrole = ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", null);
-			update(2l, user, userpass, userrole);
+			if (!StringUtils.isBlank(user)) {
+				long id = Utils.getProp(bundle, "default.adminid", 2l);
+				String userpass = Utils.getProp(bundle, "default.adminpass", null);
+				String userrole = ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", null);
+				update(id, user, userpass, userrole);
+			}
 		}
 	}
 
 	@Transactional
 	public Account save(Account account) {
-		account.setPassword(encrypt(account.getPassword()));
-		accountRepository.save(account);
-		LOGGER.debug("Saved:" + account);
-		return account;
+		Account a = null;
+		if (account.getId() > 0) {
+			Optional<Account> o = accountRepository.findById(account.getId());
+			if (o.isPresent())
+				a = o.get();
+		}
+		if (a == null) {
+			a = account;
+		}
+		a.setEmail(account.getEmail());
+		a.setRole(account.getRole());
+
+		if (!StringUtils.isBlank(account.getPassword())) {
+			a.setPassword(encrypt(account.getPassword()));
+		}
+
+		accountRepository.save(a);
+		LOGGER.debug("Saved:" + a);
+		return a;
 	}
 
 	@Transactional
 	public Account update(Long id, String email, String password, String role) {
 		Account a = new Account(email, password, role);
 		a.setId(id);
-//		if (accountRepository.existsById(id)) {
-//			a = accountRepository.getOne((id));
-//			a.setEmail(email);
-//			a.setPassword(password);
-//			a.setRole(role);
-//		} else {
-//			a = new Account(email, password, role);
-//		}
+
 		return save(a);
 	}
 
@@ -112,6 +127,17 @@ public class AccountServices implements UserDetailsService {
 			// throw new UsernameNotFoundException("user not found");
 		}
 		return createUser(account);
+	}
+
+	public boolean isEmailAlreadyInUse(String username) throws UsernameNotFoundException {
+		if (username == null)
+			return false;
+
+		Account account = accountRepository.findOneByEmail(username);
+		if (account == null)
+			return false;
+
+		return true;
 	}
 
 	public boolean login(String email, String password) {

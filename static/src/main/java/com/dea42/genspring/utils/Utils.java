@@ -82,6 +82,16 @@ public class Utils {
 		return defaultVal;
 	}
 
+	public static long getProp(ResourceBundle bundle, String key, long defaultVal) {
+		try {
+			return Long.parseLong(bundle.getString(key));
+		} catch (MissingResourceException e) {
+			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+		}
+
+		return defaultVal;
+	}
+
 	public static boolean getProp(ResourceBundle bundle, String key, boolean defaultVal) {
 		try {
 			return Boolean.parseBoolean(bundle.getString(key));

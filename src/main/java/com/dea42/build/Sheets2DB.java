@@ -65,6 +65,7 @@ import com.google.api.services.sheets.v4.model.ValueRange;
  */
 public class Sheets2DB {
 
+	public static final String ROLE_PREFIX = "ROLE_";
 	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DB.class.getName());
 	public static long ONE_DAY_MILS = 86400000l;
 
@@ -108,6 +109,16 @@ public class Sheets2DB {
 	private int failed = 0;
 	private int skipped = 0;
 
+	protected long TEST_USER_ID;
+	protected String TEST_USER;
+	protected String TEST_PASS;
+	protected String TEST_ROLE;
+
+	protected long ADMIN_USER_ID;
+	protected String ADMIN_USER;
+	protected String ADMIN_PASS;
+	protected String ADMIN_ROLE;
+
 	private Db db;
 
 	/**
@@ -126,6 +137,17 @@ public class Sheets2DB {
 	public Sheets2DB(String bundelName, boolean cleanFirst) {
 		this.bundelName = bundelName;
 		bundle = ResourceBundle.getBundle(bundelName);
+		// Note AccountServices.initialize() will overwrite these default users till
+		// init.default.users set false in app.propterties so data here is basically
+		// just place holders
+		TEST_USER_ID = Utils.getProp(bundle, "default.userid", 1l);
+		TEST_USER = Utils.getProp(bundle, "default.user", "user@dea42.com");
+		TEST_PASS = Utils.getProp(bundle, "default.userpass", "");
+		TEST_ROLE = ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", "USER");
+		ADMIN_USER_ID = Utils.getProp(bundle, "default.adminid", 2l);
+		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin@dea42.com");
+		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "");
+		ADMIN_ROLE = ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", "ADMIN");
 	}
 
 	protected long parseDateStr(String source) {
@@ -918,34 +940,34 @@ public class Sheets2DB {
 			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
 			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
 			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (1,"
-					+ System.currentTimeMillis()
-					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (2,"
-					+ System.currentTimeMillis()
-					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (" + TEST_USER_ID
+					+ "," + System.currentTimeMillis() + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE
+					+ "');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (" + ADMIN_USER_ID
+					+ "," + System.currentTimeMillis() + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE
+					+ "');");
 		} else if (db.isMySQL()) {
 			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT auto_increment NOT NULL,\n"
 					+ "	created TIMESTAMP NULL,\n" + "	email VARCHAR(" + varcharLen + ") NULL,\n"
 					+ "	password VARCHAR(" + varcharLen + ") NULL,\n" + "	`role` VARCHAR(" + roleNameLen + ") NULL,\n"
 					+ "	CONSTRAINT account_pk PRIMARY KEY (id), UNIQUE KEY unique_email (email))\n" + "ENGINE=InnoDB\n"
 					+ "DEFAULT CHARSET=utf8mb4\n" + "COLLATE=utf8mb4_0900_ai_ci;");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
-					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (2,NOW()"
-					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + TEST_USER_ID
+					+ ",NOW()" + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + ADMIN_USER_ID
+					+ ",NOW()" + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
 		} else if (db.isSqlserver()) {
 			// CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY
 			// KEY, created DATETIME, email varchar(254), password varchar(254), role
 			// varchar(25), CONSTRAINT UC_email UNIQUE (email));
-			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT IDENTITY(1, 1) PRIMARY KEY,\n"
+			runSQL("CREATE TABLE " + schema + "account (id BIGINT IDENTITY(1, 1) PRIMARY KEY,\n"
 					+ "	created DATETIME,\n" + "	email VARCHAR(" + varcharLen + "),\n" + "	password VARCHAR("
 					+ varcharLen + "),\n" + "	role VARCHAR(" + roleNameLen
 					+ "), CONSTRAINT UC_email UNIQUE (email));");
-			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()"
-					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()"
-					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()" + ",'"
+					+ TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
+			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()" + ",'"
+					+ ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
 		} else {
 			LOGGER.warn("Doing best guess for table create.");
 			runSQL("CREATE TABLE " + schema + "account (id bigint not null, created timestamp, email varchar("
@@ -954,10 +976,10 @@ public class Sheets2DB {
 			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
 			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
 			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (1,NOW()"
-					+ ",'user','$2a$10$5twbWyhL0OZnw/PZ43nK.OGMZ7QtALBzPZhowVd39LFuW1NPguN7a','ROLE_USER');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (2,NOW()"
-					+ ",'admin','$2a$10$fJ.I0N1JX8oFMNmPkLon2uM.XELhVJy6qpkcHwpdcmtzMhIOTNxEm','ROLE_ADMIN');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + TEST_USER_ID
+					+ ",NOW()" + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
+			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + ADMIN_USER_ID
+					+ ",NOW()" + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
 		}
 	}
 

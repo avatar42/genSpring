@@ -51,6 +51,17 @@ public class Sheet2AppTest {
 	}
 
 	/**
+	 * Run full end to end regression tests with genSpringMSSQLTest.properties file
+	 * and validate the results. Note will skip if enable=false in properties file.
+	 */
+	@Test
+	public void testEndToEndMSSQLTest() {
+		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
+		doEndToEnd("genSpringMSSQLTest", true);
+
+	}
+
+	/**
 	 * Do full tests of sheet to app that uses package and module that match the
 	 * static folder. This project and then be used to prototype changes as well.
 	 */
@@ -248,6 +259,7 @@ public class Sheet2AppTest {
 
 		Sheets2DB s = new Sheets2DB(bundleName, true);
 		s.getSheet();
+		
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
@@ -273,7 +285,7 @@ public class Sheet2AppTest {
 				stmt = conn.createStatement();
 				rs = stmt.executeQuery(query);
 				assertNotNull("Check ResultSet", rs);
-				if (db.isMySQL())
+				if (!db.isSQLite())
 					rs.next();
 				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));

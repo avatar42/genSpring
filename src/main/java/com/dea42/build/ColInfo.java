@@ -30,8 +30,10 @@ public class ColInfo implements Serializable {
 	private String msgKey;
 	// variable name
 	private String vName;
-	// Java type
+	// Java type used in app
 	private String type;
+	// Java type used by driver (may be parent of type)
+	private String jtype;
 	// the java.sql.Types value
 	private int stype;
 	// getter/setter name (the bit after get/set
@@ -49,7 +51,7 @@ public class ColInfo implements Serializable {
 	// is this a non nullable field
 	private boolean required = false;
 	// show in list pages
-	private boolean list = true;
+	private boolean list = false;
 	// filter from REST interface
 	private boolean jsonIgnore = false;
 	// add unique flag
@@ -60,6 +62,10 @@ public class ColInfo implements Serializable {
 	private boolean password = false;
 	// treat as email field
 	private boolean email = false;
+	// treat as created field
+	private boolean created = false;
+	// treat as lastMod field
+	private boolean lastMod = false;
 
 	private String foreignTable;
 	private String foreignCol;
@@ -202,7 +208,7 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * gets java type of data colmun will hold
+	 * Gets java type of data column will hold
 	 * 
 	 * @return String
 	 */
@@ -212,6 +218,18 @@ public class ColInfo implements Serializable {
 
 	public void setLength(int length) {
 		this.length = length;
+	}
+
+	/**
+	 * For setting test numbers where l needs added longs
+	 * 
+	 * @return
+	 */
+	public String getMod() {
+		if ("Long".equals(getType()))
+			return "l";
+
+		return "";
 	}
 
 	/**
@@ -246,7 +264,15 @@ public class ColInfo implements Serializable {
 	 * @return String
 	 */
 	public String getDefaultVal() {
-		return defaultVal;
+		if (defaultVal != null) {
+			return defaultVal;
+		} else {
+			if (created || lastMod) {
+				return "new " + type + "(System.currentTimeMillis())";
+			} else {
+				return null;
+			}
+		}
 	}
 
 	/**
@@ -430,19 +456,192 @@ public class ColInfo implements Serializable {
 		this.email = trueFalse;
 	}
 
+	/**
+	 * @return the created
+	 */
+	public boolean isCreated() {
+		return created;
+	}
+
+	/**
+	 * @param created the created to set
+	 */
+	public void setCreated(boolean created) {
+		this.created = created;
+	}
+
+	/**
+	 * @return the lastMod
+	 */
+	public boolean isLastMod() {
+		return lastMod;
+	}
+
+	/**
+	 * @param lastMod the lastMod to set
+	 */
+	public void setLastMod(boolean lastMod) {
+		this.lastMod = lastMod;
+	}
+
+	/**
+	 * @return the jtype
+	 */
+	public String getJtype() {
+		return jtype;
+	}
+
+	/**
+	 * @param jtype the jtype to set
+	 */
+	public void setJtype(String jtype) {
+		this.jtype = jtype;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((colName == null) ? 0 : colName.hashCode());
+		result = prime * result + colPrecision;
+		result = prime * result + colScale;
+		result = prime * result + ((constraint == null) ? 0 : constraint.hashCode());
+		result = prime * result + (created ? 1231 : 1237);
+		result = prime * result + ((defaultVal == null) ? 0 : defaultVal.hashCode());
+		result = prime * result + (email ? 1231 : 1237);
+		result = prime * result + fNum;
+		result = prime * result + ((foreignCol == null) ? 0 : foreignCol.hashCode());
+		result = prime * result + ((foreignTable == null) ? 0 : foreignTable.hashCode());
+		result = prime * result + ((gsName == null) ? 0 : gsName.hashCode());
+		result = prime * result + (hidden ? 1231 : 1237);
+		result = prime * result + ((importStr == null) ? 0 : importStr.hashCode());
+		result = prime * result + (jsonIgnore ? 1231 : 1237);
+		result = prime * result + ((jtype == null) ? 0 : jtype.hashCode());
+		result = prime * result + (lastMod ? 1231 : 1237);
+		result = prime * result + length;
+		result = prime * result + (list ? 1231 : 1237);
+		result = prime * result + ((msgKey == null) ? 0 : msgKey.hashCode());
+		result = prime * result + (password ? 1231 : 1237);
+		result = prime * result + (pk ? 1231 : 1237);
+		result = prime * result + (required ? 1231 : 1237);
+		result = prime * result + stype;
+		result = prime * result + ((type == null) ? 0 : type.hashCode());
+		result = prime * result + (unique ? 1231 : 1237);
+		result = prime * result + ((vName == null) ? 0 : vName.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		ColInfo other = (ColInfo) obj;
+		if (colName == null) {
+			if (other.colName != null)
+				return false;
+		} else if (!colName.equals(other.colName))
+			return false;
+		if (colPrecision != other.colPrecision)
+			return false;
+		if (colScale != other.colScale)
+			return false;
+		if (constraint == null) {
+			if (other.constraint != null)
+				return false;
+		} else if (!constraint.equals(other.constraint))
+			return false;
+		if (created != other.created)
+			return false;
+		if (defaultVal == null) {
+			if (other.defaultVal != null)
+				return false;
+		} else if (!defaultVal.equals(other.defaultVal))
+			return false;
+		if (email != other.email)
+			return false;
+		if (fNum != other.fNum)
+			return false;
+		if (foreignCol == null) {
+			if (other.foreignCol != null)
+				return false;
+		} else if (!foreignCol.equals(other.foreignCol))
+			return false;
+		if (foreignTable == null) {
+			if (other.foreignTable != null)
+				return false;
+		} else if (!foreignTable.equals(other.foreignTable))
+			return false;
+		if (gsName == null) {
+			if (other.gsName != null)
+				return false;
+		} else if (!gsName.equals(other.gsName))
+			return false;
+		if (hidden != other.hidden)
+			return false;
+		if (importStr == null) {
+			if (other.importStr != null)
+				return false;
+		} else if (!importStr.equals(other.importStr))
+			return false;
+		if (jsonIgnore != other.jsonIgnore)
+			return false;
+		if (jtype == null) {
+			if (other.jtype != null)
+				return false;
+		} else if (!jtype.equals(other.jtype))
+			return false;
+		if (lastMod != other.lastMod)
+			return false;
+		if (length != other.length)
+			return false;
+		if (list != other.list)
+			return false;
+		if (msgKey == null) {
+			if (other.msgKey != null)
+				return false;
+		} else if (!msgKey.equals(other.msgKey))
+			return false;
+		if (password != other.password)
+			return false;
+		if (pk != other.pk)
+			return false;
+		if (required != other.required)
+			return false;
+		if (stype != other.stype)
+			return false;
+		if (type == null) {
+			if (other.type != null)
+				return false;
+		} else if (!type.equals(other.type))
+			return false;
+		if (unique != other.unique)
+			return false;
+		if (vName == null) {
+			if (other.vName != null)
+				return false;
+		} else if (!vName.equals(other.vName))
+			return false;
+		return true;
+	}
+
 	@Override
 	public String toString() {
 		StringBuilder builder = new StringBuilder();
 		builder.append("ColInfo [colName=").append(colName).append(", msgKey=").append(msgKey).append(", vName=")
-				.append(vName).append(", type=").append(type).append(", stype=").append(stype).append(", gsName=")
-				.append(gsName).append(", length=").append(length).append(", importStr=").append(importStr)
-				.append(", pk=").append(pk).append(", defaultVal=").append(defaultVal).append(", constraint=")
-				.append(constraint).append(", required=").append(required).append(", list=").append(list)
-				.append(", jsonIgnore=").append(jsonIgnore).append(", unique=").append(unique).append(", hidden=")
-				.append(hidden).append(", password=").append(password).append(", email=").append(email)
-				.append(", foreignTable=").append(foreignTable).append(", foreignCol=").append(foreignCol)
-				.append(", colScale=").append(colScale).append(", colPrecision=").append(colPrecision).append(", fNum=")
-				.append(fNum).append("]");
+				.append(vName).append(", type=").append(type).append(", jtype=").append(jtype).append(", stype=")
+				.append(stype).append(", gsName=").append(gsName).append(", length=").append(length)
+				.append(", importStr=").append(importStr).append(", pk=").append(pk).append(", defaultVal=")
+				.append(defaultVal).append(", constraint=").append(constraint).append(", required=").append(required)
+				.append(", list=").append(list).append(", jsonIgnore=").append(jsonIgnore).append(", unique=")
+				.append(unique).append(", hidden=").append(hidden).append(", password=").append(password)
+				.append(", email=").append(email).append(", created=").append(created).append(", lastMod=")
+				.append(lastMod).append(", foreignTable=").append(foreignTable).append(", foreignCol=")
+				.append(foreignCol).append(", colScale=").append(colScale).append(", colPrecision=")
+				.append(colPrecision).append(", fNum=").append(fNum).append("]");
 		return builder.toString();
 	}
 

@@ -139,7 +139,7 @@
 		<dependency>
 			<groupId>commons-beanutils</groupId>
 			<artifactId>commons-beanutils</artifactId>
-			<version>1.9.3</version>
+			<version>1.9.4</version>
 		</dependency>
 	</dependencies>
 
@@ -187,7 +187,7 @@
 					<configuration>
 						<properties>
 							<cargo.servlet.port>8089</cargo.servlet.port>
-							<cargo.logging>high</cargo.logging>
+							<cargo.logging>low</cargo.logging>
 							<!-- <cargo.hostname>127.0.0.1</cargo.hostname> <cargo.jboss.management-http.port> 
 								9990 </cargo.jboss.management-http.port> <cargo.servlet.users> adminUser:admin1234! 
 								</cargo.servlet.users> -->

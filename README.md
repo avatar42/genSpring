@@ -10,10 +10,14 @@ db.password= <br>
 db.name= <br>
 
 ## keyed on Entity Class name
+### note column / field in list names are now compared case insensitive to avoid mismatches 
 ### columns not to return in REST interface
 Account.JsonIgnore=password
 ### columns that need unique values
 Account.unique=email
+## restrict columns on list page to just these
+Account.list=id,email,role,created
+
 ### normal test values See Sheets2DBTest and Sheet2AppTest for examples of use
 Sheet1.testCols=5<br>
 Sheet2.testCols=5<br>
@@ -80,14 +84,12 @@ genSpring.module=genSpring
 genSpring.artifactId=genSpringTest
 ## add a toString() to the entity bean class
 genSpring.beanToString=true
-## add a equals() to the entity bean class
+## add a equals() and hashCode() to the entity bean and form classes ( now always true so mock testing can work)
 genSpring.beanEquals=true
 ## use Double instead of BigDecimal for entities beans.
 genSpring.useDouble=true
 ## Filter tables to gen code for by name
 genSpring.filteredTables=providers
-## restrict columns on list page to just these
-Account.list=id,email,role,created
 
 
 # Running the generator
@@ -96,7 +98,7 @@ Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Ja
 		Where options are:<br>
 		-double = use Double instead of BigDecimal for entities beans **(also genSpring.useDouble in properties file)**<br>
 		-toString = generate toString() methods for entities beans **(also genSpring.beanToString in properties file)**<br>
-		-beanEquals = generate equals() methods for entities beans **(also genSpring.beanEquals in properties file)**<br><br>
+		~~-beanEquals = generate equals() methods for entities beans **(Always true now)**~~<br><br>
 		<br>
 		if table names not given then runs on all tables in DB.<br>
 		<br>

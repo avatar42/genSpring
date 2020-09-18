@@ -13,11 +13,11 @@ import com.dea42.genspring.utils.MessageHelper;
  */
 public class LoginForm {
 
-	@NotBlank(message = MessageHelper.NOT_BLANK_MESSAGE)
-	@Email(message = MessageHelper.EMAIL_MESSAGE)
+	@NotBlank(message = "{"+MessageHelper.notBlank_message+"}")
+	@Email(message = "{"+MessageHelper.email_message+"}")
 	private String email;
 
-	@NotBlank(message = MessageHelper.NOT_BLANK_MESSAGE)
+	@NotBlank(message = "{"+MessageHelper.notBlank_message+"}")
 	private String password;
 
 	private String referer;

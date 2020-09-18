@@ -19,7 +19,6 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
 
-import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -153,7 +152,7 @@ public class Sheets2DBTest {
 	public void testWithgenSpringMSSQLTest() {
 		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
 		// Drivers check
-		com.microsoft.sqlserver.jdbc.SQLServerDriver sQLServerDriver;
+//		com.microsoft.sqlserver.jdbc.SQLServerDriver sQLServerDriver;
 
 		genDB("genSpringMSSQLTest");
 
@@ -168,6 +167,46 @@ public class Sheets2DBTest {
 		genDB("genSpringTest2");
 	}
 
+	/**
+	 * Check the columns and rows are what we expected.
+	 * 
+	 * @param db
+	 * @param bundle
+	 * @param tableName
+	 */
+	private void quickChkTable(Db db, ResourceBundle bundle, String tableName) {
+		String schema = db.getPrefix();
+
+		int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+		int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+		try {
+			Connection conn = db.getConnection("Sheet2AppTest");
+			String query = "SELECT * FROM " + schema + tableName;
+			Statement stmt = conn.createStatement();
+			stmt.setMaxRows(1);
+			LOGGER.debug("query=" + query);
+			ResultSet rs = stmt.executeQuery(query);
+			assertNotNull("Check ResultSet", rs);
+			ResultSetMetaData rm = rs.getMetaData();
+			int size = rm.getColumnCount();
+			assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+
+			query = "SELECT COUNT(*) FROM " + schema + tableName;
+			stmt = conn.createStatement();
+			rs = stmt.executeQuery(query);
+			assertNotNull("Check ResultSet", rs);
+			if (!db.isSQLite())
+				rs.next();
+			assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+		} catch (SQLException e) {
+			LOGGER.error("Exception creating DB", e);
+			fail("Exception creating DB");
+		} finally {
+			db.close("Sheet2AppTest");
+		}
+
+	}
+
 	private void genDB(String bundleName) {
 		Sheets2DB s = new Sheets2DB(bundleName, true);
 		s.getSheet();
@@ -176,56 +215,14 @@ public class Sheets2DBTest {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
-		String schema = db.getPrefix();
 
-		Connection conn = db.getConnection("Sheet2AppTest");
+		quickChkTable(db, bundle, "Account");
 		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
 		for (String tableName : tables) {
-			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-			int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
-			try {
-				String query = "SELECT * FROM " + schema + tableName;
-				Statement stmt = conn.createStatement();
-				stmt.setMaxRows(1);
-				LOGGER.debug("query=" + query);
-				ResultSet rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
-				ResultSetMetaData rm = rs.getMetaData();
-				int size = rm.getColumnCount();
-				assertEquals("Checking expected columns in " + schema + tableName, columns, size);
-
-				query = "SELECT COUNT(*) FROM " + schema + tableName;
-				stmt = conn.createStatement();
-				rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
-				if (!db.isSQLite())
-					rs.next();
-				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
-				if (!userColNums.isEmpty()) {
-					tableName = tableName + "User";
-					columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-					rows = Utils.getProp(bundle, tableName + ".testRows", 0);
-					query = "SELECT * FROM " + schema + tableName;
-					stmt = conn.createStatement();
-					LOGGER.debug("query=" + query);
-					rs = stmt.executeQuery(query);
-					assertNotNull("Check ResultSet", rs);
-					rm = rs.getMetaData();
-					size = rm.getColumnCount();
-					assertEquals("Checking expected columns in " + schema + tableName, columns, size);
-
-					query = "SELECT COUNT(*) FROM " + schema + tableName;
-					stmt = conn.createStatement();
-					rs = stmt.executeQuery(query);
-					assertNotNull("Check ResultSet", rs);
-					if (db.isMySQL())
-						rs.next();
-					assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-				}
-			} catch (SQLException e) {
-				LOGGER.error("Exception creating DB", e);
-				fail("Exception creating DB");
+			quickChkTable(db, bundle, tableName);
+			List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
+			if (!userColNums.isEmpty()) {
+				quickChkTable(db, bundle, tableName + "User");
 			}
 		}
 	}

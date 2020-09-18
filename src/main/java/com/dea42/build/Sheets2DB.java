@@ -142,11 +142,11 @@ public class Sheets2DB {
 		// just place holders
 		TEST_USER_ID = Utils.getProp(bundle, "default.userid", 1l);
 		TEST_USER = Utils.getProp(bundle, "default.user", "user@dea42.com");
-		TEST_PASS = Utils.getProp(bundle, "default.userpass", "");
+		TEST_PASS = Utils.getProp(bundle, "default.userpass", "ChangeMe");
 		TEST_ROLE = ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", "USER");
 		ADMIN_USER_ID = Utils.getProp(bundle, "default.adminid", 2l);
 		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin@dea42.com");
-		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "");
+		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "ChangeMe");
 		ADMIN_ROLE = ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", "ADMIN");
 	}
 
@@ -710,12 +710,13 @@ public class Sheets2DB {
 
 		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
-		genTable(tableName, userTables.contains(tableName), null, maxFieldLenghts, fieldTypes, requiredFields,
-				rowsData);
+		genTable(tableName, userTables.contains(tableName), null, maxFieldLenghts, fieldTypes, requiredFields, rowsData,
+				false);
+		// If has user columns to be placed in separate table, create that user table.
 		if (!userColNums.isEmpty()) {
 			LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
 			genTable(userTableName, true, tableName, maxUserFieldLenghts, userFieldTypes, requiredUserFields,
-					rowsUserData);
+					rowsUserData, false);
 		}
 	}
 
@@ -730,18 +731,27 @@ public class Sheets2DB {
 	 * @param fieldTypes
 	 * @param requiredFields
 	 * @param rowsData
+	 * @param forceLongId     TODO
 	 * @throws SQLException
 	 */
 	private void genTable(String tableName, boolean addUserFK, String mainTable, Map<Object, Integer> maxFieldLenghts,
-			Map<Object, Class<?>> fieldTypes, List<Object> requiredFields, Map<Integer, Map<Object, Object>> rowsData)
-			throws SQLException {
+			Map<Object, Class<?>> fieldTypes, List<Object> requiredFields, Map<Integer, Map<Object, Object>> rowsData,
+			boolean forceLongId) throws SQLException {
 		LOGGER.debug("maxFieldLenghts:" + maxFieldLenghts.toString());
 		LOGGER.debug("fieldTypes:" + fieldTypes.toString());
+		LOGGER.debug("requiredFields:" + requiredFields.toString());
+		LOGGER.debug("rowsData:" + rowsData.toString());
+
+		String colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
+		String colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
+		String className = Utils.tabToStr(renames, tableName);
+		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
 
 		String schema = db.getPrefix();
 
-		// Drop old table if there is one
-		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
+		// Drop old table if there is one though should have bee dropped in getSheet()
+		// or addAccountTable()
+//		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
 
 //		CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY KEY, created DATETIME, email varchar(254), password varchar(254), 
 //		role varchar(25), CONSTRAINT UC_email UNIQUE (email));
@@ -758,12 +768,30 @@ public class Sheets2DB {
 		// create new table
 		StringBuilder sb = new StringBuilder("CREATE TABLE " + schema + tableName + "(id " + idType + autoincrement);
 		if (addUserFK)
-			sb.append(", userId bigint");
+			sb.append(", userId " + idType);
 
 		if (mainTable != null)
 			sb.append(", " + mainTable + "_Id " + idType);
 
-		for (Object name : maxFieldLenghts.keySet()) {
+		if (colCreated != null) {
+			if (db.isMySQL()) {
+				sb.append(", " + colCreated + " TIMESTAMP NOT NULL");
+			} else {
+				sb.append(", " + colCreated + " DATETIME NOT NULL");
+			}
+		}
+		if (colLastMod != null) {
+			if (db.isMySQL()) {
+				sb.append(", " + colLastMod + " TIMESTAMP NOT NULL");
+			} else {
+				sb.append(", " + colLastMod + " DATETIME NOT NULL");
+			}
+		}
+
+		for (Object name : fieldTypes.keySet()) {
+			if (name.equals(colCreated) || name.equals(colLastMod))
+				continue;
+
 			Class<?> cls = fieldTypes.get(name);
 			if (cls == null) {
 				cls = String.class;
@@ -778,6 +806,10 @@ public class Sheets2DB {
 				if (len == 0)
 					len = 20;
 				sb.append("VARCHAR(" + len + ")");
+				if (db.isMySQL()) {
+					// work around bug in MySQL not returning correct len
+					sb.append(" COMMENT 'len=" + len + "'");
+				}
 			} else if (cls.isAssignableFrom(Boolean.class)) {
 				// NOTE SQLite does not have boolean type
 				if (db.isSQLite())
@@ -798,7 +830,8 @@ public class Sheets2DB {
 					sb.append("INTEGER");
 				else
 					sb.append("TIME");
-			} else if (cls.isAssignableFrom(BigDecimal.class)) {
+			} else if (cls.isAssignableFrom(BigDecimal.class) || cls.isAssignableFrom(Float.class)
+					|| cls.isAssignableFrom(Double.class)) {
 				sb.append("REAL");
 			} else {
 				LOGGER.warn("Unknown field type:" + cls.getCanonicalName() + " for " + fieldName);
@@ -817,6 +850,9 @@ public class Sheets2DB {
 			sb.append("    CONSTRAINT FK_" + tableName + "_" + mainTable + " FOREIGN KEY (" + mainTable + "_Id)");
 			sb.append("    REFERENCES " + schema + mainTable + "(id)");
 		}
+		for (String fieldName : uniqueCols) {
+			sb.append(", CONSTRAINT UC_" + fieldName + " UNIQUE (" + fieldName + ")");
+		}
 		sb.append(");");
 
 		runSQL(sb.toString());
@@ -833,7 +869,16 @@ public class Sheets2DB {
 			if (mainTable != null) {
 				sb.append(mainTable + "_Id,");
 			}
-			for (Object name : maxFieldLenghts.keySet()) {
+			if (colCreated != null) {
+				sb.append(colCreated + ",");
+			}
+			if (colLastMod != null) {
+				sb.append(colLastMod + ",");
+			}
+			for (Object name : fieldTypes.keySet()) {
+				if (name.equals(colCreated) || name.equals(colLastMod))
+					continue;
+
 				if (addcom) {
 					sb.append(", ");
 				} else {
@@ -854,7 +899,32 @@ public class Sheets2DB {
 			if (mainTable != null) {
 				sb.append((rowId - 1)).append(",");
 			}
-			for (Object name : maxFieldLenghts.keySet()) {
+			if (colCreated != null) {
+				if (db.isSQLite()) {
+					sb.append(System.currentTimeMillis()).append(",");
+				} else if (db.isMySQL()) {
+					sb.append("NOW(),");
+				} else if (db.isSqlserver()) {
+					sb.append("SYSDATETIME(),");
+				} else {
+					sb.append("NOW(),");
+				}
+			}
+			if (colLastMod != null) {
+				if (db.isSQLite()) {
+					sb.append(System.currentTimeMillis()).append(",");
+				} else if (db.isMySQL()) {
+					sb.append("NOW(),");
+				} else if (db.isSqlserver()) {
+					sb.append("SYSDATETIME(),");
+				} else {
+					sb.append("NOW(),");
+				}
+			}
+			for (Object name : fieldTypes.keySet()) {
+				if (name.equals(colCreated) || name.equals(colLastMod))
+					continue;
+
 				if (addcom) {
 					sb.append(", ");
 				} else {
@@ -918,7 +988,7 @@ public class Sheets2DB {
 	 * Since we are recreating the table each time, do each call without
 	 * transactions so we can see any trouble rows that might exist in one go. TODO:
 	 * add check if table exists or should be replaced instead of just doing it
-	 * everytime.
+	 * every time.
 	 * 
 	 * @param sql
 	 * @return pass / fail
@@ -926,61 +996,44 @@ public class Sheets2DB {
 	 * @throws SQLException
 	 */
 	private void addAccountTable() throws IOException, SQLException {
-		int varcharLen = 254;
-		int roleNameLen = 25;
+		Map<Object, Integer> maxFieldLenghts = new HashMap<Object, Integer>();
+		// maxFieldLenghts:{Decimal=0, Text=7, Int=0, Date=0}
+		maxFieldLenghts.put("email", 254);
+		maxFieldLenghts.put("password", 254);
+		maxFieldLenghts.put("role", 25);
+		// discovered field types
+		Map<Object, Class<?>> fieldTypes = new HashMap<Object, Class<?>>();
+		// fieldTypes:{Decimal=class java.math.BigDecimal, Text=class java.lang.String,
+		// Int=class java.lang.Integer, Date=class java.util.Date}
+		fieldTypes.put("email", String.class);
+		fieldTypes.put("password", String.class);
+		fieldTypes.put("role", String.class);
+		// required field names
+		List<Object> requiredFields = new ArrayList<Object>();
+		// requiredFields:[Int]
+		requiredFields.add("email");
+		requiredFields.add("password");
+		requiredFields.add("role");
+		// holds the actual data
+		Map<Integer, Map<Object, Object>> rowsData = new HashMap<Integer, Map<Object, Object>>();
+		Map<Object, Object> rowMap = new HashMap<Object, Object>();
+
+		rowMap.put("email", TEST_USER);
+		rowMap.put("password", TEST_PASS);
+		rowMap.put("role", TEST_ROLE);
+		rowsData.put(1, rowMap);
+
+		rowMap = new HashMap<Object, Object>();
+		rowMap.put("email", ADMIN_USER);
+		rowMap.put("password", ADMIN_PASS);
+		rowMap.put("role", ADMIN_ROLE);
+		rowsData.put(2, rowMap);
 
 		LOGGER.debug("Creating account table");
-		String schema = db.getPrefix();
 
-		runSQL("DROP TABLE IF EXISTS " + schema + "account;");
-		if (db.isSQLite()) {
-			runSQL("CREATE TABLE account (id bigint not null, created DATETIME, email varchar(" + varcharLen
-					+ ") UNIQUE, password varchar(" + varcharLen + "), role varchar(" + roleNameLen
-					+ "), primary key (id));");
-			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
-			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
-			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (" + TEST_USER_ID
-					+ "," + System.currentTimeMillis() + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE
-					+ "');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,\"role\") VALUES (" + ADMIN_USER_ID
-					+ "," + System.currentTimeMillis() + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE
-					+ "');");
-		} else if (db.isMySQL()) {
-			runSQL("CREATE TABLE " + schema + "account (\n" + "	id BIGINT auto_increment NOT NULL,\n"
-					+ "	created TIMESTAMP NULL,\n" + "	email VARCHAR(" + varcharLen + ") NULL,\n"
-					+ "	password VARCHAR(" + varcharLen + ") NULL,\n" + "	`role` VARCHAR(" + roleNameLen + ") NULL,\n"
-					+ "	CONSTRAINT account_pk PRIMARY KEY (id), UNIQUE KEY unique_email (email))\n" + "ENGINE=InnoDB\n"
-					+ "DEFAULT CHARSET=utf8mb4\n" + "COLLATE=utf8mb4_0900_ai_ci;");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + TEST_USER_ID
-					+ ",NOW()" + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + ADMIN_USER_ID
-					+ ",NOW()" + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
-		} else if (db.isSqlserver()) {
-			// CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY
-			// KEY, created DATETIME, email varchar(254), password varchar(254), role
-			// varchar(25), CONSTRAINT UC_email UNIQUE (email));
-			runSQL("CREATE TABLE " + schema + "account (id BIGINT IDENTITY(1, 1) PRIMARY KEY,\n"
-					+ "	created DATETIME,\n" + "	email VARCHAR(" + varcharLen + "),\n" + "	password VARCHAR("
-					+ varcharLen + "),\n" + "	role VARCHAR(" + roleNameLen
-					+ "), CONSTRAINT UC_email UNIQUE (email));");
-			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()" + ",'"
-					+ TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
-			runSQL("INSERT INTO " + schema + "account (created,email,password,role) VALUES (SYSDATETIME()" + ",'"
-					+ ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
-		} else {
-			LOGGER.warn("Doing best guess for table create.");
-			runSQL("CREATE TABLE " + schema + "account (id bigint not null, created timestamp, email varchar("
-					+ varcharLen + "), password varchar(" + varcharLen + "), role varchar(" + roleNameLen
-					+ "), primary key (id), UNIQUE KEY unique_email (email));");
-			runSQL("DROP TABLE IF EXISTS \"hibernate_sequence\";");
-			runSQL("CREATE TABLE hibernate_sequence (next_val bigint);");
-			runSQL("INSERT INTO hibernate_sequence (next_val) VALUES (5);");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + TEST_USER_ID
-					+ ",NOW()" + ",'" + TEST_USER + "','" + TEST_PASS + "','" + TEST_ROLE + "');");
-			runSQL("INSERT INTO " + schema + "account (id,created,email,password,role) VALUES (" + ADMIN_USER_ID
-					+ ",NOW()" + ",'" + ADMIN_USER + "','" + ADMIN_PASS + "','" + ADMIN_ROLE + "');");
-		}
+		runSQL("DROP TABLE IF EXISTS " + db.getPrefix() + "account;");
+		genTable("account", false, null, maxFieldLenghts, fieldTypes, requiredFields, rowsData, true);
+
 	}
 
 	/**

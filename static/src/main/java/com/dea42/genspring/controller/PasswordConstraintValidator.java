@@ -22,6 +22,8 @@ import org.passay.WhitespaceRule;
  *
  */
 public class PasswordConstraintValidator extends BaseConstraintValidator<ValidatePassword, Object> {
+	public static final int MIN_PASS_LEN = 8;
+	public static final int MAX_PASS_LEN = 30;
 
 	@Override
 	public void initialize(ValidatePassword constraintAnnotation) {
@@ -39,7 +41,7 @@ public class PasswordConstraintValidator extends BaseConstraintValidator<Validat
 
 		PasswordValidator validator = new PasswordValidator(new ResourceBundleMessageResolver(bundle), Arrays.asList(
 				// at least 8 characters
-				new LengthRule(8, 30),
+				new LengthRule(MIN_PASS_LEN, MAX_PASS_LEN),
 
 				// at least one upper-case character
 				new CharacterRule(EnglishCharacterData.UpperCase, 1),

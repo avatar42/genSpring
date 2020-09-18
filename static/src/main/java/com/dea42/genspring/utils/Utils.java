@@ -61,9 +61,13 @@ public class Utils {
 	 * @param defaultVal
 	 * @return returns bundle value or defaultVal if not found
 	 */
-	public static String getProp(ResourceBundle bundle, String key, String defaultVal) {
+	public static String getProp(ResourceBundle bundle, String key, String defaultVal, String...args) {
 		try {
 			String val = bundle.getString(key);
+			for (int i = 0; i < args.length; i++) {
+				String argkey = "%" + (i+1) + "$s";
+				val = val.replace(argkey, args[i]);
+			}
 			return new String(val.getBytes("ISO-8859-1"), "UTF-8");
 		} catch (MissingResourceException | UnsupportedEncodingException e) {
 			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);

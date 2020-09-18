@@ -1,9 +1,10 @@
 package com.dea42.build;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.io.Writer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -22,17 +23,17 @@ import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
-import java.util.zip.DataFormatException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
+import org.apache.velocity.app.VelocityEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,11 +56,53 @@ public class GenSpring {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String PROPKEY = "genSpring";
 	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.2.3";
+	public static final String genSpringVersion = "0.3.0";
+	public static String ACCOUNT_CLASS = "Account";
+
+	// see
+	// https://docs.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolumns-function?view=sql-server-ver15
+	public static int TABLE_CAT = 1;// 'null'
+	public static int TABLE_SCHEM = 2;// 'null'
+	public static int TABLE_NAME = 3;// 'account'
+	public static int COLUMN_NAME = 4;// 'id'
+	public static int DATA_TYPE = 5;// '4' // Types.*
+	public static int TYPE_NAME = 6;// 'INTEGER'
+	// SQLite ignores field sizes and precisioN. nEED TO USE TYPE_NAME TO GET
+	// varchar LEN
+	public static int COLUMN_SIZE = 7;// '2000000000'
+	public static int BUFFER_LENGTH = 8;// '2000000000'
+	public static int DECIMAL_DIGITS = 9;// '10'
+	public static int NUM_PREC_RADIX = 10;// '10'
+	public static int NULLABLE = 11;// '0'
+	public static int REMARKS = 12;// 'null'
+	public static int COLUMN_DEF = 13;// 'null'
+	public static int SQL_DATA_TYPE = 14;// '0'
+	public static int SQL_DATETIME_SUB = 15;// '0'
+	public static int CHAR_OCTET_LENGTH = 16;// '2000000000'
+	public static int ORDINAL_POSITION = 17;// '0'
+	public static int IS_NULLABLE = 18;// 'NO'
+	// below may not be supported
+	public static int SCOPE_CATLOG = 19;// 'null'
+	public static int SCOPE_SCHEMA = 20;// 'null'
+	public static int SCOPE_TABLE = 21;// 'null'
+	public static int SOURCE_DATA_TYPE = 22;// 'null'
+
+	// SQL server and My SQL
+	public static int IS_AUTOINCREMENT = 23;// 'YES'
+	public static int IS_GENERATEDCOLUMN = 24;// 'NO'
+	// just MS SQL
+	public static int SS_IS_SPARSE = 25;// '0'
+	public static int SS_IS_COLUMN_SET = 26;// '0'
+	public static int SS_UDT_CATALOG_NAME = 27;// 'null'
+	public static int SS_UDT_SCHEMA_NAME = 28;// 'null'
+	public static int SS_UDT_ASSEMBLY_TYPE_NAME = 29;// 'null'
+	public static int SS_XML_SCHEMACOLLECTION_CATALOG_NAME = 30;// 'null'
+	public static int SS_XML_SCHEMACOLLECTION_SCHEMA_NAME = 31;// 'null'
+	public static int SS_XML_SCHEMACOLLECTION_NAME = 32;// 'null'
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
-	private boolean beanEquals = false;
+	private static final boolean beanEquals = true;
 	private ResourceBundle bundle;
 	private ResourceBundle renames;
 	private String bundleName;
@@ -77,6 +120,11 @@ public class GenSpring {
 	private int year = 2001;
 	private String schema = null;
 	private List<String> filteredTables;
+	private String colCreated;
+	private String colLastMod;
+
+	// TODO: make this configurable and add to PasswordConstraintValidator
+	private int maxPassLen = 30;
 
 	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
 
@@ -159,9 +207,9 @@ public class GenSpring {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.home", null));
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.println("    	<a th:href=\"@{/" + fieldName + "s}\">" + clsName + "</a><br>");
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+					ps.println("    	<a th:href=\"@{/" + fieldName + "s}\">" + className + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/api/}\">/api/</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
@@ -179,9 +227,9 @@ public class GenSpring {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.restApi", null));
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
-					ps.println("    	<a th:href=\"@{/api/" + fieldName + "s}\">" + clsName + "</a><br>");
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+					ps.println("    	<a th:href=\"@{/api/" + fieldName + "s}\">" + className + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/}\">Home</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
@@ -226,12 +274,12 @@ public class GenSpring {
 				ps.println(
 						"								th:text=\"#{header.gui}\"></span> <b class=\"caret\"></b> </a>");
 				ps.println("							<ul class=\"dropdown-menu\">");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("								<li th:classappend=\"${module == '" + fieldName
 							+ "' ? 'active' : ''}\">");
-					ps.println("    								<a id=\"guiItem" + clsName + "\" th:href=\"@{/"
-							+ fieldName + "s}\" th:text=\"#{class." + clsName + "}\"></a></li>");
+					ps.println("    								<a id=\"guiItem" + className + "\" th:href=\"@{/"
+							+ fieldName + "s}\" th:text=\"#{class." + className + "}\"></a></li>");
 				}
 				ps.println("							</ul></li>");
 				ps.println("						<li id=\"restMenu\" class=\"dropdown\"><a href=\"#\"");
@@ -239,12 +287,13 @@ public class GenSpring {
 				ps.println(
 						"								th:text=\"#{header.restApi}\"></span> <b class=\"caret\"></b></a>");
 				ps.println("							<ul class=\"dropdown-menu\">");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("								<li th:classappend=\"${module == '" + fieldName
 							+ "' ? 'active' : ''}\">");
-					ps.println("    								<a id=\"apiItem" + clsName + "\" th:href=\"@{/api/"
-							+ fieldName + "s}\" th:text=\"#{class." + clsName + "}\"></a></li>");
+					ps.println(
+							"    								<a id=\"apiItem" + className + "\" th:href=\"@{/api/"
+									+ fieldName + "s}\" th:text=\"#{class." + className + "}\"></a></li>");
 				}
 				ps.println("							</ul></li>");
 				ps.println("					</ul>");
@@ -311,6 +360,30 @@ public class GenSpring {
 		}
 	}
 
+//    static String inputTemplate = "java_example.vm";
+//    static String className = "VelocityExample";
+//    static String message = "Hello World!";
+//    static String outputFile = className + ".java";
+
+	public void velocityGenerator(String inputTemplate, String className, String message, String outputFile)
+			throws IOException {
+
+		VelocityEngine velocityEngine = new VelocityEngine();
+		velocityEngine.init();
+
+		VelocityContext context = new VelocityContext();
+		// replace ${className} in file with className value
+		context.put("className", className);
+		context.put("message", message);
+
+		Writer writer = new FileWriter(new File(outputFile));
+		Velocity.mergeTemplate(inputTemplate, "UTF-8", context, writer);
+		writer.flush();
+		writer.close();
+
+		System.out.println("Generated " + outputFile);
+	}
+
 	public void copyCommon() throws IOException {
 		Path staticPath = Utils.getPath("static");
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
@@ -325,7 +398,8 @@ public class GenSpring {
 			}
 
 			/**
-			 * Copy file into new tree converting package / paths as needed
+			 * Copy file into new tree converting package / paths as needed TODO: change to
+			 * use velocityGenerator()
 			 */
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -387,8 +461,11 @@ public class GenSpring {
 		basePath = basePkg.replace('.', '/');
 		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
-		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
+		// overridding because testing requires beans to have equals to mock services.
+//		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
 		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
+		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
+		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
 
 		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
 		// SQLite tables to always ignore
@@ -421,8 +498,8 @@ public class GenSpring {
 
 		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {
-			String clsName = Utils.tabToStr(renames, tableName);
-			colsInfo.put(clsName, genTableMaintFiles(tableName));
+			String className = Utils.tabToStr(renames, tableName);
+			colsInfo.put(className, genTableMaintFiles(tableName));
 		}
 		writeMockBase(colsInfo.keySet());
 		writeApiController(colsInfo.keySet());
@@ -447,34 +524,26 @@ public class GenSpring {
 		this.bundleName = bundleName;
 	}
 
-	public void getKeys(Db db, String tableName) {
-		String create;
-		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
-		// SELECT * FROM pragma_foreign_key_list('my_table');
-		if (db.getDbUrl().indexOf("mysql") > -1) {
-			String sql = "SELECT * FROM pragma_foreign_key_list('" + tableName + "');";
-			try {
-				Statement stmt = conn.createStatement();
-				stmt.setMaxRows(1);
-				LOGGER.debug("query=" + sql);
-				ResultSet rs = stmt.executeQuery(sql);
-				if (rs.next()) {
-					// TODO: test this. Reported failing with "java.sql.SQLException: Column 'Create
-					// Table' not found."
-					// See https://dev.mysql.com/doc/refman/8.0/en/show-create-table.html
-					create = rs.getString("Create Table");
-				}
-			} catch (SQLException e) {
-				LOGGER.error(sql + " failed", e);
-			}
-		}
-
-	}
-
 	private StringBuilder commentAdd(StringBuilder sb, String comment) {
 		if (sb.length() > 0)
 			sb.append(System.lineSeparator());
 		return sb.append(" * ").append(comment).append("<br>");
+	}
+
+	/**
+	 * looks for columnName in the list in a case insensitive way and return if
+	 * found
+	 * 
+	 * @param list
+	 * @param columnName
+	 * @param ifEmpty    what to return if list is empty or null
+	 * @return
+	 */
+	private boolean caseIgnoreListContains(List<String> list, String columnName, boolean ifEmpty) {
+		if (list == null || list.isEmpty())
+			return ifEmpty;
+
+		return list.stream().anyMatch(columnName::equalsIgnoreCase);
 	}
 
 	/**
@@ -487,7 +556,6 @@ public class GenSpring {
 	public Map<String, ColInfo> genTableMaintFiles(String tableName) throws Exception {
 
 		String firstColumnName = null;
-		String pkCol = null;
 		String className = Utils.tabToStr(renames, tableName);
 		StringBuilder comment = new StringBuilder();
 
@@ -495,59 +563,56 @@ public class GenSpring {
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
 
 		LOGGER.debug("tableName:" + tableName);
-		String query = "SELECT * FROM " + tableName;
-		Statement stmt = conn.createStatement();
-		stmt.setMaxRows(1);
-		LOGGER.debug("query=" + query);
-		ResultSet rs = stmt.executeQuery(query);
-		ResultSetMetaData rm = rs.getMetaData();
-		int size = rm.getColumnCount();
 		// Map indexed by column name
-		Map<String, ColInfo> cols = new HashMap<String, ColInfo>(size);
 		List<String> jsonIgnoreCols = Utils.getPropList(bundle, className + ".JsonIgnore");
 		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
 		List<String> passwordCols = Utils.getPropList(bundle, className + ".passwords");
-		List<String> emailCols = Utils.getPropList(bundle, className + ".emails");
+		List<String> emailCols = Utils.getPropList(bundle, className + ".email");
+		List<String> listCols = Utils.getPropList(bundle, className + ".list");
 
-		for (int i = 1; i <= size; i++) {
+		DatabaseMetaData meta = conn.getMetaData();
+		ResultSet rs = meta.getColumns(null, null, tableName, null);
+		ResultSetMetaData rm = rs.getMetaData();
+		Map<String, ColInfo> colNameToInfoMap = new TreeMap<String, ColInfo>();
+		String catalog = "";
+		while (rs.next()) {
+			if (LOGGER.isDebugEnabled()) {
+				for (int i = 1; i <= rm.getColumnCount(); i++) {
+					String columnName = rm.getColumnName(i);
+					LOGGER.debug(columnName + "='" + rs.getString(columnName) + "'");
+				}
+			}
+			catalog = rs.getString(TABLE_CAT);
 			ColInfo colInfo = new ColInfo();
-			colInfo.setfNum(i);
-
-			String columnName = rm.getColumnName(i);
+			colInfo.setfNum(rs.getInt(ORDINAL_POSITION) + 1);
+			String columnName = rs.getString(COLUMN_NAME);
 			colInfo.setColName(columnName);
 			if (firstColumnName == null) {
 				firstColumnName = columnName;
 			}
-			if (passwordCols.contains(columnName)) {
-				colInfo.setPassword(true);
-			}
-			if (emailCols.contains(columnName)) {
-				colInfo.setEmail(true);
-			}
-			colInfo.setPk(rm.isAutoIncrement(i) || columnName.equals(pkCol));
-			if (jsonIgnoreCols.contains(columnName)) {
-				colInfo.setJsonIgnore(true);
-			}
-			if (uniqueCols.contains(columnName)) {
-				colInfo.setUnique(true);
-			}
-			String type = rm.getColumnTypeName(i).toUpperCase();
-			int len = rm.getColumnDisplaySize(i);
-			if (len >= 2147483647) {
-				if (rm.getPrecision(i) < 2147483647) {
-					len = rm.getPrecision(i);
-				} else {
-					len = 0;
+			// process mod lists
+			colInfo.setPassword(caseIgnoreListContains(passwordCols, columnName, false));
+			colInfo.setEmail(caseIgnoreListContains(emailCols, columnName, false));
+			colInfo.setJsonIgnore(caseIgnoreListContains(jsonIgnoreCols, columnName, false));
+			colInfo.setUnique(caseIgnoreListContains(uniqueCols, columnName, false));
+			colInfo.setList(caseIgnoreListContains(listCols, columnName, true));
+			if (db.isSqlserver()) {
+				try {
+					String autoinc = rs.getString(IS_AUTOINCREMENT);
+					if ("YES".equals(autoinc))
+						colInfo.setPk(true);
+				} catch (SQLException e) {
+					LOGGER.error("Failed checking IS_AUTOINCREMENT for:" + columnName, e);
 				}
 			}
-
-			colInfo.setLength(len);
-			columnName = Utils.tabToStr(renames, columnName);
-			colInfo.setVName(columnName.substring(0, 1).toLowerCase() + columnName.substring(1));
-			colInfo.setMsgKey(className + "." + colInfo.getVName());
-			colInfo.setGsName(columnName);
-			// a java.sql.Types
-			int stype = rm.getColumnType(i);
+			colInfo.setRequired(rs.getInt(NULLABLE) == 0);
+			int stype = rs.getInt(DATA_TYPE);
+			if (db.isSQLite()) {
+				String typ = rs.getString(TYPE_NAME);
+				if ("DATETIME".equalsIgnoreCase(typ)) {
+					stype = Types.TIMESTAMP;
+				}
+			}
 			colInfo.setStype(stype);
 			switch (stype) {
 			case Types.VARCHAR:
@@ -558,12 +623,58 @@ public class GenSpring {
 			case Types.CHAR:
 			case Types.SQLXML:
 				colInfo.setType("String");
+				String tmp = null;
+				if (db.isSQLite()) {
+					tmp = rs.getString(TYPE_NAME);
+					int s = tmp.indexOf('(');
+					if (s > -1) {
+						tmp = tmp.substring(s + 1, tmp.length() - 1);
+					} else {
+						tmp = null;
+						LOGGER.warn(columnName + " def has not len: " + tmp);
+					}
+					// MySQL seems to have issue the reporting varchar lens>100
+				} else if (db.isMySQL()) {
+					tmp = rs.getString(COLUMN_SIZE);
+					if ("100".equals(tmp)) {
+						tmp = rs.getString(REMARKS);
+						if (tmp != null && tmp.startsWith("len=")) {
+							tmp = tmp.substring(4);
+							LOGGER.warn(columnName + " Using REMARKS: " + tmp);
+						} else {
+							tmp = null;
+						}
+					} else {
+						LOGGER.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+					}
+				} else { // most others
+					tmp = rs.getString(COLUMN_SIZE);
+					LOGGER.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+				}
+				if (colInfo.isPassword()) {
+					// See PasswordConstraintValidator
+					colInfo.setLength(maxPassLen);
+				} else if (!StringUtils.isBlank(tmp)) {
+					try {
+						colInfo.setLength(Integer.parseInt(tmp));
+					} catch (NumberFormatException e) {
+						NumberFormatException e2 = new NumberFormatException(
+								"Failed to parse tmp:" + tmp + " from TYPE_NAME:" + rs.getString(TYPE_NAME)
+										+ " COLUMN_SIZE:" + rs.getString(COLUMN_SIZE));
+						e2.initCause(e);
+						throw e2;
+					}
+				} else {
+					// SQLite
+					colInfo.setLength(255);
+				}
+
 				break;
 
 			case Types.REAL:
 				colInfo.setType("Float");
-				colInfo.setColPrecision(rm.getPrecision(i));
-				colInfo.setColScale(rm.getScale(i));
+				colInfo.setColPrecision(rs.getInt(COLUMN_SIZE));
+				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
 				break;
 
 			case Types.FLOAT:
@@ -576,8 +687,8 @@ public class GenSpring {
 					colInfo.setType("BigDecimal");
 					colInfo.setImportStr("import java.math.BigDecimal;");
 				}
-				colInfo.setColPrecision(rm.getPrecision(i));
-				colInfo.setColScale(rm.getScale(i));
+				colInfo.setColPrecision(rs.getInt(COLUMN_SIZE));
+				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
 				break;
 
 			case Types.INTEGER:
@@ -591,27 +702,37 @@ public class GenSpring {
 			case Types.TIMESTAMP:
 			case Types.DATE:
 				colInfo.setType("Date");
-//				colInfo.setImportStr("import java.sql.Timestamp;");
 				colInfo.setImportStr("import java.util.Date;" + System.lineSeparator()
 						+ "import org.springframework.format.annotation.DateTimeFormat;");
 				break;
-//			case Types.DATE:
-//				colInfo.setType("Date");
-//				colInfo.setImportStr("import java.sql.Date;");
-//				break;
 			case Types.VARBINARY:
 			case Types.CLOB:
 				colInfo.setType("byte[]");
 				break;
 			default:
 				// if its something else treat it like a String for now
-				System.err.println("Type " + type + " Unknown treating like String");
+				System.err.println("Type " + stype + " Unknown treating " + columnName + " like String");
 				colInfo.setType("String");
 			}
 
+//			colInfo.setJtype(rm.getColumnClassName(i));
+
+			if (columnName.equalsIgnoreCase(colCreated))
+				colInfo.setCreated(true);
+
+			if (columnName.equalsIgnoreCase(colLastMod))
+				colInfo.setLastMod(true);
+
+			columnName = Utils.tabToStr(renames, columnName);
+			colInfo.setVName(columnName.substring(0, 1).toLowerCase() + columnName.substring(1));
+			colInfo.setMsgKey(className + "." + colInfo.getVName());
+			colInfo.setGsName(columnName);
+
 			if (colInfo.getColName() != null && colInfo.getType() != null && colInfo.getType().length() > 0) {
 				LOGGER.info("storing:" + colInfo);
-				cols.put(colInfo.getConstName(), colInfo);
+				colNameToInfoMap.put(colInfo.getColName().toLowerCase(), colInfo);
+				if (colInfo.isPk())
+					colNameToInfoMap.put(PKEY_INFO, colInfo);
 			}
 		}
 
@@ -631,10 +752,20 @@ public class GenSpring {
 		// SELECT * FROM pragma_table_info('my_table');
 		// SELECT * FROM pragma_foreign_key_list('my_table');
 		// TODO: add support for composite keys issue #17
+		String pkCol = null;
 		DatabaseMetaData metaData = conn.getMetaData();
-		rs = metaData.getPrimaryKeys("", null, tableName);
-		while (rs.next()) {
+		rs = metaData.getPrimaryKeys(catalog, schema, tableName);
+		if (rs.next()) {
 			pkCol = rs.getString("COLUMN_NAME");
+			ColInfo pkinfo = colNameToInfoMap.get(pkCol.toLowerCase());
+			if (pkinfo == null) {
+				throw new Exception("PK returned by getPrimaryKeys() not found in column list!");
+			}
+			// validate we know it is PK
+			if (!pkinfo.isPk()) {
+				pkinfo.setPk(true);
+				colNameToInfoMap.put(PKEY_INFO, pkinfo);
+			}
 			comment = commentAdd(comment, "Table name: " + rs.getString("TABLE_NAME"));
 			comment = commentAdd(comment, "Column name: " + pkCol);
 			comment = commentAdd(comment, "Catalog name: " + rs.getString("TABLE_CAT"));
@@ -642,14 +773,23 @@ public class GenSpring {
 			comment = commentAdd(comment, "Primary key name: " + rs.getString("PK_NAME"));
 			comment = commentAdd(comment, " ");
 		}
-		if (StringUtils.isBlank(pkCol)) {
+		if (colNameToInfoMap.get(PKEY_INFO) == null) {
 			pkCol = firstColumnName;
 			LOGGER.error(tableName + " does not have a primary key. Using " + pkCol);
+			ColInfo pkinfo = colNameToInfoMap.get(pkCol.toLowerCase());
+			if (pkinfo == null) {
+				throw new Exception("PK returned by getPrimaryKeys() not found in column list!");
+			}
+			// validate we know it is PK
+			if (!pkinfo.isPk()) {
+				pkinfo.setPk(true);
+				colNameToInfoMap.put(PKEY_INFO, pkinfo);
+			}
 		}
 
-		rs = metaData.getImportedKeys("", schema, tableName);
+		rs = metaData.getImportedKeys(catalog, schema, tableName);
 		while (rs.next()) {
-			ColInfo ci = cols.get(rs.getString("FKCOLUMN_NAME").toUpperCase());
+			ColInfo ci = colNameToInfoMap.get(rs.getString("FKCOLUMN_NAME").toLowerCase());
 			ci.setForeignTable(rs.getString("PKTABLE_NAME"));
 			ci.setForeignCol(rs.getString("PKCOLUMN_NAME"));
 			comment = commentAdd(comment,
@@ -676,29 +816,16 @@ public class GenSpring {
 		}
 		db.close(PROPKEY + ".genFiles()");
 
-		ColInfo pkinfo = cols.get(pkCol.toUpperCase());
-		pkinfo.setPk(true);
+		writeBean(tableName, className, colNameToInfoMap, comment.toString());
+		writeForm(tableName, className, colNameToInfoMap, "");
+		writeRepo(className, colNameToInfoMap);
+		writeService(className, colNameToInfoMap);
+		writeListPage(className, colNameToInfoMap);
+		writeObjController(className, colNameToInfoMap);
+		writeObjControllerTest(className, colNameToInfoMap);
+		writeEditPage(className, colNameToInfoMap);
 
-		// Map indexed by field name
-		TreeMap<String, ColInfo> namList = new TreeMap<String, ColInfo>();
-		for (String colName : cols.keySet()) {
-			ColInfo info = cols.get(colName);
-			namList.put(info.getVName(), info);
-			if (info.isPk()) {
-				namList.put(PKEY_INFO, info);
-			}
-		}
-		cols.put(PKEY_INFO, pkinfo);
-
-		writeBean(tableName, className, namList, comment.toString());
-		writeRepo(className, pkinfo);
-		writeService(className, pkinfo);
-		writeListPage(className, namList);
-		writeObjController(className, pkinfo);
-		writeObjControllerTest(className, namList);
-		writeEditPage(className, namList);
-
-		return cols;
+		return colNameToInfoMap;
 	}
 
 	/**
@@ -715,11 +842,11 @@ public class GenSpring {
 		sb.append(" * Title: " + className + " <br>").append(System.lineSeparator());
 		sb.append(" * Description: " + description + " <br>").append(System.lineSeparator());
 		String tmp = Utils.getProp(bundle, PROPKEY + ".Copyright", "");
-		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+		if (!StringUtils.isBlank(tmp)) {
 			sb.append(" * Copyright: " + tmp + year + "<br>").append(System.lineSeparator());
 		}
 		tmp = Utils.getProp(bundle, PROPKEY + ".Company", "");
-		if (!org.apache.commons.lang3.StringUtils.isBlank(tmp)) {
+		if (!StringUtils.isBlank(tmp)) {
 			sb.append(" * Company: " + tmp + "<br>").append(System.lineSeparator());
 		}
 		sb.append(" * @author Gened by " + this.getClass().getCanonicalName() + " version " + genSpringVersion + "<br>")
@@ -745,9 +872,9 @@ public class GenSpring {
 				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RestController;");
-				for (String clsName : set) {
-					ps.println("import " + basePkg + ".entity." + clsName + ";");
-					ps.println("import " + basePkg + ".service." + clsName + "Services;");
+				for (String className : set) {
+					ps.println("import " + basePkg + ".entity." + className + ";");
+					ps.println("import " + basePkg + ".service." + className + "Services;");
 				}
 				ps.println("");
 				ps.println("import java.util.List;");
@@ -756,19 +883,19 @@ public class GenSpring {
 				ps.println("@RequestMapping(\"/api\")");
 				ps.println("public class ApiController {");
 				ps.println("");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("    @Autowired");
-					ps.println("    private " + clsName + "Services " + fieldName + "Services;");
+					ps.println("    private " + className + "Services " + fieldName + "Services;");
 				}
 				ps.println("");
 				ps.println("    public ApiController(){");
 				ps.println("    }");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("");
 					ps.println("    @GetMapping(\"/" + fieldName + "s\")");
-					ps.println("    public List<" + clsName + "> getAll" + clsName + "s(){");
+					ps.println("    public List<" + className + "> getAll" + className + "s(){");
 					ps.println("        return this." + fieldName + "Services.listAll();");
 					ps.println("    }");
 				}
@@ -794,19 +921,17 @@ public class GenSpring {
 		try {
 			data = new String(Files.readAllBytes(p));
 			Set<String> set = colsInfo.keySet();
-			for (String clsName : set) {
+			for (String className : set) {
 				// If table already in there then skip
-				if (!data.contains("## for " + clsName + System.lineSeparator())) {
+				if (!data.contains("## for " + className + System.lineSeparator())) {
 					dataChged = true;
-					data = data + "## for " + clsName + System.lineSeparator();
-					data = data + "class." + clsName + "=" + clsName + System.lineSeparator();
-					Map<String, ColInfo> namList = colsInfo.get(clsName);
-					Iterator<String> it = namList.keySet().iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
+					data = data + "## for " + className + System.lineSeparator();
+					data = data + "class." + className + "=" + className + System.lineSeparator();
+					Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+					for (String key : colNameToInfoMap.keySet()) {
+						if (PKEY_INFO.equals(key))
 							continue;
-						ColInfo info = (ColInfo) namList.get(name);
+						ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 						data = data + info.getMsgKey() + "=" + info.getGsName() + System.lineSeparator();
 						if (info.isPassword()) {
 							data = data + info.getMsgKey() + "Confirm=" + info.getGsName() + " Confirm"
@@ -859,8 +984,8 @@ public class GenSpring {
 				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
-				for (String clsName : set) {
-					ps.println("import " + basePkg + ".entity." + clsName + ";");
+				for (String className : set) {
+					ps.println("import " + basePkg + ".entity." + className + ";");
 				}
 				ps.println("");
 				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test.", null));
@@ -868,33 +993,28 @@ public class GenSpring {
 				ps.println("@WebMvcTest(ApiController.class)");
 				ps.println("public class ApiControllerTest extends MockBase {");
 				ps.println("");
-				for (String clsName : set) {
-					Map<String, ColInfo> namList = colsInfo.get(clsName);
-					ColInfo pkinfo = namList.get(PKEY_INFO);
+				for (String className : set) {
+					Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+					ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 					if (pkinfo == null) {
-						LOGGER.error("No PK found for " + clsName);
+						LOGGER.error("No PK found for " + className);
 						System.exit(2);
 					}
-					String idMod = "";
-					if ("Long".equals(pkinfo.getType()))
-						idMod = "l";
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("");
 					ps.println("	/**");
 					ps.println("	 * Test method for");
-					ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#getAll" + clsName
+					ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#getAll" + className
 							+ "s(org.springframework.ui.Model)}.");
 					ps.println("	 */");
 					ps.println("	@Test");
-					ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
-					ps.println("		List<" + clsName + "> list = new ArrayList<>();");
-					ps.println("		" + clsName + " o = new " + clsName + "();");
-					Iterator<String> it = namList.keySet().iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
+					ps.println("	public void testGetAll" + className + "s() throws Exception {");
+					ps.println("		List<" + className + "> list = new ArrayList<>();");
+					ps.println("		" + className + " o = new " + className + "();");
+					for (String key : colNameToInfoMap.keySet()) {
+						if (PKEY_INFO.equals(key))
 							continue;
-						ColInfo info = (ColInfo) namList.get(name);
+						ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
@@ -909,7 +1029,7 @@ public class GenSpring {
 											"        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
 							}
 						} else if (info.isPk()) {
-							ps.println("		o.set" + info.getGsName() + "(1" + idMod + ");");
+							ps.println("		o.set" + info.getGsName() + "(1" + pkinfo.getMod() + ");");
 						}
 					}
 					ps.println("		list.add(o);");
@@ -918,13 +1038,10 @@ public class GenSpring {
 					ps.println("");
 					ps.println("		this.mockMvc.perform(get(\"/api/" + fieldName
 							+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
-					it = namList.keySet().iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
+					for (String key : colNameToInfoMap.keySet()) {
+						if (PKEY_INFO.equals(key))
 							continue;
-
-						ColInfo info = (ColInfo) namList.get(name);
+						ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 						if (info.isJsonIgnore())
 							continue;
 						if (info.isString()) {
@@ -936,9 +1053,6 @@ public class GenSpring {
 						}
 						ps.print("				.andExpect(content().string(containsString(\"" + info.getVName()
 								+ "\")))");
-						if (it.hasNext()) {
-							ps.println("");
-						}
 					}
 					ps.println(";");
 					ps.println("	}");
@@ -956,22 +1070,22 @@ public class GenSpring {
 	/**
 	 * gen HTML header for page
 	 * 
-	 * @param clsName  or key to be used for the title
-	 * @param pageType it null clsName is assumed to be a message key. Should match
-	 *                 property in messages.properties as in listView for
-	 *                 edit.listView
+	 * @param className or key to be used for the title
+	 * @param pageType  it null className is assumed to be a message key. Should
+	 *                  match property in messages.properties as in listView for
+	 *                  edit.listView
 	 * @return
 	 */
-	private String htmlHeader(String clsName, String pageType) {
+	private String htmlHeader(String className, String pageType) {
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("<!DOCTYPE html>" + System.lineSeparator());
 		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
 		sb.append("<head>" + System.lineSeparator() + "<meta charset=\"UTF-8\" />" + System.lineSeparator());
 		if (pageType == null)
-			sb.append("<title th:text=\"#{" + clsName + "}\"></title>" + System.lineSeparator());
+			sb.append("<title th:text=\"#{" + className + "}\"></title>" + System.lineSeparator());
 		else
-			sb.append("<title th:text=\"#{edit." + pageType + "} + ' ' + #{class." + clsName + "}\"></title>"
+			sb.append("<title th:text=\"#{edit." + pageType + "} + ' ' + #{class." + className + "}\"></title>"
 					+ System.lineSeparator());
 		sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />" + System.lineSeparator());
 		sb.append("<link rel=\"stylesheet\" media=\"screen\"" + System.lineSeparator());
@@ -1000,13 +1114,15 @@ public class GenSpring {
 	/**
 	 * Write the CrudRepository interface for a bean
 	 * 
-	 * @param clsName
+	 * @param className
+	 * @param colNameToInfoMap
 	 * @param pkType
 	 */
-	private void writeRepo(String clsName, ColInfo pkinfo) {
+	private void writeRepo(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".repo";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + clsName + "Repository.java";
+		String outFile = "/src/main/java/" + relPath + '/' + className + "Repository.java";
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
@@ -1014,16 +1130,23 @@ public class GenSpring {
 				ps.println("");
 				ps.println("import org.springframework.data.jpa.repository.JpaRepository;");
 				ps.println("import org.springframework.stereotype.Repository;");
-				ps.println("import " + basePkg + ".entity." + clsName + ";");
+				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "Repository", "Class for the " + clsName + " Repository.", null));
+				ps.println(
+						getClassHeader(className + "Repository", "Class for the " + className + " Repository.", null));
 				ps.println("@Repository");
-				ps.println("public interface " + clsName + "Repository extends JpaRepository<" + clsName + ", "
+				ps.println("public interface " + className + "Repository extends JpaRepository<" + className + ", "
 						+ pkinfo.getType() + ">{");
 				if ((pkinfo.getStype() != Types.INTEGER) && (pkinfo.getStype() != Types.BIGINT)) {
 					ps.println(
 							"//TODO: Primary key is not int or bigint which will require custom code to be added below");
 				}
+//				// add special methods
+//				if (ACCOUNT_CLASS.equals(className)) {
+//					ps.println("	" + ACCOUNT_CLASS + " findOneByEmail(String email);");
+//					ps.println("	" + ACCOUNT_CLASS + " findOneByEmailAndPassword(String email, String password);");
+//					ps.println("");
+//				}
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -1033,69 +1156,104 @@ public class GenSpring {
 		}
 	}
 
-	private void writeEditPage(String clsName, TreeMap<String, ColInfo> namList) {
-		ColInfo pkinfo = namList.get(PKEY_INFO);
-		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+	private void writeEditPage(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		String outFile = "/src/main/resources/templates/edit_" + fieldName + ".html";
-		Set<String> set = namList.keySet();
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader(clsName, "edit"));
+				ps.println(htmlHeader(className, "edit"));
 				ps.println("	<div class=\"container\">");
-				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " == 0}\"");
-				ps.println("			th:text=\"#{edit.new} + ' ' + #{class." + clsName + "}\"></h1>");
-				ps.println("		<h1 th:if=\"${" + fieldName + "." + pkinfo.getVName() + " > 0}\"");
-				ps.println("			th:text=\"#{edit.edit} + ' ' + #{class." + clsName + "}\"></h1>");
-				ps.println("		<br />");
-				ps.println("		<form action=\"#\" th:action=\"@{/" + fieldName + "s/save}\" th:object=\"${"
-						+ fieldName + "}\"");
-				ps.println("			method=\"post\">");
+				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
+				ps.println(
+						"			th:action=\"@{/" + fieldName + "s/save}\" th:object=\"${" + fieldName + "Form}\"");
+				ps.println("			th:fragment=\"" + fieldName + "Form\">");
+				ps.println("			<!--/* Show general error messages when form contains errors */-->");
+				ps.println("			<th:block th:if=\"${#fields.hasErrors('${" + fieldName + "Form.*}')}\">");
+				ps.println("				<div th:each=\"fieldErrors : ${#fields.errors('${" + fieldName
+						+ "Form.*}')}\">");
+				ps.println("					<div th:each=\"message : ${fieldErrors.split(';')}\">");
+				ps.println("						<div");
+				ps.println(
+						"							th:replace=\"fragments/alert :: alert (type='danger', message=${message})\">Alert</div>");
+				ps.println("					</div>");
+				ps.println("				</div>");
+				ps.println("			</th:block>");
+				ps.println("			<fieldset>");
+				ps.println(
+						"				<input type=\"hidden\" class=\"form-control\" id=\"id\" th:field=\"*{id}\" />");
+				ps.println("				<legend th:if=\"${" + fieldName + "Form." + pkinfo.getVName() + " == 0}\"");
+				ps.println("					th:text=\"#{edit.new} + ' ' + #{class." + className + "}\"></legend>");
+				ps.println("				<legend th:if=\"${" + fieldName + "Form." + pkinfo.getVName() + " > 0}\"");
+				ps.println("					th:text=\"#{edit.edit} + ' ' + #{class." + className + "}\"></legend>");
 				ps.println("");
-				ps.println("			<table >");
-				ps.println("				<tr th:if=\"${" + fieldName + "." + pkinfo.getVName()
-						+ " > 0}\">				");
-				ps.println("					<td th:text=\"#{" + pkinfo.getMsgKey() + "} + ':'\">"
-						+ pkinfo.getGsName() + ":</td>");
-				ps.println("					<td>");
-				ps.println("						<input type=\"text\" th:field=\"*{" + pkinfo.getVName()
-						+ "}\" readonly=\"readonly\" />");
-				ps.println("					</td>");
-				ps.println("				</tr>");
-				Iterator<String> it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!info.isPk()) {
-						ps.println("				<tr>");
-						ps.println("					<td th:text=\"#{" + info.getMsgKey() + "} + ':'\">"
-								+ info.getColName() + ":</td>");
-						ps.println("					<td>");
-						ps.println("						<input type=\"text\" th:field=\"*{" + info.getVName()
-								+ "}\" />");
-						ps.println("					</td>");
-						ps.println("				</tr>");
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!info.isPk() && !info.isLastMod()) {
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey() + "} + ':'\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
 					}
 					if (info.isPassword()) {
-						ps.println("				<tr>");
-						ps.println("					<td th:text=\"#{" + info.getMsgKey() + "Confirm} + ':'\">"
-								+ info.getColName() + "Confirm:</td>");
-						ps.println("					<td>");
-						ps.println("						<input type=\"text\" th:field=\"*{" + info.getVName()
-								+ "Confirm}\" />");
-						ps.println("					</td>");
-						ps.println("				</tr>");
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "\" class=\"col-lg-2 control-label\"");
+						ps.println(
+								"						th:text=\"#{" + info.getMsgKey() + "Confirm} + ':'\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "Confirm\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "Confirm}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "Confirm')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
 					}
+
 				}
-				ps.println("				<tr>");
+				ps.println("				<div class=\"form-group\">");
+				ps.println("					<div class=\"col-lg-offset-2 col-lg-10\">");
+				ps.println("						<button type=\"submit\" name=\"action\" value=\"save\"");
+				ps.println("							class=\"btn btn-default\" th:text=\"#{edit.save}\"></button>");
 				ps.println(
-						"					<td colspan=\"2\"><button type=\"submit\" name=\"action\" value=\"save\" th:text=\"#{edit.save}\"></button> <button type=\"submit\" name=\"action\" value=\"cancel\" th:text=\"#{edit.cancel}\"></button></td>");
-				ps.println("				</tr>");
-				ps.println("			</table>");
+						"						<button type=\"submit\" name=\"action\" value=\"cancel\" class=\"btn\"");
+				ps.println("							th:text=\"#{edit.cancel}\"></button>");
+				ps.println("					</div>");
+				ps.println("				</div>");
+				ps.println("			</fieldset>");
 				ps.println("		</form>");
 				ps.println("	</div>");
+				ps.println("");
 				ps.println(htmlFooter());
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -1105,88 +1263,47 @@ public class GenSpring {
 		}
 	}
 
-	/**
-	 * Get a list of all the columns to include in list pages
-	 * 
-	 * @param clsName
-	 * @param namList
-	 * @return
-	 * @throws DataFormatException
-	 */
-	private Set<String> getListKeys(String clsName, TreeMap<String, ColInfo> namList) throws DataFormatException {
-		Set<String> set = namList.keySet();
-		List<String> listCols = Utils.getPropList(bundle, clsName + ".list");
-		if (listCols.isEmpty()) {
-			set = namList.keySet();
-		} else {
-			set = listCols.stream().collect(Collectors.toSet());
-			// validate list against DB data
-			Object[] names = set.toArray();
-			for (Object name : names) {
-				if (PKEY_INFO.equals(name))
-					continue;
-				ColInfo info = (ColInfo) namList.get(name);
-				if (info == null) {
-					info = (ColInfo) namList.get(((String) name).toLowerCase());
-					if (info != null) {
-						set.remove(name);
-						set.add(((String) name).toLowerCase());
-						LOGGER.warn(name + " not in " + clsName + ".list but " + ((String) name).toLowerCase()
-								+ " was so using it instead");
-					} else {
-						throw new DataFormatException(
-								name + " in " + clsName + ".list columns but no info found for it in " + namList);
-					}
-				}
-			}
-		}
-
-		return set;
-	}
-
-	private void writeListPage(String clsName, TreeMap<String, ColInfo> namList) {
-		ColInfo pkinfo = namList.get(PKEY_INFO);
-		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+	private void writeListPage(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		String outFile = "/src/main/resources/templates/" + fieldName + "s.html";
 
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> processed = new HashSet<String>();
-				Set<String> set = getListKeys(clsName, namList);
-				ps.println(htmlHeader(clsName, "listView"));
+				ps.println(htmlHeader(className, "listView"));
 				ps.println("	<div class=\"container\">");
-				ps.println("		<h1 th:text=\"#{class." + clsName + "} + ' ' + #{edit.list}\"></h1>");
+				ps.println("		<h1 th:text=\"#{class." + className + "} + ' ' + #{edit.list}\"></h1>");
 				ps.println("		<a th:href=\"@{/" + fieldName + "s/new}\" th:text=\"#{edit.new} + ' ' + #{class."
-						+ clsName + "}\"></a> <br /><br />");
+						+ className + "}\"></a> <br /><br />");
 				ps.println("");
 				ps.println("	    <table>");
 				ps.println("	        <tr>");
 
-				Iterator<String> it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!processed.contains(name)) {
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!processed.contains(key) && info.isList()) {
 
-						if (namList.containsKey(name + "link")) {
+						if (colNameToInfoMap.containsKey(key + "link")) {
 							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
 									+ "</th>");
-							processed.add(name);
-							processed.add(name + "link");
-						} else if (name.endsWith("link") && namList.containsKey(name.substring(0, name.length() - 4))) {
-							name = name.substring(0, name.length() - 4);
-							info = (ColInfo) namList.get(name);
+							processed.add(key);
+							processed.add(key + "link");
+						} else if (key.endsWith("link")
+								&& colNameToInfoMap.containsKey(key.substring(0, key.length() - 4))) {
+							key = key.substring(0, key.length() - 4);
+							info = (ColInfo) colNameToInfoMap.get(key);
 							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
 									+ "</th>");
-							processed.add(name);
-							processed.add(name + "link");
+							processed.add(key);
+							processed.add(key + "link");
 						} else {
 							ps.println("            <th th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName()
 									+ "</th>");
-							processed.add(name);
+							processed.add(key);
 						}
 					}
 				}
@@ -1194,33 +1311,37 @@ public class GenSpring {
 				ps.println("	        </tr>");
 				ps.println("	        <tr th:each=\"" + fieldName + ":${" + fieldName + "s}\">");
 				processed = new HashSet<String>();
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!processed.contains(name)) {
-						if (namList.containsKey(name + "link")) {
-							ColInfo infoLnk = (ColInfo) namList.get(name + "link");
-							ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
-									+ "}}\" th:text=\"${" + fieldName + "." + info.getVName() + "}\"></a></td>");
-							processed.add(name);
-							processed.add(name + "link");
-						} else if (name.endsWith("link") && namList.containsKey(name.substring(0, name.length() - 4))) {
-							name = name.substring(0, name.length() - 4);
-							ColInfo infoLnk = (ColInfo) info;
-							info = (ColInfo) namList.get(name);
-							ps.println("	            <td><a th:href=\"@{${" + fieldName + "." + infoLnk.getVName()
-									+ "}}\" th:text=\"${" + fieldName + "." + info.getVName() + "}\"></a></td>");
-							processed.add(name);
-							processed.add(name + "link");
-						} else {
-							ps.println("	            <td th:text=\"${" + fieldName + "." + info.getVName()
-									+ "}\"></td>");
-							processed.add(name);
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isList()) {
+						if (!processed.contains(key)) {
+							if (colNameToInfoMap.containsKey(key + "link")) {
+								ColInfo infoLnk = (ColInfo) colNameToInfoMap.get(key + "link");
+								ps.println("	            <td><a th:href=\"@{${" + fieldName + "."
+										+ infoLnk.getVName() + "}}\" th:text=\"${" + fieldName + "." + info.getVName()
+										+ "}\"></a></td>");
+								processed.add(key);
+								processed.add(key + "link");
+							} else if (key.endsWith("link")
+									&& colNameToInfoMap.containsKey(key.substring(0, key.length() - 4))) {
+								key = key.substring(0, key.length() - 4);
+								ColInfo infoLnk = (ColInfo) info;
+								info = (ColInfo) colNameToInfoMap.get(key);
+								ps.println("	            <td><a th:href=\"@{${" + fieldName + "."
+										+ infoLnk.getVName() + "}}\" th:text=\"${" + fieldName + "." + info.getVName()
+										+ "}\"></a></td>");
+								processed.add(key);
+								processed.add(key + "link");
+							} else {
+								ps.println("	            <td th:text=\"${" + fieldName + "." + info.getVName()
+										+ "}\"></td>");
+								processed.add(key);
+							}
 						}
 					}
+
 				}
 				ps.println("				<td><a th:href=\"@{'/" + fieldName + "s/edit/' + ${" + fieldName + "."
 						+ pkinfo.getVName() + "}}\" th:text=\"#{edit.edit}\"></a>");
@@ -1280,13 +1401,15 @@ public class GenSpring {
 				ps.println("import org.springframework.test.web.servlet.request.RequestPostProcessor;");
 				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
 				ps.println("import org.springframework.web.context.WebApplicationContext;");
-				if (!set.contains("Account")) {
-					ps.println("import " + basePkg + ".service.AccountServices;");
-					ps.println("import " + basePkg + ".repo.AccountRepository;");
+				ps.println("import " + basePkg + ".service.UserServices;");
+				ps.println("import " + basePkg + ".repo.UserRepository;");
+				if (!set.contains(ACCOUNT_CLASS)) {
+					ps.println("import " + basePkg + ".service." + ACCOUNT_CLASS + "Services;");
+					ps.println("import " + basePkg + ".repo." + ACCOUNT_CLASS + "Repository;");
 				}
-				for (String clsName : set) {
-					ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
-					ps.println("import " + basePkg + ".service." + clsName + "Services;");
+				for (String className : set) {
+					ps.println("import " + basePkg + ".repo." + className + "Repository;");
+					ps.println("import " + basePkg + ".service." + className + "Services;");
 				}
 				ps.println("");
 				ps.println("import " + basePkg + ".utils.Message;");
@@ -1294,18 +1417,23 @@ public class GenSpring {
 				ps.println("");
 				ps.println(getClassHeader("MockBase", "The base class for mock testing.", null));
 				ps.println("public class MockBase extends UnitBase {");
-				if (!set.contains("Account")) {
+				ps.println("    @MockBean");
+				ps.println("    protected UserServices userServices;");
+				ps.println("    @MockBean");
+				ps.println("    protected UserRepository userRepository;");
+				ps.println("");
+				if (!set.contains(ACCOUNT_CLASS)) {
 					ps.println("    @MockBean");
-					ps.println("    protected AccountServices accountServices;");
+					ps.println("    protected " + ACCOUNT_CLASS + "Services accountServices;");
 					ps.println("    @MockBean");
-					ps.println("    protected AccountRepository accountRepository;");
+					ps.println("    protected " + ACCOUNT_CLASS + "Repository accountRepository;");
 				}
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("    @MockBean");
-					ps.println("    protected " + clsName + "Services " + fieldName + "Services;");
+					ps.println("    protected " + className + "Services " + fieldName + "Services;");
 					ps.println("    @MockBean");
-					ps.println("    protected " + clsName + "Repository " + fieldName + "Repository;");
+					ps.println("    protected " + className + "Repository " + fieldName + "Repository;");
 				}
 				ps.println("	@Autowired");
 				ps.println("	protected WebApplicationContext webApplicationContext;");
@@ -1368,8 +1496,15 @@ public class GenSpring {
 				ps.println("		ResultActions result = this.mockMvc.perform(req);");
 				ps.println("		if (redirectedUrl != null) {");
 				ps.println("			// If redirect then just check right one");
+				ps.println("			try {");
 				ps.println(
-						"			result.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(redirectedUrl));");
+						"				result.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(redirectedUrl));");
+				ps.println("			} catch (Throwable e) {");
+				ps.println(
+						"				LOGGER.error(\"Instead of redirect got:\" + result.andReturn().getResponse().getContentAsString());");
+				ps.println("				throw e;");
+				ps.println("			}");
+				ps.println("");
 				ps.println("		} else if (headless.contains(relURL)) {");
 				ps.println("			// For pops just check status");
 				ps.println("			result.andExpect(status().isOk());");
@@ -1391,17 +1526,17 @@ public class GenSpring {
 				ps.println("		contentContainsKey(result, \"app.name\");");
 				ps.println("		// GUI menu");
 				ps.println("		contentContainsKey(result, \"header.gui\");");
-				for (String clsName : set) {
-					ps.println("		contentContainsKey(result, \"class." + clsName + "\", false);");
+				for (String className : set) {
+					ps.println("		contentContainsKey(result, \"class." + className + "\", false);");
 				}
 				ps.println("// REST menu");
 				ps.println("		contentContainsKey(result, \"header.restApi\");");
-				for (String clsName : set) {
-					String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+				for (String className : set) {
+					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("		contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);");
 				}
 				ps.println("// Login / out");
-				ps.println("		contentContainsKey(result, \"lang.eng\");");
+				ps.println("		contentContainsKey(result, \"lang.en\");");
 				ps.println("		contentContainsKey(result, \"lang.fr\");");
 				ps.println("		contentContainsKey(result, \"lang.de\");");
 				ps.println("");
@@ -1473,11 +1608,8 @@ public class GenSpring {
 				ps.println("	 */");
 				ps.println(
 						"	public void contentContainsKey(ResultActions result, String key, boolean failIfExists, String... args) {");
-				ps.println("		String expectedText = Utils.getProp(getMsgBundle(), key);");
-				ps.println("		for (int i = 0; i < args.length; i++) {");
-				ps.println("			String argkey = \"%\" + (i+1) + \"$s\";");
-				ps.println("			expectedText = expectedText.replace(argkey, args[i]);");
-				ps.println("		}");
+				ps.println(
+						"		String expectedText = Utils.getProp(getMsgBundle(), key, \"??\" + key + \"??\", args);");
 				ps.println("		contentContainsMarkup(result, expectedText, failIfExists);");
 				ps.println("	}");
 				ps.println("");
@@ -1572,19 +1704,15 @@ public class GenSpring {
 		}
 	}
 
-	private void writeObjControllerTest(String clsName, TreeMap<String, ColInfo> namList) {
-		ColInfo pkinfo = namList.get(PKEY_INFO);
-		String idMod = "";
-		if ("Long".equals(pkinfo.getType()))
-			idMod = "l";
+	private void writeObjControllerTest(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + '/' + clsName + "ControllerTest.java";
-		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+		String outFile = "/src/test/java/" + relPath + '/' + className + "ControllerTest.java";
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				Set<String> set = getListKeys(clsName, namList);
 				ps.println("package " + pkgNam + ';');
 				ps.println("import static org.mockito.BDDMockito.given;");
 				ps.println("import java.util.ArrayList;");
@@ -1595,26 +1723,38 @@ public class GenSpring {
 				ps.println("import com.google.common.collect.ImmutableMap;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
-				ps.println("import " + basePkg + ".entity." + clsName + ";");
+				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("import " + basePkg + ".form." + className + "Form;");
 				ps.println("");
-				ps.println(getClassHeader(clsName + "ControllerTest", clsName + "Controller.", null));
-				ps.println("@WebMvcTest(" + clsName + "Controller.class)");
-				ps.println("public class " + clsName + "ControllerTest extends MockBase {");
-				ps.println("	private " + clsName + " get" + clsName + "(" + pkinfo.getType() + " "
+				ps.println(getClassHeader(className + "ControllerTest", className + "Controller.", null));
+				ps.println("@WebMvcTest(" + className + "Controller.class)");
+				ps.println("public class " + className + "ControllerTest extends MockBase {");
+				ps.println("	private " + className + " get" + className + "(" + pkinfo.getType() + " "
 						+ pkinfo.getVName() + ") {");
-				ps.println("		" + clsName + " o = new " + clsName + "();");
+				ps.println("		" + className + " o = new " + className + "();");
 				ps.println("		o.set" + pkinfo.getGsName() + "(" + pkinfo.getVName() + ");");
-				Iterator<String> it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (info.isString()) {
-						int endIndex = info.getLength();
-						if (endIndex > 0) {
-							ps.println("        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isList()) {
+						if (info.isString()) {
+							int endIndex = info.getLength();
+							if (endIndex > 0) {
+								if (info.isPassword()) {
+									ps.println("//        o.set" + info.getGsName() + "(getTestPasswordString("
+											+ endIndex + "));");
+								} else if (info.isEmail()) {
+									ps.println("        o.set" + info.getGsName() + "(getTestEmailString(" + endIndex
+											+ "));");
+								} else {
+									ps.println(
+											"        o.set" + info.getGsName() + "(getTestString(" + endIndex + "));");
+								}
+							}
 						}
+					} else {
+						ps.println("		// TODO: confirm ignoring " + className + "." + key);
 					}
 				}
 				ps.println("		return o;");
@@ -1622,69 +1762,82 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#getAll" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#getAll" + className
 						+ "s(org.springframework.ui.Model)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testGetAll" + clsName + "s() throws Exception {");
-				ps.println("		List<" + clsName + "> list = new ArrayList<>();");
-				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
+				ps.println("	public void testGetAll" + className + "s() throws Exception {");
+				ps.println("		List<" + className + "> list = new ArrayList<>();");
+				ps.println("		" + className + " o = get" + className + "(1" + pkinfo.getMod() + ");");
 				ps.println("		list.add(o);");
 				ps.println("");
 				ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
 				ps.println("");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s\");");
-				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"class." + clsName
+				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"class." + className
 						+ "\") + \" \" + getMsg(\"edit.list\") + \"</h1>\");");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (info.isString()) {
-						int endIndex = info.getLength();
-						if (endIndex > 0) {
-							ps.println("		contentContainsMarkup(ra,getTestString(" + endIndex + "));");
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isList()) {
+						if (info.isString()) {
+							int endIndex = info.getLength();
+							if (endIndex > 0) {
+								if (info.isPassword()) {
+									ps.println("//        contentContainsMarkup(ra,getTestPasswordString(" + endIndex
+											+ "));");
+								} else if (info.isEmail()) {
+									ps.println(
+											"        contentContainsMarkup(ra,getTestEmailString(" + endIndex + "));");
+								} else {
+									ps.println("		contentContainsMarkup(ra,getTestString(" + endIndex + "));");
+								}
+							}
 						}
+						if (!info.getVName().endsWith("link"))
+							ps.println("		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
+					} else {
+						ps.println("		// TODO: confirm ignoring " + className + "." + key);
 					}
-					if (!info.getVName().endsWith("link"))
-						ps.println("		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
+
 				}
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#showNew" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#showNew" + className
 						+ "Page(org.springframework.ui.Model)}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testShowNew" + clsName + "Page() throws Exception {");
+				ps.println("	public void testShowNew" + className + "Page() throws Exception {");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s/new\");");
-				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"edit.new\") + \" \" + getMsg(\"class."
-						+ clsName + "\") + \"</h1>\");");
-				set = namList.keySet();
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				ps.println(
+						"		contentContainsMarkup(ra,\"<legend>\" + getMsg(\"edit.new\") + \" \" + getMsg(\"class."
+								+ className + "\") + \"</legend>\");");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!info.isPk())
-						ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isHidden() || info.isLastMod() || info.isPk()) {
+						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						continue;
+					}
+					ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
+
 				}
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#save" + clsName + "("
-						+ basePkg + ".entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#save" + className + "("
+						+ basePkg + ".entity." + className + ", java.lang.String)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testSave" + clsName + "Cancel() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
+				ps.println("	public void testSave" + className + "Cancel() throws Exception {");
+				ps.println("		" + className + " o = get" + className + "(1" + pkinfo.getMod() + ");");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
 						+ "\", o, ImmutableMap.of(\"action\", \"cancel\"), ADMIN_USER,");
@@ -1693,42 +1846,61 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#save" + clsName + "("
-						+ basePkg + ".entity." + clsName + ", java.lang.String)}.");
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#save" + className + "("
+						+ basePkg + ".entity." + className + ", java.lang.String)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testSave" + clsName + "Save() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(0" + idMod + ");");
+				ps.println("	public void testSave" + className + "Save() throws Exception {");
+				ps.println("		" + className + " o = get" + className + "(0" + pkinfo.getMod() + ");");
+				ps.println("		" + className + "Form form = " + className + "Form.getInstance(o);");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isPassword()) {
+						ps.println("		form.set" + info.getGsName() + "(getTestPasswordString(" + info.getLength()
+								+ "));");
+						ps.println(
+								"		form.set" + info.getGsName() + "Confirm(form.get" + info.getGsName() + "());");
+					}
+				}
+				ps.println("		LOGGER.debug(form.toString());");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
-						+ "\", o, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
+						+ "Form\", form, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
 				ps.println("				\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#showEdit" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#showEdit" + className
 						+ "Page(java.lang.Integer)}.");
 				ps.println("	 * ");
 				ps.println("	 * @throws Exception");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testShowEdit" + clsName + "Page() throws Exception {");
-				ps.println("		" + clsName + " o = get" + clsName + "(1" + idMod + ");");
+				ps.println("	public void testShowEdit" + className + "Page() throws Exception {");
+				ps.println("		" + className + " o = get" + className + "(1" + pkinfo.getMod() + ");");
 				ps.println("");
-				ps.println("		given(" + fieldName + "Services.get(1" + idMod + ")).willReturn(o);");
+				ps.println("		given(" + fieldName + "Services.get(1" + pkinfo.getMod() + ")).willReturn(o);");
 				ps.println("");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s/edit/1\");");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isHidden() || info.isLastMod() || info.isPk()) {
+						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						continue;
+					}
 					if (info.isString()) {
 						int endIndex = info.getLength();
 						if (endIndex > 0) {
-							ps.println("		contentContainsMarkup(ra,o.get" + info.getGsName() + "());");
+							if (info.isPassword() || info.isHidden()) {
+								ps.println("//		contentContainsMarkup(ra,o.get" + info.getGsName() + "());");
+							} else {
+								ps.println("		contentContainsMarkup(ra,o.get" + info.getGsName() + "());");
+							}
 						}
 					}
 					ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
@@ -1737,11 +1909,11 @@ public class GenSpring {
 				ps.println("");
 				ps.println("	/**");
 				ps.println("	 * Test method for");
-				ps.println("	 * {@link " + basePkg + ".controller." + clsName + "Controller#delete" + clsName
+				ps.println("	 * {@link " + basePkg + ".controller." + className + "Controller#delete" + className
 						+ "(java.lang.Integer)}.");
 				ps.println("	 */");
 				ps.println("	@Test");
-				ps.println("	public void testDelete" + clsName + "() throws Exception {");
+				ps.println("	public void testDelete" + className + "() throws Exception {");
 				ps.println(
 						"		getAsAdminRedirectExpected(\"/" + fieldName + "s/delete/1\",\"/" + fieldName + "s\");");
 				ps.println("	}");
@@ -1757,75 +1929,120 @@ public class GenSpring {
 
 	}
 
-	private void writeObjController(String clsName, ColInfo pkinfo) {
+	private void writeObjController(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
+
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + clsName + "Controller.java";
-		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+		String outFile = "/src/main/java/" + relPath + '/' + className + "Controller.java";
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
+				ps.println("import javax.validation.Valid;");
+				ps.println("import org.slf4j.Logger;");
+				ps.println("import org.slf4j.LoggerFactory;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.stereotype.Controller;");
 				ps.println("import org.springframework.ui.Model;");
+				ps.println("import org.springframework.validation.Errors;");
 				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
 				ps.println("import org.springframework.web.bind.annotation.ModelAttribute;");
 				ps.println("import org.springframework.web.bind.annotation.PathVariable;");
 				ps.println("import org.springframework.web.bind.annotation.PostMapping;");
+				ps.println("import org.springframework.web.bind.annotation.RequestHeader;");
 				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RequestParam;");
 				ps.println("import org.springframework.web.servlet.ModelAndView;");
+				ps.println("import org.springframework.web.servlet.mvc.support.RedirectAttributes;\r\n" + "");
+				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("import " + basePkg + ".form." + className + "Form;");
+				ps.println("import " + basePkg + ".service." + className + "Services;");
+				ps.println("import " + basePkg + ".utils.MessageHelper;");
+				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
-				ps.println("import " + basePkg + ".entity." + clsName + ";");
-				ps.println("import " + basePkg + ".service." + clsName + "Services;");
-				ps.println("");
-				ps.println(getClassHeader(clsName + "Controller", clsName + "Controller.", null));
+				ps.println(getClassHeader(className + "Controller", className + "Controller.", null));
 				ps.println("@Controller");
 				ps.println("@RequestMapping(\"/" + fieldName + "s\")");
-				ps.println("public class " + clsName + "Controller {");
+				ps.println("public class " + className + "Controller {");
+				ps.println("	private static final Logger LOGGER = LoggerFactory.getLogger(" + className
+						+ "Controller.class.getName());");
 				ps.println("");
 				ps.println("	@Autowired");
-				ps.println("	private " + clsName + "Services " + fieldName + "Service;");
+				ps.println("	private " + className + "Services " + fieldName + "Service;");
 				ps.println("");
 				ps.println("	@GetMapping");
-				ps.println("	public String getAll" + clsName + "s(Model model) {");
+				ps.println("	public String getAll" + className + "s(Model model) {");
 				ps.println(
 						"		model.addAttribute(\"" + fieldName + "s\", this." + fieldName + "Service.listAll());");
 				ps.println("		return \"" + fieldName + "s\";");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/new\")");
-				ps.println("	public String showNew" + clsName + "Page(Model model) {");
-				ps.println("		" + clsName + " " + fieldName + " = new " + clsName + "();");
-				ps.println("		model.addAttribute(\"" + fieldName + "\", " + fieldName + ");");
+				ps.println("	public String showNew" + className + "Page(Model model,");
+				ps.println(
+						"			@RequestHeader(value = \"X-Requested-With\", required = false) String requestedWith) {");
+				ps.println("		model.addAttribute(new " + className + "Form());");
+				ps.println("		if (Utils.isAjaxRequest(requestedWith)) {");
+				ps.println("			return \"edit_" + fieldName + "\".concat(\" :: " + fieldName + "Form\");");
+				ps.println("		}");
 				ps.println("");
 				ps.println("		return \"edit_" + fieldName + "\";");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@PostMapping(value = \"/save\")");
-				ps.println("	public String save" + clsName + "(@ModelAttribute(\"" + fieldName + "\") " + clsName
-						+ " " + fieldName + ",");
+				ps.println("	public String save" + className + "(@Valid @ModelAttribute " + className
+						+ "Form form, Errors errors, RedirectAttributes ra,");
 				ps.println("			@RequestParam(value = \"action\", required = true) String action) {");
 				ps.println("		if (action.equals(\"save\")) {");
-				ps.println("			" + fieldName + "Service.save(" + fieldName + ");");
+				ps.println("			if (errors.hasErrors()) {");
+				ps.println("				return \"edit_" + fieldName + "\";");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			" + className + " " + fieldName + " = new " + className + "();");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!info.isLastMod()) {
+						ps.println("			" + fieldName + ".set" + info.getGsName() + "(form.get"
+								+ info.getGsName() + "());");
+					}
+				}
+
+				ps.println("			try {");
+				ps.println("				" + fieldName + " = " + fieldName + "Service.save(" + fieldName + ");");
+				ps.println("			} catch (Exception e) {");
+				ps.println("				LOGGER.error(\"Failed saving:\" + form, e);");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			if (" + fieldName + " == null) {");
+				ps.println("				MessageHelper.addErrorAttribute(ra, \"db.failed\");");
+				ps.println("			} else {");
+				ps.println("				MessageHelper.addSuccessAttribute(ra, \"save.success\");");
+				ps.println("			}");
+				ps.println("		} else {");
+				ps.println("			MessageHelper.addSuccessAttribute(ra, \"save.cancelled\");");
 				ps.println("		}");
+				ps.println("");
 				ps.println("		return \"redirect:/" + fieldName + "s\";");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/edit/{id}\")");
-				ps.println("	public ModelAndView showEdit" + clsName + "Page(@PathVariable(name = \"id\") "
+				ps.println("	public ModelAndView showEdit" + className + "Page(@PathVariable(name = \"id\") "
 						+ pkinfo.getType() + " id) {");
 				ps.println("		ModelAndView mav = new ModelAndView(\"edit_" + fieldName + "\");");
-				ps.println("		" + clsName + " " + fieldName + " = " + fieldName + "Service.get(id);");
-				ps.println("		mav.addObject(\"" + fieldName + "\", " + fieldName + ");");
+				ps.println("		" + className + " " + fieldName + " = " + fieldName + "Service.get(id);");
+				ps.println("		mav.addObject(\"" + fieldName + "Form\", " + className + "Form.getInstance("
+						+ fieldName + "));");
 				ps.println("");
 				ps.println("		return mav;");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/delete/{id}\")");
-				ps.println("	public String delete" + clsName + "(@PathVariable(name = \"id\") " + pkinfo.getType()
+				ps.println("	public String delete" + className + "(@PathVariable(name = \"id\") " + pkinfo.getType()
 						+ " id) {");
 				ps.println("		" + fieldName + "Service.delete(id);");
 				ps.println("		return \"redirect:/" + fieldName + "s\";");
@@ -1841,44 +2058,185 @@ public class GenSpring {
 	}
 
 	/**
+	 * Add any imports needed for fields
+	 * 
+	 * @param ps
+	 * @param colNameToInfoMap
+	 * @param clsType          0= general 1=form annotations 2=bean annotations
+	 */
+	private void addImports(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, int clsType) {
+		Set<String> imports = new TreeSet<String>();
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
+				continue;
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			if (!StringUtils.isBlank(info.getImportStr()))
+				imports.add(info.getImportStr());
+			if (clsType == 1) {
+				if (info.isPassword()) {
+					imports.add("import " + basePkg + ".controller.FieldMatch;");
+					imports.add("import " + basePkg + ".controller.ValidatePassword;");
+				}
+				if (info.getLength() > 0)
+					imports.add("import org.hibernate.validator.constraints.Length;");
+				if (info.isRequired())
+					imports.add("import javax.validation.constraints.NotBlank;");
+
+				if (info.isUnique() && info.isEmail()) {
+					imports.add("import " + basePkg + ".controller.UniqueEmail;");
+				}
+				if (info.isJsonIgnore()) {
+					imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
+				}
+				if (info.isEmail()) {
+					imports.add("import javax.validation.constraints.Email;");
+				}
+			}
+			if (clsType == 2) {
+				if (info.isJsonIgnore()) {
+					imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
+				}
+			}
+
+		}
+		for (String s : imports) {
+			ps.println(s);
+		}
+		ps.println("");
+	}
+
+	/**
 	 * Write service of bean
 	 * 
-	 * @param clsName
-	 * @param pkinfo
+	 * @param className
+	 * @param colNameToInfoMap
 	 */
-	private void writeService(String clsName, ColInfo pkinfo) {
+	private void writeService(String className, Map<String, ColInfo> colNameToInfoMap) {
+		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".service";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + clsName + "Services.java";
-		String fieldName = clsName.substring(0, 1).toLowerCase() + clsName.substring(1);
+		String outFile = "/src/main/java/" + relPath + '/' + className + "Services.java";
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		Path p = createFile(outFile);
 		if (p != null) {
+			boolean hasPasswordField = false;
+			for (ColInfo c : colNameToInfoMap.values()) {
+				if (c.isPassword())
+					hasPasswordField = true;
+			}
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
+				ps.println("import java.util.List;");
+				ps.println("import java.util.Optional;");
+				ps.println("import java.util.ResourceBundle;");
+				ps.println("");
+				ps.println("import javax.annotation.PostConstruct;");
+				ps.println("");
+				ps.println("import org.apache.commons.lang3.StringUtils;");
+				ps.println("import org.slf4j.Logger;");
+				ps.println("import org.slf4j.LoggerFactory;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.stereotype.Service;");
+//				ps.println("import org.springframework.transaction.annotation.Transactional;");
 				ps.println("");
-				ps.println("import java.util.List;");
+				addImports(ps, colNameToInfoMap, 0);
+				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("import " + basePkg + ".repo." + className + "Repository;");
+				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
-				ps.println("import " + basePkg + ".entity." + clsName + ";");
-				ps.println("import " + basePkg + ".repo." + clsName + "Repository;");
-				ps.println("");
-				ps.println(getClassHeader(clsName + "Services", clsName + "Services.", null));
+				ps.println(getClassHeader(className + "Services", className + "Services.", null));
 				ps.println("@Service");
-				ps.println("public class " + clsName + "Services {");
+				if (hasPasswordField) {
+					ps.println("public class " + className + "Services extends UserServices<" + className + "> {");
+				} else {
+					ps.println("public class " + className + "Services {");
+				}
+				ps.println("	private static final Logger LOGGER = LoggerFactory.getLogger(" + className
+						+ "Services.class.getName());");
 				ps.println("    @Autowired");
-				ps.println("    private " + clsName + "Repository " + fieldName + "Repository;");
+				ps.println("    private " + className + "Repository " + fieldName + "Repository;");
 				ps.println("");
-				ps.println("	public List<" + clsName + "> listAll() {");
-				ps.println("		return (List<" + clsName + ">) " + fieldName + "Repository.findAll();");
+				if (ACCOUNT_CLASS.equals(className)) {
+					ps.println("	public static final String ROLE_PREFIX = \"ROLE_\";");
+					ps.println("");
+					ps.println("	/**");
+					ps.println("	 * reset default users. Comment out once done testing");
+					ps.println("	 */");
+					ps.println("	@PostConstruct");
+					ps.println("	protected void initialize() {");
+					ps.println("		ResourceBundle bundle = ResourceBundle.getBundle(\"app\");");
+					ps.println("		boolean doinit = Utils.getProp(bundle, \"init.default.users\", true);");
+					ps.println("		if (doinit) {");
+					ps.println("			LOGGER.warn(\"Resetting default users\");");
+					ps.println("			String user = Utils.getProp(bundle, \"default.user\", null);");
+					ps.println("			if (!StringUtils.isBlank(user)) {");
+					ps.println("				" + pkinfo.getType()
+							+ " id = Utils.getProp(bundle, \"default.userid\", 1" + pkinfo.getMod() + ");");
+					ps.println("				String userpass = Utils.getProp(bundle, \"default.userpass\", null);");
+					ps.println(
+							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.userrole\", null);");
+					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS
+							+ "(user, userpass, userrole);");
+					ps.println("				a.setId(id);");
+					ps.println("				save(a);");
+					ps.println("			}");
+					ps.println("");
+					ps.println("			user = Utils.getProp(bundle, \"default.admin\", null);");
+					ps.println("			if (!StringUtils.isBlank(user)) {");
+					ps.println("				" + pkinfo.getType()
+							+ " id = Utils.getProp(bundle, \"default.adminid\", 2" + pkinfo.getMod() + ");");
+					ps.println("				String userpass = Utils.getProp(bundle, \"default.adminpass\", null);");
+					ps.println(
+							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.adminrole\", null);");
+					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS
+							+ "(user, userpass, userrole);");
+					ps.println("				a.setId(id);");
+					ps.println("				save(a);");
+					ps.println("			}");
+					ps.println("		}");
+					ps.println("	}");
+					ps.println("");
+				}
+				ps.println("	public List<" + className + "> listAll() {");
+				ps.println("		return (List<" + className + ">) " + fieldName + "Repository.findAll();");
 				ps.println("	}");
 				ps.println("	");
-				ps.println("	public void save(" + clsName + " item) {");
-				ps.println("		" + fieldName + "Repository.save(item);");
+				ps.println("	public " + className + " save(" + className + " " + fieldName + ") {");
+				if (hasPasswordField) {
+					ps.println("		Optional<" + className + "> o = null;");
+					ps.println("		if (" + fieldName + ".getId() > 0) {");
+					ps.println("			o = " + fieldName + "Repository.findById(" + fieldName + ".getId());");
+					ps.println("		}");
+					ps.println("");
+					for (ColInfo c : colNameToInfoMap.values()) {
+						if (c.isCreated()) {
+							ps.println("		if (" + fieldName + ".get" + c.getGsName() + "() == null) {");
+							ps.println("			" + fieldName + ".set" + c.getGsName() + "(" + c.getDefaultVal()
+									+ ");");
+							ps.println("		}");
+							ps.println("");
+						} else if (c.isLastMod()) {
+							ps.println(
+									"		" + fieldName + ".set" + c.getGsName() + "(" + c.getDefaultVal() + ");");
+						}
+						if (c.isPassword()) {
+							ps.println("		if (o != null && StringUtils.isBlank(" + fieldName + ".get"
+									+ c.getGsName() + "())) {");
+							ps.println("			" + fieldName + ".set" + c.getGsName() + "(o.get().get"
+									+ c.getGsName() + "());");
+							ps.println("		} else {");
+							ps.println("			" + fieldName + ".set" + c.getGsName() + "(encrypt(" + fieldName
+									+ ".get" + c.getGsName() + "()));");
+							ps.println("		}");
+							ps.println("");
+						}
+					}
+				}
+				ps.println("		return " + fieldName + "Repository.save(" + fieldName + ");");
 				ps.println("	}");
 				ps.println("	");
-				ps.println("	public " + clsName + " get(" + pkinfo.getType() + " id) {");
+				ps.println("	public " + className + " get(" + pkinfo.getType() + " id) {");
 				ps.println("		return " + fieldName + "Repository.findById(id).get();");
 				ps.println("	}");
 				ps.println("	");
@@ -1942,48 +2300,186 @@ public class GenSpring {
 		}
 	}
 
-	private void writeForm(String viewName, String className, TreeMap<String, ColInfo> namList, String comment) {
+	/**
+	 * Write hashCode() and equals() methods to bean Java file
+	 * 
+	 * @param ps
+	 * @param colNameToInfoMap
+	 * @param className
+	 * @param isForm           if true skip lastMod col and add password confirms as
+	 *                         needed
+	 */
+	private void writeEquals(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, String className, boolean isForm) {
+		if (beanEquals) {
+			ps.println("	@Override");
+			ps.println("	public int hashCode() {");
+			ps.println("		final int prime = 31;");
+			ps.println("		int result = 1;");
+			ps.println("");
+			for (String key : colNameToInfoMap.keySet()) {
+				if (PKEY_INFO.equals(key))
+					continue;
+				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+				// if using mod cols and this is one leave out
+				if (info.isCreated() || info.isLastMod()) {
+					continue;
+				}
+				ps.println("		result = prime * result + ((" + info.getVName() + " == null) ? 0 : "
+						+ info.getVName() + ".hashCode());");
+			}
+			ps.println("		return result;");
+			ps.println("	}");
+			ps.println("");
+			ps.println("	/**");
+			ps.println("	 * Mainly for mock testing");
+			ps.println("	 *");
+			ps.println("	 * @return boolean");
+			ps.println("	 */");
+			ps.println("	@Override");
+			ps.println("	public boolean equals(Object obj) {");
+			ps.println("		if (this == obj)");
+			ps.println("			return true;");
+			ps.println("		if (obj == null)");
+			ps.println("			return false;");
+			ps.println("		if (getClass() != obj.getClass())");
+			ps.println("			return false;");
+			ps.println("		" + className + " other = (" + className + ") obj;");
+			ps.println("");
+			for (String key : colNameToInfoMap.keySet()) {
+				if (PKEY_INFO.equals(key))
+					continue;
+				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+				// if using mod cols and this is one leave out
+				if (info.isCreated() || info.isLastMod()) {
+					continue;
+				}
+				ps.println("		if (get" + info.getGsName() + "() == null) {");
+				ps.println("			if (other.get" + info.getGsName() + "() != null)");
+				ps.println("				return false;");
+				ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get" + info.getGsName()
+						+ "()))");
+				ps.println("			return false;");
+				ps.println("");
+			}
+			ps.println("		return true;");
+			ps.println("	}");
+		}
+
+		ps.println("");
+
+	}
+
+	/**
+	 * Add a toString() method if beanToString is set to true
+	 * 
+	 * @param ps
+	 * @param colNameToInfoMap
+	 * @param className
+	 * @param isForm           if true skip lastMod col and add password confirms as
+	 *                         needed
+	 */
+	private void writeToString(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, String className,
+			boolean isForm) {
+		if (beanToString) {
+			ps.println("	/**");
+			ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
+			ps.println("	 *");
+			ps.println("	 * @return String");
+			ps.println("	 */");
+			ps.println("	public String toString(){");
+			ps.println("		StringBuilder builder = new StringBuilder();");
+			ps.println("		builder.append(\"" + className + " [\");");
+			String comma = "";
+			for (String key : colNameToInfoMap.keySet()) {
+				if (PKEY_INFO.equals(key))
+					continue;
+				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+				// if using mod cols and this is one leave out
+				if (isForm && info.isLastMod()) {
+					continue;
+				}
+				ps.println(
+						"		builder.append(\"" + comma + info.getVName() + "=\").append(" + info.getVName() + ");");
+				if (StringUtils.isBlank(comma))
+					comma = ", ";
+				if (isForm && info.isPassword()) {
+					ps.println("		builder.append(\"" + comma + info.getVName() + "Confirm=\").append("
+							+ info.getVName() + "Confirm);");
+
+				}
+			}
+			ps.println("		builder.append(\"]\");");
+			ps.println("		return builder.toString();");
+			ps.println("	}");
+		}
+
+		ps.println("");
+
+	}
+
+	/**
+	 * Write a form / DTO for record
+	 * 
+	 * @param tableName
+	 * @param className
+	 * @param colNameToInfoMap
+	 * @param comment
+	 */
+	private void writeForm(String tableName, String className, Map<String, ColInfo> colNameToInfoMap, String comment) {
 		String pkgNam = basePkg + ".form";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
+		String outFile = "/src/main/java/" + relPath + '/' + className + "Form.java";
 		Path p = createFile(outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import java.io.Serializable;");
-				ps.println("import javax.persistence.*;");
-				Set<String> set = namList.keySet();
-				Iterator<String> it = set.iterator();
-				Set<String> imports = new TreeSet<String>();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				ps.println("");
+				ps.println("");
+				ps.println("import " + basePkg + ".utils.MessageHelper;");
+				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("");
+				addImports(ps, colNameToInfoMap, 1);
+				ps.println(getClassHeader(tableName + " Form",
+						"Class for holding data from the " + tableName + " table for editing.", comment));
+
+				// Build form level rules if needed.
+				StringBuilder sb = new StringBuilder();
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!StringUtils.isBlank(info.getImportStr()))
-						imports.add(info.getImportStr());
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.isPassword()) {
-						imports.add("import javax.persistence.Transient;");
+						if (sb.length() == 0) {
+							sb.append("@FieldMatch.List({").append(System.lineSeparator());
+						} else {
+							sb.append(",").append(System.lineSeparator());
+						}
+						sb.append("		@FieldMatch(fieldName = \"" + info.getVName() + "\", secondFieldName = \""
+								+ info.getVName() + "Confirm\", message = \"" + info.getVName() + ".mismatch\")")
+								.append(System.lineSeparator());
+					}
+					if (info.isUnique() && info.isEmail()) {
+						ps.println("@UniqueEmail.List({ @UniqueEmail(fieldName = \"" + info.getVName()
+								+ "\", message = \"" + info.getVName() + ".unique\") })");
 					}
 				}
-				for (String s : imports) {
-					ps.println(s);
+				if (sb.length() > 0) {
+					sb.append("		})");
 				}
-				ps.println("");
-				ps.println(getClassHeader(viewName + " Form",
-						"Class for holding data from the " + viewName + " table for editing.", comment));
-				ps.println("@Entity");
-				ps.println("@Table(name = \"`" + viewName + "`\")");
+				ps.println(sb.toString());
 				ps.println("public class " + className + "Form implements Serializable {");
 				ps.println("	private static final long serialVersionUID = 1L;");
 				ps.println("");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					// if using mod cols and this is one leave out
+					if (info.isLastMod()) {
+						continue;
+					}
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd hh:mm:ss\")");
 					if (info.isDate())
@@ -1991,24 +2487,27 @@ public class GenSpring {
 
 					if (info.isJsonIgnore())
 						ps.println("    @JsonIgnore");
-					if (info.isPk()) {
-						ps.println("    @Id");
-						if (info.getStype() == Types.INTEGER || info.getStype() == Types.BIGINT)
-							ps.println("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
+					if (info.isPassword())
+						ps.println("    @ValidatePassword(fieldName = \"" + info.getVName() + "Confirm\")");
+					if (info.isEmail())
+						ps.println("    @Email(message = \"{\"+MessageHelper.email_message+\"}\")");
+//						if (info.isPk()) {
+//							ps.println("    @Id");
+//							if (info.getStype() == Types.INTEGER || info.getStype() == Types.BIGINT)
+//								ps.println("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
+//						}
+					if (info.getLength() > 0 && info.isString())
+						ps.println("    @Length(max=" + info.getLength() + ")");
+					if (info.isRequired() && info.isString())
+						ps.println("    @NotBlank(message = \"{\"+MessageHelper.notBlank_message+\"}\")");
+					if (info.isLastMod()) {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = new " + info.getType()
+								+ info.getDefaultVal() + ";");
+					} else {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
 					}
-					StringBuilder sb = new StringBuilder("	@Column(name=\"" + info.getColName() + "\"");
-					if (info.isUnique())
-						sb.append(", unique=false");
-					if (info.isRequired())
-						sb.append(", nullable=false");
-					if ("String".equals(info.getType()) && info.getLength() > 0) {
-						sb.append(", length=" + info.getLength());
-					}
-					sb.append(")");
-					ps.println(sb.toString());
-					ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
 					if (info.isPassword()) {
-						ps.println("@Transient");
+						ps.println("    @ValidatePassword(fieldName = \"" + info.getVName() + "\")");
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Confirm;");
 					}
 				}
@@ -2017,103 +2516,39 @@ public class GenSpring {
 				ps.println("	/**");
 				ps.println("	 * Basic constructor");
 				ps.println("	 */");
-				ps.println("	public " + className + "() {");
+				ps.println("	public " + className + "Form() {");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	/**");
-				ps.println("	 * Full constructor");
+				ps.println("	 * Clones " + className + " obj into form");
 				ps.println("	 *");
+				ps.println("	 * @param obj");
 				ps.println("	 */");
-				StringBuilder sb = new StringBuilder("	public " + className + "(");
-				set = namList.keySet();
-				it = set.iterator();
-				boolean addCom = false;
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				ps.println("	public static " + className + "Form getInstance(" + className + " obj) {");
+				ps.println("		" + className + "Form form = new " + className + "Form();");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (addCom) {
-						sb.append(", ");
-					} else {
-						addCom = true;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					// if using mod cols and this is one leave out
+					if (info.isLastMod()) {
+						continue;
 					}
-					sb.append(info.getType() + ' ' + info.getVName());
-				}
-				sb.append(") {");
-				ps.println(sb.toString());
-				set = namList.keySet();
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
-						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
-				}
-				ps.println("	}");
-				writeBeanGetSets(ps, namList);
-				LOGGER.debug("Done with get/sets writing");
-				if (beanToString) {
-					ps.println("	/**");
-					ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
-					ps.println("	 *");
-					ps.println("	 * @return String");
-					ps.println("	 */");
-					ps.println("	public String toString(){");
-					ps.println("		StringBuffer sb = new StringBuffer();");
-					set = namList.keySet();
-					it = set.iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
-							continue;
-						ColInfo info = (ColInfo) namList.get(name);
+					// by default do not pass passwords to forms
+					if (info.isPassword()) {
+						ps.println("//		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 						ps.println(
-								"		sb.append(\"" + info.getVName() + "= \" + " + info.getVName() + "+\'\\n\');");
+								"//		form.set" + info.getGsName() + "Confirm(obj.get" + info.getGsName() + "());");
+					} else {
+						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 					}
-					ps.println("		return sb.toString();");
-					ps.println("	}");
 				}
-
-				ps.println("");
-
-				if (beanEquals) {
-					ps.println("	/**");
-					ps.println("	 * Mainly for mock testing");
-					ps.println("	 *");
-					ps.println("	 * @return boolean");
-					ps.println("	 */");
-					ps.println("	@Override");
-					ps.println("	public boolean equals(Object obj) {");
-					ps.println("		if (this == obj)");
-					ps.println("			return true;");
-					ps.println("		if (obj == null)");
-					ps.println("			return false;");
-					ps.println("		if (getClass() != obj.getClass())");
-					ps.println("			return false;");
-					ps.println("		" + className + " other = (" + className + ") obj;");
-					ps.println("");
-					set = namList.keySet();
-					it = set.iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
-							continue;
-						ColInfo info = (ColInfo) namList.get(name);
-						ps.println("		if (get" + info.getGsName() + "() == null) {");
-						ps.println("			if (other.get" + info.getGsName() + "() != null)");
-						ps.println("				return false;");
-						ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get"
-								+ info.getGsName() + "()))");
-						ps.println("			return false;");
-						ps.println("");
-					}
-					ps.println("		return true;");
-					ps.println("	}");
-				}
-
-				ps.println("");
+				ps.println("		return form;");
+				ps.println("	}");
+				writeBeanGetSets(ps, colNameToInfoMap, true);
+				LOGGER.debug("Done with get/sets writing");
+				writeToString(ps, colNameToInfoMap, className, true);
+				writeEquals(ps, colNameToInfoMap, className, true);
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -2128,13 +2563,15 @@ public class GenSpring {
 	/**
 	 * write pojo class
 	 * 
-	 * @param viewName  String
+	 * @param tableName        String
 	 * @param className
-	 * @param namList
-	 * @param comment   any addition header comments
-	 * @throws FileNotFoundException
+	 * @param colNameToInfoMap
+	 * @param comment          any addition header comments
+	 * @throws Exception
+	 * 
 	 */
-	private void writeBean(String viewName, String className, TreeMap<String, ColInfo> namList, String comment) {
+	private void writeBean(String tableName, String className, Map<String, ColInfo> colNameToInfoMap, String comment)
+			throws Exception {
 		String pkgNam = basePkg + ".entity";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
@@ -2144,38 +2581,26 @@ public class GenSpring {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import java.io.Serializable;");
-				ps.println("import javax.persistence.*;");
-				Set<String> set = namList.keySet();
-				Iterator<String> it = set.iterator();
-				Set<String> imports = new TreeSet<String>();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
-						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (!StringUtils.isBlank(info.getImportStr()))
-						imports.add(info.getImportStr());
-					if (info.isPassword()) {
-						imports.add("import javax.persistence.Transient;");
-					}
-				}
-				for (String s : imports) {
-					ps.println(s);
-				}
 				ps.println("");
-				ps.println(getClassHeader(viewName + " Bean", "Class for holding data from the " + viewName + " table.",
-						comment));
+				ps.println("import javax.persistence.Column;");
+				ps.println("import javax.persistence.Entity;");
+				ps.println("import javax.persistence.GeneratedValue;");
+				ps.println("import javax.persistence.GenerationType;");
+				ps.println("import javax.persistence.Id;");
+				ps.println("import javax.persistence.Table;");
+				ps.println("");
+				addImports(ps, colNameToInfoMap, 2);
+				ps.println(getClassHeader(tableName + " Bean",
+						"Class for holding data from the " + tableName + " table.", comment));
 				ps.println("@Entity");
-				ps.println("@Table(name = \"`" + viewName + "`\")");
+				ps.println("@Table(name = \"`" + tableName + "`\")");
 				ps.println("public class " + className + " implements Serializable {");
 				ps.println("	private static final long serialVersionUID = 1L;");
 				ps.println("");
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd hh:mm:ss\")");
 					if (info.isDate())
@@ -2188,20 +2613,21 @@ public class GenSpring {
 						if (info.getStype() == Types.INTEGER || info.getStype() == Types.BIGINT)
 							ps.println("    @GeneratedValue(strategy = GenerationType.IDENTITY)");
 					}
-					StringBuilder sb = new StringBuilder("	@Column(name=\"" + info.getColName() + "\"");
+					StringBuilder sb = new StringBuilder("	@Column(name = \"" + info.getColName() + "\"");
 					if (info.isUnique())
-						sb.append(", unique=false");
+						sb.append(", unique = true");
 					if (info.isRequired())
-						sb.append(", nullable=false");
+						sb.append(", nullable = false");
 					if ("String".equals(info.getType()) && info.getLength() > 0) {
-						sb.append(", length=" + info.getLength());
+						sb.append(", length = " + info.getLength());
 					}
 					sb.append(")");
 					ps.println(sb.toString());
-					ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
-					if (info.isPassword()) {
-						ps.println("@Transient");
-						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Confirm;");
+					if (info.isLastMod()) {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
+								+ info.getDefaultVal() + ";");
+					} else {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
 					}
 				}
 
@@ -2212,105 +2638,66 @@ public class GenSpring {
 				ps.println("	public " + className + "() {");
 				ps.println("	}");
 				ps.println("");
+				if (ACCOUNT_CLASS.equals(className)) {
+					ps.println("	/**");
+					ps.println("	 * Special constructor for sign up");
+					ps.println("	 * @param email");
+					ps.println("	 * @param password");
+					ps.println("	 * @param role");
+					ps.println("	 */");
+					ps.println("	public " + ACCOUNT_CLASS + "(String email, String password, String role) {");
+					ps.println("		this.email = email;");
+					ps.println("		this.password = password;");
+					ps.println("		this.role = role;");
+					if (!StringUtils.isBlank(colCreated)) {
+						ColInfo ci = (ColInfo) colNameToInfoMap.get(colCreated.toLowerCase());
+						ps.println("		this." + ci.getVName() + " = " + ci.getDefaultVal() + ";");
+					}
+
+					ps.println("");
+					ps.println("	}");
+					ps.println("");
+				}
 				ps.println("	/**");
 				ps.println("	 * Full constructor");
 				ps.println("	 *");
 				ps.println("	 */");
 				StringBuilder sb = new StringBuilder("	public " + className + "(");
-				set = namList.keySet();
-				it = set.iterator();
 				boolean addCom = false;
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					if (addCom) {
-						sb.append(", ");
-					} else {
-						addCom = true;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!info.isLastMod()) {
+						if (addCom) {
+							sb.append(", ");
+						} else {
+							addCom = true;
+						}
+						sb.append(info.getType() + ' ' + info.getVName());
 					}
-					sb.append(info.getType() + ' ' + info.getVName());
 				}
 				sb.append(") {");
 				ps.println(sb.toString());
-				set = namList.keySet();
-				it = set.iterator();
-				while (it.hasNext()) {
-					String name = it.next();
-					if (PKEY_INFO.equals(name))
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
 						continue;
-					ColInfo info = (ColInfo) namList.get(name);
-					ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!info.isLastMod()) {
+						ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
+					}
 				}
 				ps.println("	}");
-				writeBeanGetSets(ps, namList);
+				writeBeanGetSets(ps, colNameToInfoMap, false);
 				LOGGER.debug("Done with get/sets writing");
-				if (beanToString) {
-					ps.println("	/**");
-					ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
-					ps.println("	 *");
-					ps.println("	 * @return String");
-					ps.println("	 */");
-					ps.println("	public String toString(){");
-					ps.println("		StringBuffer sb = new StringBuffer();");
-					set = namList.keySet();
-					it = set.iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
-							continue;
-						ColInfo info = (ColInfo) namList.get(name);
-						ps.println(
-								"		sb.append(\"" + info.getVName() + "= \" + " + info.getVName() + "+\'\\n\');");
-					}
-					ps.println("		return sb.toString();");
-					ps.println("	}");
-				}
-
-				ps.println("");
-
-				if (beanEquals) {
-					ps.println("	/**");
-					ps.println("	 * Mainly for mock testing");
-					ps.println("	 *");
-					ps.println("	 * @return boolean");
-					ps.println("	 */");
-					ps.println("	@Override");
-					ps.println("	public boolean equals(Object obj) {");
-					ps.println("		if (this == obj)");
-					ps.println("			return true;");
-					ps.println("		if (obj == null)");
-					ps.println("			return false;");
-					ps.println("		if (getClass() != obj.getClass())");
-					ps.println("			return false;");
-					ps.println("		" + className + " other = (" + className + ") obj;");
-					ps.println("");
-					set = namList.keySet();
-					it = set.iterator();
-					while (it.hasNext()) {
-						String name = it.next();
-						if (PKEY_INFO.equals(name))
-							continue;
-						ColInfo info = (ColInfo) namList.get(name);
-						ps.println("		if (get" + info.getGsName() + "() == null) {");
-						ps.println("			if (other.get" + info.getGsName() + "() != null)");
-						ps.println("				return false;");
-						ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get"
-								+ info.getGsName() + "()))");
-						ps.println("			return false;");
-						ps.println("");
-					}
-					ps.println("		return true;");
-					ps.println("	}");
-				}
-
-				ps.println("");
+				writeToString(ps, colNameToInfoMap, className, false);
+				writeEquals(ps, colNameToInfoMap, className, false);
 				ps.println("}");
 				LOGGER.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				LOGGER.error("failed to create " + p, e);
 				p.toFile().delete();
+				throw e;
 			}
 
 			LOGGER.debug("Created bean" + outFile);
@@ -2320,17 +2707,19 @@ public class GenSpring {
 	/**
 	 * Write getters and setters to pojo class file.
 	 * 
-	 * @param ps      PrintWriter
-	 * @param namList
+	 * @param ps               PrintWriter
+	 * @param colNameToInfoMap
+	 * @param isForm           adds confirm fields
 	 */
-	private void writeBeanGetSets(PrintStream ps, TreeMap<String, ColInfo> namList) {
-		Set<String> set = namList.keySet();
-		Iterator<String> it = set.iterator();
-		while (it.hasNext()) {
-			String name = it.next();
-			if (PKEY_INFO.equals(name))
+	private void writeBeanGetSets(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, boolean isForm) {
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
 				continue;
-			ColInfo info = (ColInfo) namList.get(name);
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			// if using mod cols and this is one leave out
+			if (isForm && info.isLastMod()) {
+				continue;
+			}
 			ps.println("	/**");
 			ps.println("	 * returns value of the " + info.getColName() + " column of this row of data");
 			ps.println("	 *");
@@ -2343,30 +2732,30 @@ public class GenSpring {
 			ps.println("	 */");
 			ps.println("	public " + info.getType() + " get" + info.getGsName() + "() {");
 			if ("Float".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("		if (" + info.getVName() + " == null)");
 				ps.println("	    	return 0.0f;");
 				ps.println("		return " + info.getVName() + ".floatValue();");
 			} else if ("Double".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("		if (" + info.getVName() + " == null)");
 				ps.println("	    	return 0;");
 				ps.println("		return " + info.getVName() + ".doubleValue();");
 			} else if ("BigDecimal".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("		if (" + info.getVName() + " == null)");
 				ps.println("	    	return BigDecimal.ZERO;");
 				ps.println("		return " + info.getVName() + ";");
 			} else if ("Integer".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("		if (" + info.getVName() + " == null)");
 				ps.println("	    	return 0;");
 				ps.println("		return " + info.getVName() + ".intValue();");
 			} else if ("Long".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + "== null)");
+				ps.println("		if (" + info.getVName() + " == null)");
 				ps.println("	    	return 0l;");
 				ps.println("		return " + info.getVName() + ".longValue();");
 			} else {
 				ps.println("		return " + info.getVName() + ';');
 			}
 			ps.println("	}");
-			if (info.isPassword()) {
+			if (isForm && info.isPassword()) {
 				ps.println("	public " + info.getType() + " get" + info.getGsName() + "Confirm() {");
 				ps.println("		return " + info.getVName() + "Confirm;");
 				ps.println("	}");
@@ -2384,25 +2773,20 @@ public class GenSpring {
 				ps.println("	 * This is the primary key for this table");
 			}
 			if ("String".equals(info.getType()) && info.getLength() > 0) {
-				ps.println("	 * This field has a max length of " + info.getLength()
-						+ ", longer strings will be truncated");
+				ps.println("	 * This field has a max length of " + info.getLength());
 			}
 			ps.println("	 */");
 			ps.println("	public void set" + info.getGsName() + '(' + info.getType() + " newVal) {");
-			if ("String".equals(info.getType()) && info.getLength() > 0) {
-				ps.println("		if (" + info.getVName() + " != null && " + info.getVName() + ".length() > "
-						+ info.getLength() + "){");
-				ps.println("			" + info.getVName() + " = newVal.substring(0," + (info.getLength() - 1) + ");");
-				ps.println("		} else {");
-				ps.println("	    	" + info.getVName() + " = newVal;");
-				ps.println("		}");
-			} else {
-				ps.println("		" + info.getVName() + " = newVal;");
-			}
+			ps.println("		" + info.getVName() + " = newVal;");
 			ps.println("	}");
 			ps.println("");
+			if (isForm && info.isPassword()) {
+				ps.println("	public void set" + info.getGsName() + "Confirm(" + info.getType() + " newVal) {");
+				ps.println("		" + info.getVName() + "Confirm = newVal;");
+				ps.println("	}");
+				ps.println("");
+			}
 		}
-
 	}
 
 	public static void printUsage(String error, Exception e) {
@@ -2414,8 +2798,8 @@ public class GenSpring {
 				"-double = use Double instead of BigDecimal for entities beans. Can be overridden in properties file.");
 		System.err.println(
 				"-toString = generate toString() methods for entities beans. Can be overridden in properties file.");
-		System.err.println(
-				"-beanEquals = generate equals() methods for entities beans. Can be overridden in properties file.");
+//		System.err.println(
+//				"-beanEquals = generate equals() methods for entities beans. Can be overridden in properties file.");
 		System.err.println("");
 		System.err.println("if table names not given then runs on all tables in DB.");
 		System.err.println("");
@@ -2456,32 +2840,16 @@ public class GenSpring {
 		}
 		while (rs.next()) {
 			try {
+				String name = null;
 				if (db.isMySQL()) {
-					String name = rs.getString("Tables_in_" + dbName);
-					if (!filteredTables.contains(name))
-						tableNames.add(name);
-					else
-						LOGGER.info("skipping:" + name);
-				} else if (db.isSQLite()) {
-					String name = rs.getString("name").toLowerCase();
-					if (!name.equals("hibernate_sequence")) {
-						if (!filteredTables.contains(name))
-							tableNames.add(name);
-						else
-							LOGGER.info("skipping:" + name);
-					}
-				} else if (db.isSqlserver()) {
-					int info = rs.getInt("INFO"); // check for hidden or
-													// bad table
-					String name = rs.getString("name").toLowerCase();
-					// filter tables that don't show in enterprise
-					// manager but do here
-					LOGGER.info("read:" + name + ':' + info);
-					if (info > 0 && !name.startsWith("dtproperties"))
-						tableNames.add(name);
-					else
-						LOGGER.info("skipping:" + name + ':' + info);
+					name = rs.getString("Tables_in_" + dbName);
+				} else {
+					name = rs.getString("name").toLowerCase();
 				}
+				if (!StringUtils.isBlank(name) && !filteredTables.contains(name))
+					tableNames.add(name);
+				else
+					LOGGER.info("skipping:" + name);
 			} catch (Exception e) {
 				printUsage("main() crashed ", e);
 			}
@@ -2509,7 +2877,7 @@ public class GenSpring {
 					}
 				} else if (args[i].length() > 0 && args[i].charAt(0) == '-') {
 					if ("-beanEquals".equals(args[i])) {
-						obj.beanEquals = true;
+//						obj.beanEquals = true;
 					}
 				} else if (args[i].length() > 0 && args[i].charAt(0) == '-') {
 					if ("-double".equals(args[i])) {

@@ -58,6 +58,9 @@ public class GenSpring {
 	// Note change pom.xml to match
 	public static final String genSpringVersion = "0.3.0";
 	public static String ACCOUNT_CLASS = "Account";
+	public static int IMPORT_TYPE_SERVICE = 0;
+	public static int IMPORT_TYPE_FORM = 1;
+	public static int IMPORT_TYPE_BEAN = 2;
 
 	// see
 	// https://docs.microsoft.com/en-us/sql/odbc/reference/syntax/sqlcolumns-function?view=sql-server-ver15
@@ -790,8 +793,16 @@ public class GenSpring {
 		rs = metaData.getImportedKeys(catalog, schema, tableName);
 		while (rs.next()) {
 			ColInfo ci = colNameToInfoMap.get(rs.getString("FKCOLUMN_NAME").toLowerCase());
-			ci.setForeignTable(rs.getString("PKTABLE_NAME"));
+			String tnam = rs.getString("PKTABLE_NAME");
+			ci.setForeignTable(tnam);
+			String fkClsName = Utils.tabToStr(renames, tnam);
+
 			ci.setForeignCol(rs.getString("PKCOLUMN_NAME"));
+			ci.setVName(tnam.toLowerCase());
+			ci.setType(fkClsName);
+			ci.setGsName(tnam.substring(0, 1).toUpperCase() + tnam.substring(1).toLowerCase());
+
+			comment = commentAdd(comment, rs.getString("FKCOLUMN_NAME") + " => foreign key column name");
 			comment = commentAdd(comment,
 					rs.getString("PKTABLE_CAT") + " => primary key table catalog being imported (may be null)");
 			comment = commentAdd(comment,
@@ -801,7 +812,6 @@ public class GenSpring {
 			comment = commentAdd(comment, rs.getString("FKTABLE_CAT") + " => foreign key table catalog (may be null)");
 			comment = commentAdd(comment, rs.getString("FKTABLE_SCHEM") + " => foreign key table schema (may be null)");
 			comment = commentAdd(comment, rs.getString("FKTABLE_NAME") + " => foreign key table name ");
-			comment = commentAdd(comment, rs.getString("FKCOLUMN_NAME") + " => foreign key column name");
 			comment = commentAdd(comment, rs.getString("KEY_SEQ")
 					+ " => sequence number within a foreign key( a valueof 1 represents the first column of the foreign key, a value of 2 would represent the second column within the foreign key).");
 			comment = commentAdd(comment,
@@ -2062,7 +2072,8 @@ public class GenSpring {
 	 * 
 	 * @param ps
 	 * @param colNameToInfoMap
-	 * @param clsType          0= general 1=form annotations 2=bean annotations
+	 * @param clsType          IMPORT_TYPE_SERVICE= general IMPORT_TYPE_FORM=form
+	 *                         annotations IMPORT_TYPE_BEAN=bean annotations
 	 */
 	private void addImports(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, int clsType) {
 		Set<String> imports = new TreeSet<String>();
@@ -2072,7 +2083,7 @@ public class GenSpring {
 			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 			if (!StringUtils.isBlank(info.getImportStr()))
 				imports.add(info.getImportStr());
-			if (clsType == 1) {
+			if (clsType == IMPORT_TYPE_FORM) {
 				if (info.isPassword()) {
 					imports.add("import " + basePkg + ".controller.FieldMatch;");
 					imports.add("import " + basePkg + ".controller.ValidatePassword;");
@@ -2091,10 +2102,17 @@ public class GenSpring {
 				if (info.isEmail()) {
 					imports.add("import javax.validation.constraints.Email;");
 				}
+				if (!StringUtils.isBlank(info.getForeignTable())) {
+					imports.add("import " + basePkg + ".entity." + info.getType() + ";");
+				}
 			}
-			if (clsType == 2) {
+			if (clsType == IMPORT_TYPE_BEAN) {
 				if (info.isJsonIgnore()) {
 					imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
+				}
+				if (!StringUtils.isBlank(info.getForeignTable())) {
+					imports.add("import javax.persistence.JoinColumn;");
+					imports.add("import javax.persistence.ManyToOne;");
 				}
 			}
 
@@ -2140,7 +2158,7 @@ public class GenSpring {
 				ps.println("import org.springframework.stereotype.Service;");
 //				ps.println("import org.springframework.transaction.annotation.Transactional;");
 				ps.println("");
-				addImports(ps, colNameToInfoMap, 0);
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_SERVICE);
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".repo." + className + "Repository;");
 				ps.println("import " + basePkg + ".utils.Utils;");
@@ -2353,6 +2371,7 @@ public class GenSpring {
 				if (info.isCreated() || info.isLastMod()) {
 					continue;
 				}
+
 				ps.println("		if (get" + info.getGsName() + "() == null) {");
 				ps.println("			if (other.get" + info.getGsName() + "() != null)");
 				ps.println("				return false;");
@@ -2440,7 +2459,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".utils.MessageHelper;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("");
-				addImports(ps, colNameToInfoMap, 1);
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
 				ps.println(getClassHeader(tableName + " Form",
 						"Class for holding data from the " + tableName + " table for editing.", comment));
 
@@ -2589,7 +2608,7 @@ public class GenSpring {
 				ps.println("import javax.persistence.Id;");
 				ps.println("import javax.persistence.Table;");
 				ps.println("");
-				addImports(ps, colNameToInfoMap, 2);
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_BEAN);
 				ps.println(getClassHeader(tableName + " Bean",
 						"Class for holding data from the " + tableName + " table.", comment));
 				ps.println("@Entity");
@@ -2601,6 +2620,14 @@ public class GenSpring {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!StringUtils.isBlank(info.getForeignTable())) {
+
+						ps.println("	@ManyToOne");
+						ps.println("	@JoinColumn(name = \"" + info.getColName() + "\")");
+						ps.println("	private " + info.getType() + " " + info.getVName() + ";");
+						continue;
+					}
+
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-mm-dd hh:mm:ss\")");
 					if (info.isDate())
@@ -2668,6 +2695,9 @@ public class GenSpring {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!StringUtils.isBlank(info.getForeignTable())) {
+						continue;
+					}
 					if (!info.isLastMod()) {
 						if (addCom) {
 							sb.append(", ");
@@ -2683,6 +2713,9 @@ public class GenSpring {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!StringUtils.isBlank(info.getForeignTable())) {
+						continue;
+					}
 					if (!info.isLastMod()) {
 						ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
 					}
@@ -2724,11 +2757,6 @@ public class GenSpring {
 			ps.println("	 * returns value of the " + info.getColName() + " column of this row of data");
 			ps.println("	 *");
 			ps.println("	 * @return value of this column in this row");
-			// TODO: add Foreign key handling
-			if (!StringUtils.isBlank(info.getForeignCol())) {
-				ps.println("	 * TODO: Add join for Foreign key to " + info.getForeignTable() + "."
-						+ info.getForeignCol());
-			}
 			ps.println("	 */");
 			ps.println("	public " + info.getType() + " get" + info.getGsName() + "() {");
 			if ("Float".equals(info.getType())) {

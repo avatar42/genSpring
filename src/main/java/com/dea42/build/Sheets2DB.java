@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.StringTokenizer;
+import java.util.regex.PatternSyntaxException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -64,7 +65,8 @@ import com.google.api.services.sheets.v4.model.ValueRange;
  *
  */
 public class Sheets2DB {
-
+	public static String ACCOUNT_TABLE = "Account";
+	public static String USERID_COLUMN = "userId";
 	public static final String ROLE_PREFIX = "ROLE_";
 	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DB.class.getName());
 	public static long ONE_DAY_MILS = 86400000l;
@@ -476,7 +478,6 @@ public class Sheets2DB {
 		SheetProperties p = sheet.getProperties();
 		String tabName = p.getTitle();
 		String tableName = Utils.tabToStr(renames, tabName);
-		String userTableName = tableName + "User";
 		// {"basicFilter":{"range":{"endColumnIndex":19,"endRowIndex":38,"sheetId":1049211208,"startColumnIndex":0,"startRowIndex":0},"sortSpecs":[{"dimensionIndex":0,"sortOrder":"ASCENDING"}]},
 		// "properties":{
 		// "gridProperties":{"columnCount":19,"frozenColumnCount":1,"frozenRowCount":1,"rowCount":38},
@@ -494,25 +495,27 @@ public class Sheets2DB {
 		if (frozenRowCount < 1)
 			frozenRowCount = 1;
 
+		//
 		List<Integer> wantedColNums = strToCols(Utils.getProp(bundle, tableName + ".columns"));
 		List<Integer> userColNums = strToCols(Utils.getProp(bundle, tableName + ".user"));
 		List<Integer> requiredColNums = strToCols(Utils.getProp(bundle, tableName + ".required"));
+		Map<String, String> foreignColNums = Utils.getPropMap(bundle, tableName + ".foreign");
 
 		// Get headers and basic cell data
 		// fine max length to String fields
-		Map<Object, Integer> maxFieldLenghts = new HashMap<Object, Integer>();
-		Map<Object, Integer> maxUserFieldLenghts = new HashMap<Object, Integer>();
+		Map<String, Integer> maxFieldLenghts = new HashMap<String, Integer>();
+		Map<String, Integer> maxUserFieldLenghts = new HashMap<String, Integer>();
 		// discovered field types
-		Map<Object, Class<?>> fieldTypes = new HashMap<Object, Class<?>>();
-		Map<Object, Class<?>> userFieldTypes = new HashMap<Object, Class<?>>();
+		Map<String, Class<?>> fieldTypes = new HashMap<String, Class<?>>();
+		Map<String, Class<?>> userFieldTypes = new HashMap<String, Class<?>>();
 		// required field names
-		List<Object> requiredFields = new ArrayList<Object>();
-		List<Object> requiredUserFields = new ArrayList<Object>();
+		List<String> requiredFields = new ArrayList<String>();
+		List<String> requiredUserFields = new ArrayList<String>();
 		// holds the actual data
-		Map<Integer, Map<Object, Object>> rowsData = new HashMap<Integer, Map<Object, Object>>();
-		Map<Integer, Map<Object, Object>> rowsUserData = new HashMap<Integer, Map<Object, Object>>();
+		Map<Integer, Map<String, Object>> rowsData = new HashMap<Integer, Map<String, Object>>();
+		Map<Integer, Map<String, Object>> rowsUserData = new HashMap<Integer, Map<String, Object>>();
 		// preserve order of fields
-		Object[] ha = new Object[columnCount];
+		String[] ha = new String[columnCount];
 
 		Sheets.Spreadsheets.Values.Get request;
 		List<List<Object>> values;
@@ -534,9 +537,10 @@ public class Sheets2DB {
 					if (rowId == frozenRowCount) {
 						// init field lengths to 0
 						int colNum = 0;
-						for (Object header : row) {
+						for (Object h : row) {
+							String header = (String) h;
 							if (userColNums.contains(colNum)) {
-								if (StringUtils.isBlank(Utils.tabToStr(renames, (String) header))) {
+								if (StringUtils.isBlank(Utils.tabToStr(renames, header))) {
 									header = "Col" + columnNumberToLetter(colNum + 1);
 								}
 								maxUserFieldLenghts.put(header, 0);
@@ -562,13 +566,12 @@ public class Sheets2DB {
 						}
 						LOGGER.debug("row:" + row.toString());
 					} else if (rowId > frozenRowCount && rowId <= rowCount) {
-						Map<Object, Object> rowMap = new HashMap<Object, Object>();
+						Map<String, Object> rowMap = new HashMap<String, Object>();
 						rowsData.put(rowId, rowMap);
 						Object[] cells = row.toArray();
 						for (int i = 0; i < cells.length; i++) {
-							Map<Object, Integer> mfl = maxFieldLenghts;
-							Map<Object, Class<?>> ft = fieldTypes;
-
+							Map<String, Integer> mfl = maxFieldLenghts;
+							Map<String, Class<?>> ft = fieldTypes;
 							if (userColNums.contains(i)) {
 								mfl = maxUserFieldLenghts;
 								ft = userFieldTypes;
@@ -594,11 +597,11 @@ public class Sheets2DB {
 												int len = mfl.get(ha[i]);
 												int vlen = s.length();
 												if (len < vlen)
-													mfl.put(ha[i], vlen);
+													mfl.put((String) ha[i], vlen);
 
 												// if null or something other than String then set to String now
 												if (fieldCls == null || !fieldCls.isAssignableFrom(String.class)) {
-													ft.put(ha[i], String.class);
+													ft.put((String) ha[i], String.class);
 												}
 											} else {
 												// if date / time object then use that type instead of String
@@ -666,16 +669,16 @@ public class Sheets2DB {
 					if (rowId > frozenRowCount && rowId <= rowCount) {
 						Object[] cells = row.toArray();
 						for (int i = 0; i < cells.length; i++) {
-							Map<Object, Integer> mfl = maxFieldLenghts;
-							Map<Object, Class<?>> ft = fieldTypes;
-							Map<Integer, Map<Object, Object>> rd = rowsData;
+							Map<String, Integer> mfl = maxFieldLenghts;
+							Map<String, Class<?>> ft = fieldTypes;
+							Map<Integer, Map<String, Object>> rd = rowsData;
 
 							if (userColNums.contains(i)) {
 								mfl = maxUserFieldLenghts;
 								ft = userFieldTypes;
 								rd = rowsUserData;
 							}
-							Map<Object, Object> rowMap = rd.get(rowId);
+							Map<String, Object> rowMap = rd.get(rowId);
 							if (wantedColNums.isEmpty() || wantedColNums.contains(i) || userColNums.contains(i)) {
 								if (cells[i] instanceof String) {
 									String s = (String) cells[i];
@@ -710,13 +713,34 @@ public class Sheets2DB {
 
 		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
 		LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
-		genTable(tableName, userTables.contains(tableName), null, maxFieldLenghts, fieldTypes, requiredFields, rowsData,
-				false);
+		Map<String, String> foreignKeys = new HashMap<String, String>();
+		for (String fnam : fieldTypes.keySet()) {
+			if (foreignColNums.containsKey(fnam)) {
+				foreignKeys.put(fnam, foreignColNums.get(fnam));
+			}
+		}
+		if (userTables.contains(tableName)) {
+			foreignKeys.put(USERID_COLUMN, ACCOUNT_TABLE + ".id");
+			fieldTypes.put(USERID_COLUMN, db.getIdTypeCls());
+		}
+
+		genTable(tableName, null, maxFieldLenghts, fieldTypes, requiredFields, rowsData, foreignKeys);
 		// If has user columns to be placed in separate table, create that user table.
 		if (!userColNums.isEmpty()) {
+			Map<String, String> userForeignKeys = new HashMap<String, String>();
+			for (String fnam : userFieldTypes.keySet()) {
+				if (foreignColNums.containsKey(fnam)) {
+					userForeignKeys.put(fnam, foreignColNums.get(fnam));
+				}
+			}
+			userForeignKeys.put(USERID_COLUMN, ACCOUNT_TABLE + ".id");
+			userForeignKeys.put(tableName + "_Id", tableName + ".id");
+
+			userFieldTypes.put(USERID_COLUMN, db.getIdTypeCls());
+			userFieldTypes.put(tableName + "_Id", db.getIdTypeCls());
 			LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
-			genTable(userTableName, true, tableName, maxUserFieldLenghts, userFieldTypes, requiredUserFields,
-					rowsUserData, false);
+			genTable(tableName + "User", tableName, maxUserFieldLenghts, userFieldTypes, requiredUserFields,
+					rowsUserData, userForeignKeys);
 		}
 	}
 
@@ -725,22 +749,24 @@ public class Sheets2DB {
 	 * mainTable if needed
 	 * 
 	 * @param tableName
-	 * @param addUserFK
 	 * @param mainTable
 	 * @param maxFieldLenghts
 	 * @param fieldTypes
 	 * @param requiredFields
 	 * @param rowsData
-	 * @param forceLongId     TODO
+	 * @param foreignKeys     keys to add
 	 * @throws SQLException
 	 */
-	private void genTable(String tableName, boolean addUserFK, String mainTable, Map<Object, Integer> maxFieldLenghts,
-			Map<Object, Class<?>> fieldTypes, List<Object> requiredFields, Map<Integer, Map<Object, Object>> rowsData,
-			boolean forceLongId) throws SQLException {
+	private void genTable(String tableName, String mainTable, Map<String, Integer> maxFieldLenghts,
+			Map<String, Class<?>> fieldTypes, List<String> requiredFields, Map<Integer, Map<String, Object>> rowsData,
+			Map<String, String> foreignKeys) throws SQLException {
 		LOGGER.debug("maxFieldLenghts:" + maxFieldLenghts.toString());
 		LOGGER.debug("fieldTypes:" + fieldTypes.toString());
 		LOGGER.debug("requiredFields:" + requiredFields.toString());
 		LOGGER.debug("rowsData:" + rowsData.toString());
+		String mainTableId = "_";
+		if (mainTable != null)
+			mainTableId = mainTable + "_Id";
 
 		String colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
 		String colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
@@ -749,16 +775,12 @@ public class Sheets2DB {
 
 		String schema = db.getPrefix();
 
-		// Drop old table if there is one though should have bee dropped in getSheet()
+		// Drop of old table if there is one though should have been in getSheet()
 		// or addAccountTable()
-//		runSQL("Drop table IF EXISTS " + schema + tableName + ";");
 
-//		CREATE TABLE genSpringMSSQLTest.dbo.account (id bigint IDENTITY(1, 1) PRIMARY KEY, created DATETIME, email varchar(254), password varchar(254), 
-//		role varchar(25), CONSTRAINT UC_email UNIQUE (email));
-		String idType = "BIGINT";
+		String idType = db.getIdType();
 		String autoincrement = " NOT NULL primary key auto_increment";
 		if (db.isSQLite()) {
-			idType = "INTEGER";
 			autoincrement = " NOT NULL primary key autoincrement";
 		}
 		if (db.isSqlserver()) {
@@ -767,11 +789,11 @@ public class Sheets2DB {
 
 		// create new table
 		StringBuilder sb = new StringBuilder("CREATE TABLE " + schema + tableName + "(id " + idType + autoincrement);
-		if (addUserFK)
-			sb.append(", userId " + idType);
-
-		if (mainTable != null)
-			sb.append(", " + mainTable + "_Id " + idType);
+//		if (addUserFK)
+//			sb.append(", userId " + idType);
+//
+//		if (mainTable != null)
+//			sb.append(", " + mainTable + "_Id " + idType);
 
 		if (colCreated != null) {
 			if (db.isMySQL()) {
@@ -840,15 +862,19 @@ public class Sheets2DB {
 				sb.append(" NOT NULL");
 			}
 		}
-		if (addUserFK) {
-			sb.append(",");
-			sb.append("    CONSTRAINT FK_" + tableName + "Account FOREIGN KEY (userId)");
-			sb.append("    REFERENCES " + schema + "account(id)");
-		}
-		if (mainTable != null) {
-			sb.append(",");
-			sb.append("    CONSTRAINT FK_" + tableName + "_" + mainTable + " FOREIGN KEY (" + mainTable + "_Id)");
-			sb.append("    REFERENCES " + schema + mainTable + "(id)");
+
+		if (foreignKeys != null) {
+			for (String field : foreignKeys.keySet()) {
+				sb.append(",");
+				String fieldName = Utils.tabToStr(renames, field);
+				sb.append("    CONSTRAINT FK_" + tableName + "_" + fieldName + " FOREIGN KEY (" + fieldName + ")");
+				String fkey = foreignKeys.get(field);
+				String[] split = fkey.split("\\s*\\.\\s*");
+				if (split.length == 2)
+					sb.append("    REFERENCES " + schema + split[0] + "(" + split[1] + ")");
+				else
+					throw new PatternSyntaxException(fkey + " is invalid syntax", "\\s*\\.\\s*", 0);
+			}
 		}
 		for (String fieldName : uniqueCols) {
 			sb.append(", CONSTRAINT UC_" + fieldName + " UNIQUE (" + fieldName + ")");
@@ -860,15 +886,9 @@ public class Sheets2DB {
 		genInsert:
 		// import data gathered into DB
 		for (Integer rowId : rowsData.keySet()) {
-			Map<Object, Object> row = rowsData.get(rowId);
+			Map<String, Object> row = rowsData.get(rowId);
 			sb = new StringBuilder("INSERT INTO " + schema + tableName + " (");
 			boolean addcom = false;
-			if (addUserFK) {
-				sb.append("userId,");
-			}
-			if (mainTable != null) {
-				sb.append(mainTable + "_Id,");
-			}
 			if (colCreated != null) {
 				sb.append(colCreated + ",");
 			}
@@ -893,12 +913,6 @@ public class Sheets2DB {
 			}
 			sb.append(") VALUES (");
 			addcom = false;
-			if (addUserFK) {
-				sb.append("1,");
-			}
-			if (mainTable != null) {
-				sb.append((rowId - 1)).append(",");
-			}
 			if (colCreated != null) {
 				if (db.isSQLite()) {
 					sb.append(System.currentTimeMillis()).append(",");
@@ -930,10 +944,19 @@ public class Sheets2DB {
 				} else {
 					addcom = true;
 				}
-				Object val = row.get(name);
-				if (rowId > 484) {
-					LOGGER.debug("rowId:" + rowId);
+				if (name.equals(USERID_COLUMN)) {
+					sb.append("1");
+					continue;
 				}
+				if (name.equals(mainTableId)) {
+					sb.append((rowId - 1));
+					continue;
+				}
+				Object val = row.get(name);
+				// for debug breakpoint
+//				if (rowId == 484) {
+//					LOGGER.debug("rowId:" + rowId);
+//				}
 				// skip row
 				if (val == null && requiredFields.contains(name)) {
 					LOGGER.warn("Skipping due to missing required data:" + row);
@@ -996,34 +1019,34 @@ public class Sheets2DB {
 	 * @throws SQLException
 	 */
 	private void addAccountTable() throws IOException, SQLException {
-		Map<Object, Integer> maxFieldLenghts = new HashMap<Object, Integer>();
+		Map<String, Integer> maxFieldLenghts = new HashMap<String, Integer>();
 		// maxFieldLenghts:{Decimal=0, Text=7, Int=0, Date=0}
 		maxFieldLenghts.put("email", 254);
 		maxFieldLenghts.put("password", 254);
 		maxFieldLenghts.put("role", 25);
 		// discovered field types
-		Map<Object, Class<?>> fieldTypes = new HashMap<Object, Class<?>>();
+		Map<String, Class<?>> fieldTypes = new HashMap<String, Class<?>>();
 		// fieldTypes:{Decimal=class java.math.BigDecimal, Text=class java.lang.String,
 		// Int=class java.lang.Integer, Date=class java.util.Date}
 		fieldTypes.put("email", String.class);
 		fieldTypes.put("password", String.class);
 		fieldTypes.put("role", String.class);
 		// required field names
-		List<Object> requiredFields = new ArrayList<Object>();
+		List<String> requiredFields = new ArrayList<String>();
 		// requiredFields:[Int]
 		requiredFields.add("email");
 		requiredFields.add("password");
 		requiredFields.add("role");
 		// holds the actual data
-		Map<Integer, Map<Object, Object>> rowsData = new HashMap<Integer, Map<Object, Object>>();
-		Map<Object, Object> rowMap = new HashMap<Object, Object>();
+		Map<Integer, Map<String, Object>> rowsData = new HashMap<Integer, Map<String, Object>>();
+		Map<String, Object> rowMap = new HashMap<String, Object>();
 
 		rowMap.put("email", TEST_USER);
 		rowMap.put("password", TEST_PASS);
 		rowMap.put("role", TEST_ROLE);
 		rowsData.put(1, rowMap);
 
-		rowMap = new HashMap<Object, Object>();
+		rowMap = new HashMap<String, Object>();
 		rowMap.put("email", ADMIN_USER);
 		rowMap.put("password", ADMIN_PASS);
 		rowMap.put("role", ADMIN_ROLE);
@@ -1031,8 +1054,8 @@ public class Sheets2DB {
 
 		LOGGER.debug("Creating account table");
 
-		runSQL("DROP TABLE IF EXISTS " + db.getPrefix() + "account;");
-		genTable("account", false, null, maxFieldLenghts, fieldTypes, requiredFields, rowsData, true);
+		runSQL("DROP TABLE IF EXISTS " + db.getPrefix() + ACCOUNT_TABLE + ";");
+		genTable(ACCOUNT_TABLE, "", maxFieldLenghts, fieldTypes, requiredFields, rowsData, null);
 
 	}
 

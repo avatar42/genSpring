@@ -114,6 +114,22 @@ public class Db {
 		return dbDriver.contains("sqlite");
 	}
 
+	public String getIdType() {
+		if (isSQLite()) {
+			return "INTEGER";
+		} else {
+			return "BIGINT";
+		}
+	}
+
+	public Class<?> getIdTypeCls() {
+		if (isSQLite()) {
+			return Integer.class;
+		} else {
+			return Long.class;
+		}
+	}
+
 	public boolean isMySQL() {
 		return dbDriver.contains("mysql");
 	}

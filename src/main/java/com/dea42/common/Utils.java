@@ -8,11 +8,14 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.Scanner;
+import java.util.regex.PatternSyntaxException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -104,6 +107,24 @@ public class Utils {
 			return new ArrayList<String>();
 
 		return Arrays.asList(s.split("\\s*,\\s*"));
+	}
+
+	public static Map<String, String> getPropMap(final ResourceBundle bundle, final String key) {
+		Map<String, String> rtn = new HashMap<String, String>();
+		String s = getProp(bundle, key, null);
+		if (!StringUtils.isBlank(s)) {
+			List<String> tmp = Arrays.asList(s.split("\\s*,\\s*"));
+			for (String pair : tmp) {
+				String[] set = pair.split("\\s*:\\s*");
+				if (set.length == 2)
+					rtn.put(set[0], set[1]);
+				else
+					throw new PatternSyntaxException(tmp + " is invalid syntax", "\\s*:\\s*", 0);
+			}
+		}
+
+		return rtn;
+
 	}
 
 	/**

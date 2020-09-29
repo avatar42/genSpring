@@ -67,11 +67,15 @@ public class ColInfo implements Serializable {
 	// treat as lastMod field
 	private boolean lastMod = false;
 
+	private boolean adminOnly = false;
+
 	private String foreignTable;
 	private String foreignCol;
 
 	private int colScale;
 	private int colPrecision;
+
+	private String comment;
 
 	/**
 	 * If true can not be null
@@ -498,13 +502,43 @@ public class ColInfo implements Serializable {
 		this.jtype = jtype;
 	}
 
+	/**
+	 * @return the comment
+	 */
+	public String getComment() {
+		return comment;
+	}
+
+	/**
+	 * @param comment the comment to set
+	 */
+	public void setComment(String comment) {
+		this.comment = comment;
+	}
+
+	/**
+	 * @return the adminOnly
+	 */
+	public boolean isAdminOnly() {
+		return adminOnly;
+	}
+
+	/**
+	 * @param adminOnly the adminOnly to set
+	 */
+	public void setAdminOnly(boolean adminOnly) {
+		this.adminOnly = adminOnly;
+	}
+
 	@Override
 	public int hashCode() {
 		final int prime = 31;
 		int result = 1;
+		result = prime * result + (adminOnly ? 1231 : 1237);
 		result = prime * result + ((colName == null) ? 0 : colName.hashCode());
 		result = prime * result + colPrecision;
 		result = prime * result + colScale;
+		result = prime * result + ((comment == null) ? 0 : comment.hashCode());
 		result = prime * result + ((constraint == null) ? 0 : constraint.hashCode());
 		result = prime * result + (created ? 1231 : 1237);
 		result = prime * result + ((defaultVal == null) ? 0 : defaultVal.hashCode());
@@ -540,6 +574,8 @@ public class ColInfo implements Serializable {
 		if (getClass() != obj.getClass())
 			return false;
 		ColInfo other = (ColInfo) obj;
+		if (adminOnly != other.adminOnly)
+			return false;
 		if (colName == null) {
 			if (other.colName != null)
 				return false;
@@ -548,6 +584,11 @@ public class ColInfo implements Serializable {
 		if (colPrecision != other.colPrecision)
 			return false;
 		if (colScale != other.colScale)
+			return false;
+		if (comment == null) {
+			if (other.comment != null)
+				return false;
+		} else if (!comment.equals(other.comment))
 			return false;
 		if (constraint == null) {
 			if (other.constraint != null)
@@ -639,9 +680,10 @@ public class ColInfo implements Serializable {
 				.append(", list=").append(list).append(", jsonIgnore=").append(jsonIgnore).append(", unique=")
 				.append(unique).append(", hidden=").append(hidden).append(", password=").append(password)
 				.append(", email=").append(email).append(", created=").append(created).append(", lastMod=")
-				.append(lastMod).append(", foreignTable=").append(foreignTable).append(", foreignCol=")
-				.append(foreignCol).append(", colScale=").append(colScale).append(", colPrecision=")
-				.append(colPrecision).append(", fNum=").append(fNum).append("]");
+				.append(lastMod).append(", adminOnly=").append(adminOnly).append(", foreignTable=").append(foreignTable)
+				.append(", foreignCol=").append(foreignCol).append(", colScale=").append(colScale)
+				.append(", colPrecision=").append(colPrecision).append(", comment=").append(comment).append(", fNum=")
+				.append(fNum).append("]");
 		return builder.toString();
 	}
 

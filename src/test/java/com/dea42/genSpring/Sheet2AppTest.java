@@ -6,12 +6,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -38,13 +40,28 @@ public class Sheet2AppTest {
 	private static final Logger LOGGER = LoggerFactory.getLogger(Sheet2AppTest.class.getName());
 	private static final boolean clearDBFirst = true;
 	private static final boolean clearSrcFirst = true;
+	private static final boolean stopOnError = false;
+	private ResourceBundle renames = ResourceBundle.getBundle("rename");
+
+	/**
+	 * Generate the POC app and run the regression tests
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testEndToEndWatchlist() throws Exception {
+		Assume.assumeTrue(Utils.getProp("Watchlist", "enabled", false));
+		backupProject("Watchlist");
+		doEndToEnd("Watchlist", true);
+
+	}
 
 	/**
 	 * Run full end to end regression tests with genSpringMySQLTest.properties file
 	 * and validate the results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testEndToEndMySQLTest() {
+	public void testEndToEndMySQLTest() throws Exception {
 		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
 		doEndToEnd("genSpringMySQLTest", true);
 
@@ -55,7 +72,7 @@ public class Sheet2AppTest {
 	 * and validate the results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testEndToEndMSSQLTest() {
+	public void testEndToEndMSSQLTest() throws Exception {
 		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
 		doEndToEnd("genSpringMSSQLTest", true);
 
@@ -66,7 +83,7 @@ public class Sheet2AppTest {
 	 * static folder. This project and then be used to prototype changes as well.
 	 */
 	@Test
-	public void testEndToEnd() {
+	public void testEndToEnd() throws Exception {
 		doEndToEnd("genSpringTest", true);
 	}
 
@@ -77,7 +94,7 @@ public class Sheet2AppTest {
 	 * generation options.
 	 */
 	@Test
-	public void testEndToEnd2() {
+	public void testEndToEnd2() throws Exception {
 		doEndToEnd("genSpringTest2", true);
 	}
 
@@ -86,7 +103,7 @@ public class Sheet2AppTest {
 	 * files were changed.
 	 */
 	@Test
-	public void testEndToEnd3() {
+	public void testEndToEnd3() throws Exception {
 		String bundleName = "genSpringTest2";
 
 		Map<String, Long> modTimes = new HashMap<String, Long>();
@@ -243,7 +260,7 @@ public class Sheet2AppTest {
 			deletePath(Utils.getPath(outdir, "bin"));
 			deletePath(Utils.getPath(outdir, "pom.xml"));
 		}
-		if (clearSrc) {
+		if (clearDB) {
 			String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 			Path dbFile = Utils.getPath(outdir.replace('\\', '/'), bundleName + "DB.sqlite");
 			if (dbFile.toFile().exists()) {
@@ -252,22 +269,57 @@ public class Sheet2AppTest {
 		}
 	}
 
-	public void doEndToEnd(String bundleName, boolean purgeFirst) {
+	private void backupProject(String bundleName) throws IOException {
+		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+		String outdir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", ".");
+		File pom = new File(outdir + "/pom.xml");
+		if (pom.exists()) {
+			long ts = pom.lastModified();
+			Path hold = Utils.getPath(outdir,"hold", "" + ts);
+			hold.toFile().mkdirs();
+			Files.move(Utils.getPath(outdir, "pom.xml"), Utils.getPath(outdir,"hold", "" + ts, "pom.xml"),
+					StandardCopyOption.REPLACE_EXISTING);
+			Files.move(Utils.getPath(outdir, "src"), Utils.getPath(outdir,"hold", "" + ts, "src"),
+					StandardCopyOption.REPLACE_EXISTING);
+			Files.move(Utils.getPath(outdir, bundleName + "DB.sqlite"),
+					Utils.getPath(outdir,"hold", "" + ts, bundleName + "DB.sqlite"), StandardCopyOption.REPLACE_EXISTING);
+		}
+	}
+
+	private void chkErr(String lable, int expected, int found) {
+		if (stopOnError)
+			assertEquals(lable, expected, found);
+		else
+			LOGGER.error(lable + " expected:" + expected + " :" + found);
+
+	}
+
+	/**
+	 * Run both Sheets2DB and GenSpring on bundleName then run some basic tests.
+	 * 
+	 * @param bundleName
+	 * @param purgeFirst if true clears the DB and generated files to ensure all
+	 *                   possible files are recreated.
+	 * @throws Exception
+	 */
+	public void doEndToEnd(String bundleName, boolean purgeFirst) throws Exception {
 		// remove all files form projects
 		if (purgeFirst)
 			purgeProject(bundleName, clearDBFirst, clearSrcFirst);
 
-		Sheets2DB s = new Sheets2DB(bundleName, true);
+		// Note set to fail if any errors encountered.
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		s.getSheet();
-		
+
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName, outdir);
 		String schema = db.getPrefix();
 
 		Connection conn = db.getConnection("Sheet2AppTest");
-		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
-		for (String tableName : tables) {
+		List<String> tabs = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
+		for (String tabName : tabs) {
+			String tableName = Utils.tabToStr(renames, tabName);
 			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
 			int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
 			try {
@@ -279,7 +331,7 @@ public class Sheet2AppTest {
 				assertNotNull("Check ResultSet", rs);
 				ResultSetMetaData rm = rs.getMetaData();
 				int size = rm.getColumnCount();
-				assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+				chkErr("Checking expected columns in " + schema + tableName, columns, size);
 
 				query = "SELECT COUNT(*) FROM " + schema + tableName;
 				stmt = conn.createStatement();
@@ -287,7 +339,7 @@ public class Sheet2AppTest {
 				assertNotNull("Check ResultSet", rs);
 				if (!db.isSQLite())
 					rs.next();
-				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+				chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 				if (!userColNums.isEmpty()) {
 					tableName = tableName + "User";
@@ -300,7 +352,7 @@ public class Sheet2AppTest {
 					assertNotNull("Check ResultSet", rs);
 					rm = rs.getMetaData();
 					size = rm.getColumnCount();
-					assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+					chkErr("Checking expected columns in " + schema + tableName, columns, size);
 
 					query = "SELECT COUNT(*) FROM " + schema + tableName;
 					stmt = conn.createStatement();
@@ -308,7 +360,7 @@ public class Sheet2AppTest {
 					assertNotNull("Check ResultSet", rs);
 					if (db.isMySQL())
 						rs.next();
-					assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+					chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				}
 			} catch (SQLException e) {
 				LOGGER.error("Exception creating DB", e);

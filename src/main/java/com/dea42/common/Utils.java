@@ -106,7 +106,7 @@ public class Utils {
 		if (StringUtils.isBlank(s))
 			return new ArrayList<String>();
 
-		return Arrays.asList(s.split("\\s*,\\s*"));
+		return new ArrayList<String>(Arrays.asList(s.split("\\s*,\\s*")));
 	}
 
 	public static Map<String, String> getPropMap(final ResourceBundle bundle, final String key) {
@@ -232,7 +232,7 @@ public class Utils {
 	 * @return String in camel case
 	 */
 	public static String tabToStr(final ResourceBundle renames, final String objName) {
-		if (objName == null) {
+		if (StringUtils.isBlank(objName)) {
 			return null;
 		}
 		StringBuffer sb = new StringBuffer(objName.length());
@@ -321,10 +321,10 @@ public class Utils {
 	public static Path getPath(final String path, final String... more) {
 		// toAbsolutePath() required for getParent() to work
 		Path cwd = Paths.get(".").toAbsolutePath();
-		String tpath = path;
+		String tpath = path.replace('\\', '/');
 		// check for in target folder. If so make rel to parent
 		if (cwd.getParent().endsWith("target")) {
-			tpath = cwd.getParent().getParent() + "/" + path;
+			tpath = cwd.getParent().getParent() + "/" + path.replace('\\', '/');
 		}
 
 		return Paths.get(tpath, more).toAbsolutePath().normalize();

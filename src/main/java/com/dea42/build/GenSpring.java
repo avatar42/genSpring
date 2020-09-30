@@ -56,7 +56,7 @@ public class GenSpring {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String PROPKEY = "genSpring";
 	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.4.0";
+	public static final String genSpringVersion = "0.4.1";
 	public static String ACCOUNT_CLASS = "Account";
 	public static int IMPORT_TYPE_SERVICE = 0;
 	public static int IMPORT_TYPE_FORM = 1;
@@ -498,8 +498,13 @@ public class GenSpring {
 
 		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
 		// SQLite tables to always ignore
-		filteredTables.add("hibernate_sequence");
-		filteredTables.add("sqlite_sequence");
+		try {
+			filteredTables.add("hibernate_sequence");
+			filteredTables.add("sqlite_sequence");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
 		srcPkg = srcGroupId + '.' + srcArtifactId;
 		srcPath = srcPkg.replace('.', '/');

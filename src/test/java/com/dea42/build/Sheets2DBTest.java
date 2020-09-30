@@ -62,7 +62,7 @@ public class Sheets2DBTest {
 	 */
 	@Test
 	public void testStrToCols() {
-		Sheets2DB s = new Sheets2DB(bundleName, true);
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String cols = Utils.getProp(bundle, "shows.columns", "A-I,Q-T,BC-BF");
 		List<Integer> list = s.strToCols(cols);
@@ -83,7 +83,7 @@ public class Sheets2DBTest {
 	}
 
 	private void parseDateStr(String str, long expected) {
-		Sheets2DB s = new Sheets2DB(bundleName, true);
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 
 		long ms = s.parseDateStr(str);
 		Date d = new Date(ms);
@@ -128,7 +128,7 @@ public class Sheets2DBTest {
 	 * Run Sheets2DB with genSpringTest.properties file and validate the results
 	 */
 	@Test
-	public void testWithgenSpringTest() {
+	public void testWithgenSpringTest() throws Exception {
 		genDB("genSpringTest");
 
 	}
@@ -138,7 +138,7 @@ public class Sheets2DBTest {
 	 * results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testWithgenSpringMySQLTest() {
+	public void testWithgenSpringMySQLTest() throws Exception {
 		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
 		genDB("genSpringMySQLTest");
 
@@ -149,7 +149,7 @@ public class Sheets2DBTest {
 	 * results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testWithgenSpringMSSQLTest() {
+	public void testWithgenSpringMSSQLTest() throws Exception {
 		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
 		// Drivers check
 //		com.microsoft.sqlserver.jdbc.SQLServerDriver sQLServerDriver;
@@ -162,7 +162,7 @@ public class Sheets2DBTest {
 	 * Run Sheets2DB with genSpringTest2.properties file and validate the results
 	 */
 	@Test
-	public void testWithgenSpringTest2() {
+	public void testWithgenSpringTest2() throws Exception {
 
 		genDB("genSpringTest2");
 	}
@@ -207,8 +207,8 @@ public class Sheets2DBTest {
 
 	}
 
-	private void genDB(String bundleName) {
-		Sheets2DB s = new Sheets2DB(bundleName, true);
+	private void genDB(String bundleName) throws Exception {
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		s.getSheet();
 
 		// Validate DB

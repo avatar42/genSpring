@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
-import java.security.GeneralSecurityException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -13,7 +12,6 @@ import java.sql.Time;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -122,22 +120,25 @@ public class Sheets2DB {
 	protected String ADMIN_ROLE;
 
 	private Db db;
+	private boolean failOnAnyError = false;
 
 	/**
 	 * default constructor using the sheet bundle name
 	 */
 	public Sheets2DB() {
-		this(PROPKEY, false);
+		this(PROPKEY, false, false);
 	}
 
 	/**
 	 * For testing
 	 * 
 	 * @param bundelName
-	 * @param cleanFirst TODO
+	 * @param cleanFirst     TODO
+	 * @param failOnAnyError TODO
 	 */
-	public Sheets2DB(String bundelName, boolean cleanFirst) {
+	public Sheets2DB(String bundelName, boolean cleanFirst, boolean failOnAnyError) {
 		this.bundelName = bundelName;
+		this.failOnAnyError = failOnAnyError;
 		bundle = ResourceBundle.getBundle(bundelName);
 		// Note AccountServices.initialize() will overwrite these default users till
 		// init.default.users set false in app.propterties so data here is basically
@@ -473,7 +474,7 @@ public class Sheets2DB {
 		return wantedCols;
 	}
 
-	public void exportTab(Sheets service, String spreadsheetId, Sheet sheet) throws SQLException {
+	public void exportTab(Sheets service, String spreadsheetId, Sheet sheet) throws Exception {
 
 		SheetProperties p = sheet.getProperties();
 		String tabName = p.getTitle();
@@ -651,6 +652,9 @@ public class Sheets2DB {
 			}
 		} catch (IOException e) {
 			LOGGER.error("Failed to get field data for " + tabName, e);
+			if (failOnAnyError) {
+				throw e;
+			}
 		}
 
 		// rescan for cells with links
@@ -709,9 +713,17 @@ public class Sheets2DB {
 			}
 		} catch (IOException e) {
 			LOGGER.error("Failed to get link fields for " + tabName, e);
+			if (failOnAnyError) {
+				throw e;
+			}
 		}
 
-		List<String> userTables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
+		List<String> userTabs = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".userTabs");
+		// normalize userTabs list
+		List<String> userTables = new ArrayList<String>();
+		for (String tab : userTabs) {
+			userTables.add(Utils.tabToStr(renames, tab));
+		}
 		LOGGER.debug("Exporting tab:" + tabName + " to table:" + tableName);
 		Map<String, String> foreignKeys = new HashMap<String, String>();
 		for (String fnam : fieldTypes.keySet()) {
@@ -1001,6 +1013,9 @@ public class Sheets2DB {
 				runSQL(sb.toString());
 				passed++;
 			} catch (SQLException e) {
+				if (failOnAnyError) {
+					throw e;
+				}
 				failed++;
 			}
 		}
@@ -1088,7 +1103,7 @@ public class Sheets2DB {
 		return rtn;
 	}
 
-	public void getSheet() {
+	public void getSheet() throws Exception {
 		List<String> tabs = null;
 		try {
 			db = new Db(bundelName + ".getSheet()", bundelName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
@@ -1099,8 +1114,7 @@ public class Sheets2DB {
 			// https://docs.google.com/spreadsheets/d/1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE/edit?usp=sharing
 			final String spreadsheetId = Utils.getProp(bundle, "sheet.id",
 					"1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE");
-			final String tabStr = Utils.getProp(bundle, "sheet.tabs", "");
-			tabs = Arrays.asList(tabStr.split("\\s*,\\s*"));
+			tabs = Utils.getPropList(bundle, "sheet.tabs");
 
 			Sheets service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
 					.setApplicationName(APPLICATION_NAME).build();
@@ -1110,10 +1124,8 @@ public class Sheets2DB {
 			// clear DB in reverse order to deal with constraints
 			for (Sheet sheet : sheets) {
 				SheetProperties p = sheet.getProperties();
-				String tabName = Utils.tabToStr(renames, p.getTitle());
-				if (tabs.contains(tabName)) {
-					tabName = p.getTitle();
-					String tableName = Utils.tabToStr(renames, tabName);
+				String tableName = Utils.tabToStr(renames, p.getTitle());
+				if (tabs.contains(tableName) || tabs.contains(p.getTitle())) {
 					runSQL("DROP TABLE IF EXISTS " + schema + tableName + "User;");
 					runSQL("DROP TABLE IF EXISTS " + schema + tableName + ";");
 				}
@@ -1123,13 +1135,16 @@ public class Sheets2DB {
 
 			for (Sheet sheet : sheets) {
 				SheetProperties p = sheet.getProperties();
-				String tabName = Utils.tabToStr(renames, p.getTitle());
-				if (tabs.contains(tabName)) {
+				String tableName = Utils.tabToStr(renames, p.getTitle());
+				if (tabs.contains(tableName) || tabs.contains(p.getTitle())) {
 					exportTab(service, spreadsheetId, sheet);
 				}
 			}
 		} catch (Exception e) {
 			LOGGER.error("Failed to get to export sheet ", e);
+			if (failOnAnyError) {
+				throw e;
+			}
 		}
 
 		System.out.println("Inserted " + passed + " records into " + tabs);
@@ -1141,8 +1156,12 @@ public class Sheets2DB {
 	 * Prints the names and majors of students in a sample spreadsheet:
 	 * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
 	 */
-	public static void main(String... args) throws IOException, GeneralSecurityException {
+	public static void main(String... args) {
 		Sheets2DB s = new Sheets2DB();
-		s.getSheet();
+		try {
+			s.getSheet();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 }

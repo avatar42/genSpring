@@ -98,7 +98,7 @@ public abstract class UnitBase extends TestCase {
 		// user must be 60 or less to pass built in Email validator though RFC allows 64
 		if (partLen > 60)
 			partLen = 60;
-		int diff = length - 2 - (partLen * 2);
+		int diff = partLen - 2;
 		StringBuilder sb = new StringBuilder();
 		sb.append(getTestString(partLen));
 		sb.append("@");
@@ -121,16 +121,11 @@ public abstract class UnitBase extends TestCase {
 		}
 
 		StringBuilder sb = new StringBuilder(strVal);
-		while (sb.length() < length && length < strVal.length() + sb.length()) {
+		while (sb.length() < length) {
 			sb.append(strVal);
-			length -= strVal.length();
 		}
 
-		if (length < strVal.length() + sb.length()) {
-			sb.append(strVal.substring(0, length));
-		}
-
-		return sb.toString();
+		return sb.toString().substring(0, length);
 	}
 
 	/**

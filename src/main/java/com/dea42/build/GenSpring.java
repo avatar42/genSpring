@@ -1,14 +1,13 @@
 package com.dea42.build;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.Writer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
@@ -31,14 +30,11 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.velocity.VelocityContext;
-import org.apache.velocity.app.Velocity;
-import org.apache.velocity.app.VelocityEngine;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Title: GenSpring <br>
@@ -52,11 +48,11 @@ import com.dea42.common.Utils;
  *          <br>
  *          See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
  */
+@Slf4j
 public class GenSpring {
-	private static final Logger LOGGER = LoggerFactory.getLogger(GenSpring.class.getName());
 	public static final String PROPKEY = "genSpring";
 	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.4.1";
+	public static final String genSpringVersion = "0.5.0";
 	public static String ACCOUNT_CLASS = "Account";
 	public static int IMPORT_TYPE_SERVICE = 0;
 	public static int IMPORT_TYPE_FORM = 1;
@@ -115,7 +111,6 @@ public class GenSpring {
 
 	private boolean useDouble = false;
 	private boolean beanToString = false;
-	private static final boolean beanEquals = true;
 	private ResourceBundle bundle;
 	private ResourceBundle renames;
 	private String bundleName;
@@ -154,7 +149,7 @@ public class GenSpring {
 	 * Simplify test generation by just passing props use to gen to the app's tests
 	 */
 	private void writeTestProps() {
-		Path p = createFile("/src/test/resources/test.properties");
+		Path p = Utils.createFile(baseDir, "/src/test/resources/test.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				for (String key : bundle.keySet()) {
@@ -163,15 +158,15 @@ public class GenSpring {
 						ps.println(key + "=");
 					else
 						ps.println(key + "=" + val);
-					LOGGER.debug(key + "=" + val);
+					log.debug(key + "=" + val);
 				}
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
-		p = createFile("/src/test/resources/rename.properties");
+		p = Utils.createFile(baseDir, "/src/test/resources/rename.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				for (String key : renames.keySet()) {
@@ -181,25 +176,12 @@ public class GenSpring {
 					else
 						ps.println(key + "=" + val);
 				}
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
-	}
-
-	private Path createFile(String relPath) {
-		Path p = Utils.getPath(baseDir, relPath);
-		try {
-			Files.createDirectories(p.getParent());
-			p = Files.createFile(p);
-		} catch (IOException e) {
-			LOGGER.warn(e.getMessage() + " exists will skip");
-			return null;
-		}
-
-		return p;
 	}
 
 	public boolean isUseDouble() {
@@ -216,7 +198,7 @@ public class GenSpring {
 	 * @param list
 	 */
 	private void writeIndex(Set<String> set) {
-		Path p = createFile("/src/main/resources/templates/index.html");
+		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.home", null));
@@ -227,16 +209,16 @@ public class GenSpring {
 				ps.println("    	<a th:href=\"@{/api/}\">/api/</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
 				ps.println(htmlFooter());
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
 	}
 
 	private void writeApiIndex(Set<String> set) {
-		Path p = createFile("/src/main/resources/templates/api_index.html");
+		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/api_index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.restApi", null));
@@ -247,9 +229,9 @@ public class GenSpring {
 				ps.println("    	<a th:href=\"@{/}\">Home</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
 				ps.println(htmlFooter());
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -270,7 +252,7 @@ public class GenSpring {
 	}
 
 	private void writeNav(Set<String> set) {
-		Path p = createFile("/src/main/resources/templates/fragments/header.html");
+		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/fragments/header.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("<!DOCTYPE html>");
@@ -381,40 +363,17 @@ public class GenSpring {
 				ps.println("	<!-- End of header -->");
 				ps.println("</body>");
 				ps.println("</html>");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
 	}
 
-//    static String inputTemplate = "java_example.vm";
-//    static String className = "VelocityExample";
-//    static String message = "Hello World!";
-//    static String outputFile = className + ".java";
-
-	public void velocityGenerator(String inputTemplate, String className, String message, String outputFile)
-			throws IOException {
-
-		VelocityEngine velocityEngine = new VelocityEngine();
-		velocityEngine.init();
-
-		VelocityContext context = new VelocityContext();
-		// replace ${className} in file with className value
-		context.put("className", className);
-		context.put("message", message);
-
-		Writer writer = new FileWriter(new File(outputFile));
-		Velocity.mergeTemplate(inputTemplate, "UTF-8", context, writer);
-		writer.flush();
-		writer.close();
-
-		System.out.println("Generated " + outputFile);
-	}
-
 	public void copyCommon() throws IOException {
-		Path staticPath = Utils.getPath("static");
+		Path staticPath = Utils.getPath(Java2VM.TEMPLATE_FOLDER);
+		Java2VM j2m = new Java2VM(bundleName);
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
 			@Override
 			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
@@ -422,40 +381,33 @@ public class GenSpring {
 				Path target = Utils.getPath(baseDir + "/" + relDir);
 				Files.createDirectories(target);
 
-				LOGGER.debug("preVisitDirectory: " + dir + "->" + target);
+				log.debug("preVisitDirectory: " + dir + "->" + target);
 				return FileVisitResult.CONTINUE;
 			}
 
 			/**
-			 * Copy file into new tree converting package / paths as needed TODO: change to
-			 * use velocityGenerator()
+			 * Copy file into new tree converting package / paths as needed
 			 */
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-				LOGGER.info("Copying:" + file);
-				String data = new String(Files.readAllBytes(file));
-				if (file.getFileName().endsWith("pom.xml")) {
-					data = data.replace(srcPkg, basePkg);
-					data = data.replace("<artifactId>" + srcArtifactId + "</artifactId>",
-							"<artifactId>" + baseArtifactId + "</artifactId>");
-					data = data.replace("<version>1.0.0-SNAPSHOT</version>",
-							"<version>" + appVersion + "-SNAPSHOT</version>");
+				log.info("Copying:" + file);
+				String relPath = staticPath.relativize(file).toString().replace('\\', '/').replace(srcPath, basePath);
+
+				if (file.toString().contains("UnitBase"))
+					log.info("name:'" + file.getFileName() + "'");
+
+				if (file.toString().endsWith(".vm")) {
+					relPath = relPath.substring(0, relPath.length() - 3);
+					j2m.vm2java(file.toString(), relPath);
 				} else {
-					data = data.replace(srcPkg, basePkg);
-					data = data.replace(srcGroupId, baseGroupId);
-					data = data.replace(srcArtifactId, baseModule);
-					data = data.replace("genSpringVersion", genSpringVersion);
-					data = data.replace("@version 1.0<br>", "@version " + appVersion + "<br>");
-				}
-				Path relPath = staticPath.relativize(file);
-				String outFile = baseDir + "/" + relPath.toString().replace('\\', '/').replace(srcPath, basePath);
-				Path p = createFile(outFile);
-				if (p != null) {
-					try {
-						Files.write(p, data.getBytes(), StandardOpenOption.APPEND);
-						LOGGER.warn("Wrote:" + p.toString());
-					} catch (Exception e) {
-						LOGGER.error("failed to create " + p, e);
+					Path p = Utils.createFile(baseDir, relPath);
+					if (p != null) {
+						try {
+							Files.copy(file, p, StandardCopyOption.REPLACE_EXISTING);
+							log.warn("Wrote:" + p.toString());
+						} catch (Exception e) {
+							log.error("failed to create " + p, e);
+						}
 					}
 				}
 				return FileVisitResult.CONTINUE;
@@ -463,13 +415,13 @@ public class GenSpring {
 
 			@Override
 			public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-				LOGGER.debug("visitFileFailed: " + file);
+				log.debug("visitFileFailed: " + file);
 				return FileVisitResult.CONTINUE;
 			}
 
 			@Override
 			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-				LOGGER.debug("postVisitDirectory: " + dir);
+				log.debug("postVisitDirectory: " + dir);
 				return FileVisitResult.CONTINUE;
 			}
 		});
@@ -490,21 +442,14 @@ public class GenSpring {
 		basePath = basePkg.replace('.', '/');
 		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
-		// overridding because testing requires beans to have equals to mock services.
-//		beanEquals = Utils.getProp(bundle, PROPKEY + ".beanEquals", beanEquals);
 		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
 		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
 		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
 
 		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
 		// SQLite tables to always ignore
-		try {
-			filteredTables.add("hibernate_sequence");
-			filteredTables.add("sqlite_sequence");
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		filteredTables.add("hibernate_sequence");
+		filteredTables.add("sqlite_sequence");
 
 		srcPkg = srcGroupId + '.' + srcArtifactId;
 		srcPath = srcPkg.replace('.', '/');
@@ -607,7 +552,7 @@ public class GenSpring {
 		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
 
-		LOGGER.debug("tableName:" + tableName);
+		log.debug("tableName:" + tableName);
 		// Map indexed by column name
 		List<String> jsonIgnoreCols = Utils.getPropList(bundle, className + ".JsonIgnore");
 		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
@@ -621,15 +566,15 @@ public class GenSpring {
 		Map<String, ColInfo> colNameToInfoMap = new TreeMap<String, ColInfo>();
 		String catalog = "";
 		while (rs.next()) {
-			if (LOGGER.isDebugEnabled()) {
+			if (log.isDebugEnabled()) {
 				for (int i = 1; i <= rm.getColumnCount(); i++) {
 					String columnName = rm.getColumnName(i);
-					LOGGER.debug(columnName + "='" + rs.getString(columnName) + "'");
+					log.debug(columnName + "='" + rs.getString(columnName) + "'");
 				}
 			}
 			catalog = rs.getString(TABLE_CAT);
 			ColInfo colInfo = new ColInfo();
-			colInfo.setfNum(rs.getInt(ORDINAL_POSITION) + 1);
+			colInfo.setFNum(rs.getInt(ORDINAL_POSITION) + 1);
 			String columnName = rs.getString(COLUMN_NAME);
 			colInfo.setColName(columnName);
 			if (firstColumnName == null) {
@@ -650,7 +595,7 @@ public class GenSpring {
 					if ("YES".equals(autoinc))
 						colInfo.setPk(true);
 				} catch (SQLException e) {
-					LOGGER.error("Failed checking IS_AUTOINCREMENT for:" + columnName, e);
+					log.error("Failed checking IS_AUTOINCREMENT for:" + columnName, e);
 				}
 			}
 			colInfo.setRequired(rs.getInt(NULLABLE) == 0);
@@ -679,7 +624,7 @@ public class GenSpring {
 						tmp = tmp.substring(s + 1, tmp.length() - 1);
 					} else {
 						tmp = null;
-						LOGGER.warn(columnName + " def has not len: " + tmp);
+						log.warn(columnName + " def has not len: " + tmp);
 					}
 					// MySQL seems to have issue the reporting varchar lens>100
 				} else if (db.isMySQL()) {
@@ -688,16 +633,16 @@ public class GenSpring {
 						tmp = rs.getString(REMARKS);
 						if (tmp != null && tmp.startsWith("len=")) {
 							tmp = tmp.substring(4);
-							LOGGER.warn(columnName + " Using REMARKS: " + tmp);
+							log.warn(columnName + " Using REMARKS: " + tmp);
 						} else {
 							tmp = null;
 						}
 					} else {
-						LOGGER.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+						log.warn(columnName + " Using COLUMN_SIZE: " + tmp);
 					}
 				} else { // most others
 					tmp = rs.getString(COLUMN_SIZE);
-					LOGGER.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+					log.warn(columnName + " Using COLUMN_SIZE: " + tmp);
 				}
 				if (colInfo.isPassword()) {
 					// See PasswordConstraintValidator
@@ -733,7 +678,6 @@ public class GenSpring {
 					colInfo.setType("Double");
 				} else {
 					colInfo.setType("BigDecimal");
-					colInfo.setImportStr("import java.math.BigDecimal;");
 				}
 				colInfo.setColPrecision(rs.getInt(COLUMN_SIZE));
 				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
@@ -750,8 +694,6 @@ public class GenSpring {
 			case Types.TIMESTAMP:
 			case Types.DATE:
 				colInfo.setType("Date");
-				colInfo.setImportStr("import java.util.Date;" + System.lineSeparator()
-						+ "import org.springframework.format.annotation.DateTimeFormat;");
 				break;
 			case Types.VARBINARY:
 			case Types.CLOB:
@@ -765,11 +707,13 @@ public class GenSpring {
 
 //			colInfo.setJtype(rm.getColumnClassName(i));
 
-			if (columnName.equalsIgnoreCase(colCreated))
+			if (columnName.equalsIgnoreCase(colCreated)) {
 				colInfo.setCreated(true);
+			}
 
-			if (columnName.equalsIgnoreCase(colLastMod))
+			if (columnName.equalsIgnoreCase(colLastMod)) {
 				colInfo.setLastMod(true);
+			}
 
 			columnName = Utils.tabToStr(renames, columnName);
 			colInfo.setVName(columnName.substring(0, 1).toLowerCase() + columnName.substring(1));
@@ -777,7 +721,7 @@ public class GenSpring {
 			colInfo.setGsName(columnName);
 
 			if (colInfo.getColName() != null && colInfo.getType() != null && colInfo.getType().length() > 0) {
-				LOGGER.info("storing:" + colInfo);
+				log.info("storing:" + colInfo);
 				colNameToInfoMap.put(colInfo.getColName().toLowerCase(), colInfo);
 				if (colInfo.isPk())
 					colNameToInfoMap.put(PKEY_INFO, colInfo);
@@ -825,7 +769,7 @@ public class GenSpring {
 		}
 		if (colNameToInfoMap.get(PKEY_INFO) == null) {
 			pkCol = firstColumnName;
-			LOGGER.error(tableName + " does not have a primary key. Using " + pkCol);
+			log.error(tableName + " does not have a primary key. Using " + pkCol);
 			ColInfo pkinfo = colNameToInfoMap.get(pkCol.toLowerCase());
 			if (pkinfo == null) {
 				throw new Exception("PK returned by getPrimaryKeys() not found in column list!");
@@ -927,7 +871,7 @@ public class GenSpring {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + "/ApiController.java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -964,9 +908,9 @@ public class GenSpring {
 					ps.println("    }");
 				}
 				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1007,12 +951,12 @@ public class GenSpring {
 			}
 			if (dataChged) {
 				Files.write(p, data.getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} else {
-				LOGGER.warn(p.toString() + " up to date so will skip.");
+				log.warn(p.toString() + " up to date so will skip.");
 			}
 		} catch (Exception e) {
-			LOGGER.error("failed to update " + p, e);
+			log.error("failed to update " + p, e);
 		}
 	}
 
@@ -1026,7 +970,7 @@ public class GenSpring {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/test/java/" + relPath + "/ApiControllerTest.java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1061,7 +1005,7 @@ public class GenSpring {
 					Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
 					ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 					if (pkinfo == null) {
-						LOGGER.error("No PK found for " + className);
+						log.error("No PK found for " + className);
 						System.exit(2);
 					}
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
@@ -1123,9 +1067,9 @@ public class GenSpring {
 					ps.println("");
 				}
 				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1190,7 +1134,7 @@ public class GenSpring {
 		String pkgNam = basePkg + ".repo";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + "Repository.java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1215,9 +1159,9 @@ public class GenSpring {
 //					ps.println("");
 //				}
 				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1258,7 +1202,6 @@ public class GenSpring {
 		String fieldName = parentStr + field;
 		// guard against null objects and sub objects in list
 		String div = "div th:if=\"${" + form + fieldName + " != null}\"";
-//		String unless = "				<div th:unless=\"${" + fieldName + " != null}\"></div>";
 
 		for (String key : colNameToInfoMap.keySet()) {
 			if (PKEY_INFO.equals(key))
@@ -1298,7 +1241,7 @@ public class GenSpring {
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		String outFile = "/src/main/resources/templates/edit_" + fieldName + ".html";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader(className, "edit"));
@@ -1319,7 +1262,8 @@ public class GenSpring {
 				ps.println("				</div>");
 				ps.println("			</th:block>");
 				ps.println("			<fieldset>");
-				ps.println("				<legend th:if=\"${" + fieldName + "Form." + pkinfo.getVName() + " == 0}\"");
+				ps.println(
+						"				<legend th:unless=\"${" + fieldName + "Form." + pkinfo.getVName() + " > 0}\"");
 				ps.println("					th:text=\"#{edit.new} + ' ' + #{class." + className + "}\"></legend>");
 				ps.println("				<legend th:if=\"${" + fieldName + "Form." + pkinfo.getVName() + " > 0}\"");
 				ps.println("					th:text=\"#{edit.edit} + ' ' + #{class." + className + "}\"></legend>");
@@ -1399,9 +1343,9 @@ public class GenSpring {
 				ps.println("	</div>");
 				ps.println("");
 				ps.println(htmlFooter());
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1527,7 +1471,7 @@ public class GenSpring {
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		String outFile = "/src/main/resources/templates/" + fieldName + "s.html";
 
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> processed = new HashSet<String>();
@@ -1557,9 +1501,9 @@ public class GenSpring {
 				ps.println("    </div>");
 				ps.println("");
 				ps.println(htmlFooter());
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1576,7 +1520,7 @@ public class GenSpring {
 		String pkgNam = basePkg;
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/test/java/" + relPath + "/MockBase.java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1597,7 +1541,7 @@ public class GenSpring {
 				ps.println("import java.util.Map;");
 				ps.println("");
 				ps.println("import javax.servlet.Filter;");
-				ps.println("");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("import org.apache.commons.lang3.StringUtils;");
 				ps.println("import org.apache.tools.ant.UnsupportedAttributeException;");
 				ps.println("import org.junit.Before;");
@@ -1626,6 +1570,7 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
 				ps.println(getClassHeader("MockBase", "The base class for mock testing.", null));
+				ps.println("@Slf4j");
 				ps.println("public class MockBase extends UnitBase {");
 				ps.println("    @MockBean");
 				ps.println("    protected UserServices<?> userServices;");
@@ -1711,7 +1656,7 @@ public class GenSpring {
 						"				result.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(redirectedUrl));");
 				ps.println("			} catch (Throwable e) {");
 				ps.println(
-						"				LOGGER.error(\"Instead of redirect got:\" + result.andReturn().getResponse().getContentAsString());");
+						"				log.error(\"Instead of redirect got:\" + result.andReturn().getResponse().getContentAsString());");
 				ps.println("				throw e;");
 				ps.println("			}");
 				ps.println("");
@@ -1859,12 +1804,12 @@ public class GenSpring {
 				ps.println("		try {");
 				ps.println("			result.andExpect(content().string(containsString(htmlString)));");
 				ps.println("			if (failIfExists) {");
-				ps.println("				LOGGER.error(\"Found '\" + htmlString + \"' in \" + content());");
+				ps.println("				log.error(\"Found '\" + htmlString + \"' in \" + content());");
 				ps.println("				fail(\"Found '\" + htmlString + \"' in content\");");
 				ps.println("			}");
 				ps.println("		} catch (Throwable e) {");
 				ps.println("			if (!failIfExists) {");
-				ps.println("				LOGGER.error(\"Did not find '\" + htmlString + \"' in \" + content(), e);");
+				ps.println("				log.error(\"Did not find '\" + htmlString + \"' in \" + content(), e);");
 				ps.println("				fail(\"Did not find '\" + htmlString + \"' in content\");");
 				ps.println("			}");
 				ps.println("		}");
@@ -1897,9 +1842,9 @@ public class GenSpring {
 				ps.println("	 * @return");
 				ps.println("	 */");
 				ps.println("	protected RequestPostProcessor getMockTestUser() {");
-				ps.println("		LOGGER.debug(\"Using the user:\" + TEST_USER + \" with role:ROLE_\" + TEST_ROLE);");
+				ps.println("		log.debug(\"Using the user:\" + TEST_USER + \" with role:ROLE_\" + TEST_ROLE);");
 				ps.println("		UserRequestPostProcessor rtn = user(TEST_USER).roles(TEST_ROLE);");
-				ps.println("		LOGGER.debug(\"Returning:\" + rtn);");
+				ps.println("		log.debug(\"Returning:\" + rtn);");
 				ps.println("		return rtn;");
 				ps.println("	}");
 				ps.println("");
@@ -1908,17 +1853,16 @@ public class GenSpring {
 				ps.println("	 * @return");
 				ps.println("	 */");
 				ps.println("	protected RequestPostProcessor getMockTestAdmin() {");
-				ps.println(
-						"		LOGGER.debug(\"Using the user:\" + ADMIN_USER + \" with role:ROLE_\" + ADMIN_ROLE);");
+				ps.println("		log.debug(\"Using the user:\" + ADMIN_USER + \" with role:ROLE_\" + ADMIN_ROLE);");
 				ps.println("		UserRequestPostProcessor rtn = user(ADMIN_USER).roles(ADMIN_ROLE);");
-				ps.println("		LOGGER.debug(\"Returning:\" + rtn);");
+				ps.println("		log.debug(\"Returning:\" + rtn);");
 				ps.println("		return rtn;");
 				ps.println("	}");
 				ps.println("}");
 				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -1940,7 +1884,7 @@ public class GenSpring {
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/test/java/" + relPath + '/' + className + "ControllerTest.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1951,12 +1895,14 @@ public class GenSpring {
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
 				ps.println("import org.springframework.test.web.servlet.ResultActions;");
 				ps.println("import com.google.common.collect.ImmutableMap;");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".form." + className + "Form;");
 				ps.println("");
 				ps.println(getClassHeader(className + "ControllerTest", className + "Controller.", null));
+				ps.println("@Slf4j");
 				ps.println("@WebMvcTest(" + className + "Controller.class)");
 				ps.println("public class " + className + "ControllerTest extends MockBase {");
 				ps.println("	private " + className + " get" + className + "(" + pkinfo.getType() + " "
@@ -2096,7 +2042,7 @@ public class GenSpring {
 								"		form.set" + info.getGsName() + "Confirm(form.get" + info.getGsName() + "());");
 					}
 				}
-				ps.println("		LOGGER.debug(form.toString());");
+				ps.println("		log.debug(form.toString());");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
 						+ "Form\", form, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
@@ -2152,9 +2098,9 @@ public class GenSpring {
 				ps.println("");
 				ps.println("}");
 				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -2179,14 +2125,13 @@ public class GenSpring {
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + "Controller.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import javax.validation.Valid;");
-				ps.println("import org.slf4j.Logger;");
-				ps.println("import org.slf4j.LoggerFactory;");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.stereotype.Controller;");
 				ps.println("import org.springframework.ui.Model;");
@@ -2209,11 +2154,10 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
 				ps.println(getClassHeader(className + "Controller", className + "Controller.", null));
+				ps.println("@Slf4j");
 				ps.println("@Controller");
 				ps.println("@RequestMapping(\"/" + fieldName + "s\")");
 				ps.println("public class " + className + "Controller {");
-				ps.println("	private static final Logger LOGGER = LoggerFactory.getLogger(" + className
-						+ "Controller.class.getName());");
 				ps.println("");
 				ps.println("	@Autowired");
 				ps.println("	private " + className + "Services " + fieldName + "Service;");
@@ -2263,7 +2207,7 @@ public class GenSpring {
 				ps.println("			try {");
 				ps.println("				" + fieldName + " = " + fieldName + "Service.save(" + fieldName + ");");
 				ps.println("			} catch (Exception e) {");
-				ps.println("				LOGGER.error(\"Failed saving:\" + form, e);");
+				ps.println("				log.error(\"Failed saving:\" + form, e);");
 				ps.println("			}");
 				ps.println("");
 				ps.println("			if (" + fieldName + " == null) {");
@@ -2297,9 +2241,9 @@ public class GenSpring {
 				ps.println("	}");
 				ps.println("}");
 				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -2320,8 +2264,13 @@ public class GenSpring {
 			if (PKEY_INFO.equals(key))
 				continue;
 			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-			if (!StringUtils.isBlank(info.getImportStr()))
-				imports.add(info.getImportStr());
+			if ("BigDecimal".equals(info.getType()))
+				imports.add("import java.math.BigDecimal;");
+
+			if ("Date".equals(info.getType())) {
+				imports.add("import java.util.Date;");
+				imports.add("import org.springframework.format.annotation.DateTimeFormat;");
+			}
 			if (clsType == IMPORT_TYPE_FORM) {
 				if (info.isPassword()) {
 					imports.add("import " + basePkg + ".controller.FieldMatch;");
@@ -2353,6 +2302,10 @@ public class GenSpring {
 					imports.add("import javax.persistence.JoinColumn;");
 					imports.add("import javax.persistence.ManyToOne;");
 				}
+				if (info.isCreated() || info.isLastMod()) {
+					imports.add("import lombok.EqualsAndHashCode;");
+				}
+
 			}
 
 		}
@@ -2389,7 +2342,7 @@ public class GenSpring {
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + "Services.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			boolean hasPasswordField = false;
 			for (ColInfo c : colNameToInfoMap.values()) {
@@ -2406,8 +2359,7 @@ public class GenSpring {
 				ps.println("import javax.annotation.PostConstruct;");
 				ps.println("");
 				ps.println("import org.apache.commons.lang3.StringUtils;");
-				ps.println("import org.slf4j.Logger;");
-				ps.println("import org.slf4j.LoggerFactory;");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.stereotype.Service;");
 //				ps.println("import org.springframework.transaction.annotation.Transactional;");
@@ -2418,14 +2370,13 @@ public class GenSpring {
 				ps.println("import " + basePkg + ".utils.Utils;");
 				ps.println("");
 				ps.println(getClassHeader(className + "Services", className + "Services.", null));
+				ps.println("@Slf4j");
 				ps.println("@Service");
 				if (hasPasswordField) {
 					ps.println("public class " + className + "Services extends UserServices<" + className + "> {");
 				} else {
 					ps.println("public class " + className + "Services {");
 				}
-				ps.println("	private static final Logger LOGGER = LoggerFactory.getLogger(" + className
-						+ "Services.class.getName());");
 				ps.println("    @Autowired");
 				ps.println("    private " + className + "Repository " + fieldName + "Repository;");
 				ps.println("");
@@ -2440,7 +2391,7 @@ public class GenSpring {
 					ps.println("		ResourceBundle bundle = ResourceBundle.getBundle(\"app\");");
 					ps.println("		boolean doinit = Utils.getProp(bundle, \"init.default.users\", true);");
 					ps.println("		if (doinit) {");
-					ps.println("			LOGGER.warn(\"Resetting default users\");");
+					ps.println("			log.warn(\"Resetting default users\");");
 					ps.println("			String user = Utils.getProp(bundle, \"default.user\", null);");
 					ps.println("			if (!StringUtils.isBlank(user)) {");
 					ps.println("				" + pkinfo.getType()
@@ -2448,8 +2399,10 @@ public class GenSpring {
 					ps.println("				String userpass = Utils.getProp(bundle, \"default.userpass\", null);");
 					ps.println(
 							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.userrole\", null);");
-					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS
-							+ "(user, userpass, userrole);");
+					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS + "();");
+					ps.println("				a.setEmail(user);");
+					ps.println("				a.setPassword(userpass);");
+					ps.println("				a.setRole(userrole);");
 					ps.println("				a.setId(id);");
 					ps.println("				save(a);");
 					ps.println("			}");
@@ -2461,8 +2414,10 @@ public class GenSpring {
 					ps.println("				String userpass = Utils.getProp(bundle, \"default.adminpass\", null);");
 					ps.println(
 							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.adminrole\", null);");
-					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS
-							+ "(user, userpass, userrole);");
+					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS + "();");
+					ps.println("				a.setEmail(user);");
+					ps.println("				a.setPassword(userpass);");
+					ps.println("				a.setRole(userrole);");
 					ps.println("				a.setId(id);");
 					ps.println("				save(a);");
 					ps.println("			}");
@@ -2518,9 +2473,9 @@ public class GenSpring {
 				ps.println("");
 				ps.println("}");
 				ps.println("");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
@@ -2532,7 +2487,7 @@ public class GenSpring {
 	private void writeAppProps() {
 		String dbUrl = Utils.getProp(bundle, "db.url", "");
 		String dbDriver = Utils.getProp(bundle, "db.driver", "");
-		Path p = createFile("/src/main/resources/application.properties");
+		Path p = Utils.createFile(baseDir, "/src/main/resources/application.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("spring.jpa.hibernate.ddl-auto=none");
@@ -2564,130 +2519,12 @@ public class GenSpring {
 				}
 				ps.println("");
 				ps.println("logging.level.root=INFO");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 		}
-	}
-
-	/**
-	 * Write hashCode() and equals() methods to bean Java file
-	 * 
-	 * @param ps
-	 * @param colNameToInfoMap
-	 * @param className
-	 * @param isForm           if true skip lastMod col and add password confirms as
-	 *                         needed
-	 */
-	private void writeEquals(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, String className, boolean isForm) {
-		if (beanEquals) {
-			ps.println("	@Override");
-			ps.println("	public int hashCode() {");
-			ps.println("		final int prime = 31;");
-			ps.println("		int result = 1;");
-			ps.println("");
-			for (String key : colNameToInfoMap.keySet()) {
-				if (PKEY_INFO.equals(key))
-					continue;
-				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-				// if using mod cols and this is one leave out
-				if (info.isCreated() || info.isLastMod()) {
-					continue;
-				}
-				ps.println("		result = prime * result + ((" + info.getVName() + " == null) ? 0 : "
-						+ info.getVName() + ".hashCode());");
-			}
-			ps.println("		return result;");
-			ps.println("	}");
-			ps.println("");
-			ps.println("	/**");
-			ps.println("	 * Mainly for mock testing");
-			ps.println("	 *");
-			ps.println("	 * @return boolean");
-			ps.println("	 */");
-			ps.println("	@Override");
-			ps.println("	public boolean equals(Object obj) {");
-			ps.println("		if (this == obj)");
-			ps.println("			return true;");
-			ps.println("		if (obj == null)");
-			ps.println("			return false;");
-			ps.println("		if (getClass() != obj.getClass())");
-			ps.println("			return false;");
-			ps.println("		" + className + " other = (" + className + ") obj;");
-			ps.println("");
-			for (String key : colNameToInfoMap.keySet()) {
-				if (PKEY_INFO.equals(key))
-					continue;
-				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-				// if using mod cols and this is one leave out
-				if (info.isCreated() || info.isLastMod()) {
-					continue;
-				}
-
-				ps.println("		if (get" + info.getGsName() + "() == null) {");
-				ps.println("			if (other.get" + info.getGsName() + "() != null)");
-				ps.println("				return false;");
-				ps.println("		} else if (!get" + info.getGsName() + "().equals(other.get" + info.getGsName()
-						+ "()))");
-				ps.println("			return false;");
-				ps.println("");
-			}
-			ps.println("		return true;");
-			ps.println("	}");
-		}
-
-		ps.println("");
-
-	}
-
-	/**
-	 * Add a toString() method if beanToString is set to true
-	 * 
-	 * @param ps
-	 * @param colNameToInfoMap
-	 * @param className
-	 * @param isForm           if true skip lastMod col and add password confirms as
-	 *                         needed
-	 */
-	private void writeToString(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, String className,
-			boolean isForm) {
-		if (beanToString) {
-			ps.println("	/**");
-			ps.println("	 * Returns a String showing the values of this bean - mainly for debuging");
-			ps.println("	 *");
-			ps.println("	 * @return String");
-			ps.println("	 */");
-			ps.println("	public String toString(){");
-			ps.println("		StringBuilder builder = new StringBuilder();");
-			ps.println("		builder.append(\"" + className + " [\");");
-			String comma = "";
-			for (String key : colNameToInfoMap.keySet()) {
-				if (PKEY_INFO.equals(key))
-					continue;
-				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-				// if using mod cols and this is one leave out
-				if (isForm && info.isLastMod()) {
-					continue;
-				}
-				ps.println(
-						"		builder.append(\"" + comma + info.getVName() + "=\").append(" + info.getVName() + ");");
-				if (StringUtils.isBlank(comma))
-					comma = ", ";
-				if (isForm && info.isPassword()) {
-					ps.println("		builder.append(\"" + comma + info.getVName() + "Confirm=\").append("
-							+ info.getVName() + "Confirm);");
-
-				}
-			}
-			ps.println("		builder.append(\"]\");");
-			ps.println("		return builder.toString();");
-			ps.println("	}");
-		}
-
-		ps.println("");
-
 	}
 
 	/**
@@ -2705,13 +2542,13 @@ public class GenSpring {
 		String pkgNam = basePkg + ".form";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + "Form.java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import java.io.Serializable;");
-				ps.println("");
+				ps.println("import lombok.Data;");
 				ps.println("");
 				ps.println("import " + basePkg + ".utils.MessageHelper;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
@@ -2745,6 +2582,7 @@ public class GenSpring {
 					sb.append("		})");
 				}
 				ps.println(sb.toString());
+				ps.println("@Data");
 				ps.println("public class " + className + "Form implements Serializable {");
 				ps.println("	private static final long serialVersionUID = 1L;");
 				ps.println("");
@@ -2786,12 +2624,6 @@ public class GenSpring {
 
 				ps.println("");
 				ps.println("	/**");
-				ps.println("	 * Basic constructor");
-				ps.println("	 */");
-				ps.println("	public " + className + "Form() {");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
 				ps.println("	 * Clones " + className + " obj into form");
 				ps.println("	 *");
 				ps.println("	 * @param obj");
@@ -2813,18 +2645,14 @@ public class GenSpring {
 				}
 				ps.println("		return form;");
 				ps.println("	}");
-				writeBeanGetSets(ps, colNameToInfoMap, true);
-				LOGGER.debug("Done with get/sets writing");
-				writeToString(ps, colNameToInfoMap, className, true);
-				writeEquals(ps, colNameToInfoMap, className, true);
 				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 			}
 
-			LOGGER.debug("Created bean" + outFile);
+			log.debug("Created bean" + outFile);
 		}
 	}
 
@@ -2845,7 +2673,7 @@ public class GenSpring {
 		String pkgNam = basePkg + ".entity";
 		String relPath = pkgNam.replace('.', '/');
 		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
-		Path p = createFile(outFile);
+		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -2858,7 +2686,7 @@ public class GenSpring {
 				ps.println("import javax.persistence.GenerationType;");
 				ps.println("import javax.persistence.Id;");
 				ps.println("import javax.persistence.Table;");
-				ps.println("");
+				ps.println("import lombok.Data;");
 				addImports(ps, colNameToInfoMap, IMPORT_TYPE_BEAN);
 				StringBuilder comment = new StringBuilder();
 				for (String key : colNameToInfoMap.keySet()) {
@@ -2871,6 +2699,7 @@ public class GenSpring {
 				}
 				ps.println(getClassHeader(tableName + " Bean",
 						"Class for holding data from the " + tableName + " table.", comment.toString()));
+				ps.println("@Data");
 				ps.println("@Entity");
 				ps.println("@Table(name = \"`" + tableName + "`\")");
 				ps.println("public class " + className + " implements Serializable {");
@@ -2891,6 +2720,8 @@ public class GenSpring {
 						continue;
 					}
 
+					if (info.isCreated() || info.isLastMod())
+						ps.println("    @EqualsAndHashCode.Exclude");
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
 					if (info.isDate())
@@ -2921,158 +2752,15 @@ public class GenSpring {
 					}
 				}
 
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Basic constructor");
-				ps.println("	 */");
-				ps.println("	public " + className + "() {");
-				ps.println("	}");
-				ps.println("");
-				if (ACCOUNT_CLASS.equals(className)) {
-					ps.println("	/**");
-					ps.println("	 * Special constructor for sign up");
-					ps.println("	 * @param email");
-					ps.println("	 * @param password");
-					ps.println("	 * @param role");
-					ps.println("	 */");
-					ps.println("	public " + ACCOUNT_CLASS + "(String email, String password, String role) {");
-					ps.println("		this.email = email;");
-					ps.println("		this.password = password;");
-					ps.println("		this.role = role;");
-					if (!StringUtils.isBlank(colCreated)) {
-						ColInfo ci = (ColInfo) colNameToInfoMap.get(colCreated.toLowerCase());
-						ps.println("		this." + ci.getVName() + " = " + ci.getDefaultVal() + ";");
-					}
-
-					ps.println("");
-					ps.println("	}");
-					ps.println("");
-				}
-				ps.println("	/**");
-				ps.println("	 * Full constructor");
-				ps.println("	 *");
-				ps.println("	 */");
-				StringBuilder sb = new StringBuilder("	public " + className + "(");
-				boolean addCom = false;
-				for (String key : colNameToInfoMap.keySet()) {
-					if (PKEY_INFO.equals(key))
-						continue;
-					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-					if (!StringUtils.isBlank(info.getForeignTable())) {
-						continue;
-					}
-					if (!info.isLastMod()) {
-						if (addCom) {
-							sb.append(", ");
-						} else {
-							addCom = true;
-						}
-						sb.append(info.getType() + ' ' + info.getVName());
-					}
-				}
-				sb.append(") {");
-				ps.println(sb.toString());
-				for (String key : colNameToInfoMap.keySet()) {
-					if (PKEY_INFO.equals(key))
-						continue;
-					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-					if (!StringUtils.isBlank(info.getForeignTable())) {
-						continue;
-					}
-					if (!info.isLastMod()) {
-						ps.println("		this." + info.getVName() + " = " + info.getVName() + ";");
-					}
-				}
-				ps.println("	}");
-				writeBeanGetSets(ps, colNameToInfoMap, false);
-				LOGGER.debug("Done with get/sets writing");
-				writeToString(ps, colNameToInfoMap, className, false);
-				writeEquals(ps, colNameToInfoMap, className, false);
 				ps.println("}");
-				LOGGER.warn("Wrote:" + p.toString());
+				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
-				LOGGER.error("failed to create " + p, e);
+				log.error("failed to create " + p, e);
 				p.toFile().delete();
 				throw e;
 			}
 
-			LOGGER.debug("Created bean" + outFile);
-		}
-	}
-
-	/**
-	 * Write getters and setters to pojo class file.
-	 * 
-	 * @param ps               PrintWriter
-	 * @param colNameToInfoMap
-	 * @param isForm           adds confirm fields
-	 */
-	private void writeBeanGetSets(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, boolean isForm) {
-		for (String key : colNameToInfoMap.keySet()) {
-			if (PKEY_INFO.equals(key))
-				continue;
-			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-			ps.println("	/**");
-			ps.println("	 * returns value of the " + info.getColName() + " column of this row of data");
-			ps.println("	 *");
-			ps.println("	 * @return value of this column in this row");
-			ps.println("	 */");
-			ps.println("	public " + info.getType() + " get" + info.getGsName() + "() {");
-			if ("Float".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + " == null)");
-				ps.println("	    	return 0.0f;");
-				ps.println("		return " + info.getVName() + ".floatValue();");
-			} else if ("Double".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + " == null)");
-				ps.println("	    	return 0;");
-				ps.println("		return " + info.getVName() + ".doubleValue();");
-			} else if ("BigDecimal".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + " == null)");
-				ps.println("	    	return BigDecimal.ZERO;");
-				ps.println("		return " + info.getVName() + ";");
-			} else if ("Integer".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + " == null)");
-				ps.println("	    	return 0;");
-				ps.println("		return " + info.getVName() + ".intValue();");
-			} else if ("Long".equals(info.getType())) {
-				ps.println("		if (" + info.getVName() + " == null)");
-				ps.println("	    	return 0l;");
-				ps.println("		return " + info.getVName() + ".longValue();");
-			} else {
-				ps.println("		return " + info.getVName() + ';');
-			}
-			ps.println("	}");
-			if (isForm && info.isPassword()) {
-				ps.println("	public " + info.getType() + " get" + info.getGsName() + "Confirm() {");
-				ps.println("		return " + info.getVName() + "Confirm;");
-				ps.println("	}");
-
-			}
-			ps.println("");
-
-			ps.println("	/**");
-			ps.println("	 * sets value of the " + info.getColName() + " column of this row of data");
-			ps.println("	 * default value for this field set by the DB is " + info.getDefaultVal());
-			if (info.getConstraint() != null) {
-				ps.println("	 * Note this field has a constraint named " + info.getConstraint());
-			}
-			if (info.isPk()) {
-				ps.println("	 * This is the primary key for this table");
-			}
-			if ("String".equals(info.getType()) && info.getLength() > 0) {
-				ps.println("	 * This field has a max length of " + info.getLength());
-			}
-			ps.println("	 */");
-			ps.println("	public void set" + info.getGsName() + '(' + info.getType() + " newVal) {");
-			ps.println("		" + info.getVName() + " = newVal;");
-			ps.println("	}");
-			ps.println("");
-			if (isForm && info.isPassword()) {
-				ps.println("	public void set" + info.getGsName() + "Confirm(" + info.getType() + " newVal) {");
-				ps.println("		" + info.getVName() + "Confirm = newVal;");
-				ps.println("	}");
-				ps.println("");
-			}
+			log.debug("Created bean" + outFile);
 		}
 	}
 
@@ -3083,17 +2771,15 @@ public class GenSpring {
 		System.err.println("Where options are:");
 		System.err.println(
 				"-double = use Double instead of BigDecimal for entities beans. Can be overridden in properties file.");
-		System.err.println(
-				"-toString = generate toString() methods for entities beans. Can be overridden in properties file.");
 //		System.err.println(
-//				"-beanEquals = generate equals() methods for entities beans. Can be overridden in properties file.");
+//				"-toString = generate toString() methods for entities beans. Can be overridden in properties file.");
 		System.err.println("");
 		System.err.println("if table names not given then runs on all tables in DB.");
 		System.err.println("");
 		System.err.println("Note: be sure to set properties in resources/genSpring.properties before running.");
 
 		if (e != null)
-			LOGGER.error(error, e);
+			log.error(error, e);
 
 		System.exit(1);
 	}
@@ -3110,8 +2796,8 @@ public class GenSpring {
 		}
 		Connection conn = db.getConnection(PROPKEY + ".main()");
 		Statement stmt = conn.createStatement();
-		if (LOGGER.isInfoEnabled()) {
-			LOGGER.info("query=" + query);
+		if (log.isInfoEnabled()) {
+			log.info("query=" + query);
 		}
 		ResultSet rs = stmt.executeQuery(query);
 		try {
@@ -3121,9 +2807,9 @@ public class GenSpring {
 				rs.beforeFirst(); // not rs.first() because the rs.next() below will move on, missing the first
 									// element
 			}
-			LOGGER.info("found " + rowcount + " tables");
+			log.info("found " + rowcount + " tables");
 		} catch (Exception e) {
-			LOGGER.warn("Could not get table count  ", e);
+			log.warn("Could not get table count  ", e);
 		}
 		while (rs.next()) {
 			try {
@@ -3136,7 +2822,7 @@ public class GenSpring {
 				if (!StringUtils.isBlank(name) && !filteredTables.contains(name))
 					tableNames.add(name);
 				else
-					LOGGER.info("skipping:" + name);
+					log.info("skipping:" + name);
 			} catch (Exception e) {
 				printUsage("main() crashed ", e);
 			}
@@ -3188,6 +2874,6 @@ public class GenSpring {
 			printUsage("main() crashed  ", e);
 		}
 
-		LOGGER.info("Done");
+		log.info("Done");
 	}
 }

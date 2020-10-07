@@ -133,8 +133,8 @@ public class Sheets2DB {
 	 * For testing
 	 * 
 	 * @param bundelName
-	 * @param cleanFirst     TODO
-	 * @param failOnAnyError TODO
+	 * @param cleanFirst     
+	 * @param failOnAnyError 
 	 */
 	public Sheets2DB(String bundelName, boolean cleanFirst, boolean failOnAnyError) {
 		this.bundelName = bundelName;

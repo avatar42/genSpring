@@ -12,7 +12,6 @@ import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
@@ -27,17 +26,17 @@ import java.util.ResourceBundle;
 
 import org.junit.Assume;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.dea42.build.GenSpring;
 import com.dea42.build.Sheets2DB;
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class Sheet2AppTest {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(Sheet2AppTest.class.getName());
 	private static final boolean clearDBFirst = true;
 	private static final boolean clearSrcFirst = true;
 	private static final boolean stopOnError = false;
@@ -139,7 +138,7 @@ public class Sheet2AppTest {
 				}
 			});
 		} catch (IOException e) {
-			LOGGER.error("failed getting mod times", e);
+			log.error("failed getting mod times", e);
 			fail("failed getting mod times");
 		}
 
@@ -176,71 +175,10 @@ public class Sheet2AppTest {
 				}
 			});
 		} catch (IOException e) {
-			LOGGER.error("failed getting mod times", e);
+			log.error("failed getting mod times", e);
 			fail("failed getting mod times");
 		}
 
-	}
-
-	private void deletePath(Path path) {
-		if (path.toFile().exists()) {
-			if (path.toFile().isFile()) {
-				try {
-					Files.delete(path);
-				} catch (IOException e) {
-					LOGGER.error("Failed deleting file:" + path, e);
-					fail(e.getMessage());
-				}
-			} else if (path.toFile().isDirectory()) {
-
-				try {
-					Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
-						@Override
-						public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-							if (!file.endsWith(".sqlite")) {
-								LOGGER.debug("Deleting file:" + file);
-								Files.delete(file);
-							}
-							return FileVisitResult.CONTINUE;
-						}
-
-						@Override
-						public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
-							// try to delete the file anyway, even if its attributes
-							// could not be read, since delete-only access is
-							// theoretically possible
-							if (file.toFile().exists()) {
-								LOGGER.debug("Deleting file again:" + file);
-								Files.delete(file);
-							}
-							return FileVisitResult.CONTINUE;
-						}
-
-						@Override
-						public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-							if (exc == null) {
-								if (!path.equals(dir)) {
-									LOGGER.debug("Deleting dir:" + dir);
-									Files.delete(dir);
-								}
-								return FileVisitResult.CONTINUE;
-							} else {
-								// directory iteration failed; propagate exception
-								// throw exc;
-								// Windows seems to be slow noticing we've removed everything from the folder
-								LOGGER.error("Ignoring failed to delete folder", exc);
-								return FileVisitResult.CONTINUE;
-							}
-						}
-					});
-				} catch (
-
-				IOException e) {
-					LOGGER.error("Failed deleting folder:" + path, e);
-					fail(e.getMessage());
-				}
-			}
-		}
 	}
 
 	/**
@@ -249,16 +187,17 @@ public class Sheet2AppTest {
 	 * @param bundleName
 	 * @param clearDB
 	 * @param clearSrc
+	 * @throws IOException
 	 */
-	private void purgeProject(String bundleName, boolean clearDB, boolean clearSrc) {
+	private void purgeProject(String bundleName, boolean clearDB, boolean clearSrc) throws IOException {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		if (clearSrc) {
 			String outdir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", ".");
-			deletePath(Utils.getPath(outdir, "src"));
-			deletePath(Utils.getPath(outdir, "Scripts"));
-			deletePath(Utils.getPath(outdir, "target"));
-			deletePath(Utils.getPath(outdir, "bin"));
-			deletePath(Utils.getPath(outdir, "pom.xml"));
+			Utils.deletePath(Utils.getPath(outdir, "src"));
+			Utils.deletePath(Utils.getPath(outdir, "Scripts"));
+			Utils.deletePath(Utils.getPath(outdir, "target"));
+			Utils.deletePath(Utils.getPath(outdir, "bin"));
+			Utils.deletePath(Utils.getPath(outdir, "pom.xml"));
 		}
 		if (clearDB) {
 			String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
@@ -269,20 +208,32 @@ public class Sheet2AppTest {
 		}
 	}
 
+	private void backupFileOrFolder(ResourceBundle bundle, String outdir, long ts, String filePathName)
+			throws IOException {
+		Path srcPath = Utils.getPath(outdir, filePathName);
+		if (srcPath.toFile().exists()) {
+			Path target = Utils.getPath(outdir, "hold", "" + ts, filePathName);
+			if (srcPath.toFile().isDirectory())
+				target.toFile().mkdirs();
+			else
+				target.toFile().getParentFile().mkdirs();
+
+			Files.move(srcPath, target, StandardCopyOption.REPLACE_EXISTING);
+		} else {
+			log.warn("No file to back up:" + srcPath.toAbsolutePath());
+		}
+	}
+
 	private void backupProject(String bundleName) throws IOException {
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", ".");
-		File pom = new File(outdir + "/pom.xml");
+		Path srcPath = Utils.getPath(outdir, "pom.xml");
+		File pom = srcPath.toFile();
 		if (pom.exists()) {
 			long ts = pom.lastModified();
-			Path hold = Utils.getPath(outdir,"hold", "" + ts);
-			hold.toFile().mkdirs();
-			Files.move(Utils.getPath(outdir, "pom.xml"), Utils.getPath(outdir,"hold", "" + ts, "pom.xml"),
-					StandardCopyOption.REPLACE_EXISTING);
-			Files.move(Utils.getPath(outdir, "src"), Utils.getPath(outdir,"hold", "" + ts, "src"),
-					StandardCopyOption.REPLACE_EXISTING);
-			Files.move(Utils.getPath(outdir, bundleName + "DB.sqlite"),
-					Utils.getPath(outdir,"hold", "" + ts, bundleName + "DB.sqlite"), StandardCopyOption.REPLACE_EXISTING);
+			backupFileOrFolder(bundle, outdir, ts, "pom.xml");
+			backupFileOrFolder(bundle, outdir, ts, bundleName + "DB.sqlite");
+			backupFileOrFolder(bundle, outdir, ts, "src");
 		}
 	}
 
@@ -290,7 +241,7 @@ public class Sheet2AppTest {
 		if (stopOnError)
 			assertEquals(lable, expected, found);
 		else
-			LOGGER.error(lable + " expected:" + expected + " :" + found);
+			log.error(lable + " expected:" + expected + " :" + found);
 
 	}
 
@@ -326,7 +277,7 @@ public class Sheet2AppTest {
 				String query = "SELECT * FROM " + schema + tableName;
 				Statement stmt = conn.createStatement();
 				stmt.setMaxRows(1);
-				LOGGER.debug("query=" + query);
+				log.debug("query=" + query);
 				ResultSet rs = stmt.executeQuery(query);
 				assertNotNull("Check ResultSet", rs);
 				ResultSetMetaData rm = rs.getMetaData();
@@ -347,7 +298,7 @@ public class Sheet2AppTest {
 					rows = Utils.getProp(bundle, tableName + ".testRows", 0);
 					query = "SELECT * FROM " + schema + tableName;
 					stmt = conn.createStatement();
-					LOGGER.debug("query=" + query);
+					log.debug("query=" + query);
 					rs = stmt.executeQuery(query);
 					assertNotNull("Check ResultSet", rs);
 					rm = rs.getMetaData();
@@ -363,7 +314,7 @@ public class Sheet2AppTest {
 					chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 				}
 			} catch (SQLException e) {
-				LOGGER.error("Exception creating DB", e);
+				log.error("Exception creating DB", e);
 				fail("Exception creating DB");
 			}
 		}
@@ -382,17 +333,21 @@ public class Sheet2AppTest {
 				cmd = "mvn.cmd";
 			cmd = cmd + " clean integration-test -Pintegration";
 
-			int rtn = Utils.runCmd(cmd, outdir);
-			assertEquals("Return from:" + cmd, expected, rtn);
+			// if we did not purge nothing should have changed so no need to rerun tests.
+			if (purgeFirst) {
+				int rtn = Utils.runCmd(cmd, outdir);
+				assertEquals("Return from:" + cmd, expected, rtn);
 
-			String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
-			String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
-			String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
+				String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
+				String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
+				String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
 
-			Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war").normalize();
-			assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
+				Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war")
+						.normalize();
+				assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
+			}
 		} catch (Exception e) {
-			LOGGER.error("Failed generating app", e);
+			log.error("Failed generating app", e);
 			fail(e.getMessage());
 		}
 	}

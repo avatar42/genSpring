@@ -130,6 +130,22 @@ public class Db {
 		}
 	}
 
+	public String getIdTypePrim() {
+		if (isSQLite()) {
+			return "int";
+		} else {
+			return "long";
+		}
+	}
+
+	public String getIdTypeMod() {
+		if (isSQLite()) {
+			return "";
+		} else {
+			return "l";
+		}
+	}
+
 	public boolean isMySQL() {
 		return dbDriver.contains("mysql");
 	}

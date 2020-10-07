@@ -3,8 +3,12 @@ package com.dea42.common;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -18,11 +22,11 @@ import java.util.Scanner;
 import java.util.regex.PatternSyntaxException;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class Utils {
-	private static final Logger LOGGER = LoggerFactory.getLogger(Utils.class.getName());
 
 	private static final List<String> reservedWords = new ArrayList<String>();
 
@@ -138,7 +142,7 @@ public class Utils {
 		try {
 			return bundle.getString(key);
 		} catch (MissingResourceException e) {
-			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+			log.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
 		}
 
 		return defaultVal;
@@ -155,7 +159,7 @@ public class Utils {
 		try {
 			return Integer.parseInt(bundle.getString(key));
 		} catch (MissingResourceException e) {
-			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+			log.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
 		}
 
 		return defaultVal;
@@ -172,7 +176,7 @@ public class Utils {
 		try {
 			return Boolean.parseBoolean(bundle.getString(key));
 		} catch (MissingResourceException e) {
-			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+			log.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
 		}
 
 		return defaultVal;
@@ -189,7 +193,7 @@ public class Utils {
 		try {
 			return Long.parseLong(bundle.getString(key));
 		} catch (MissingResourceException e) {
-			LOGGER.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+			log.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
 		}
 
 		return defaultVal;
@@ -330,9 +334,33 @@ public class Utils {
 		return Paths.get(tpath, more).toAbsolutePath().normalize();
 	}
 
+	/**
+	 * Creates all the parent folders as needed and an empty file. It returns null
+	 * if the old file exists.
+	 * 
+	 * @param baseDir path of folder to use as root for relPath. If ends in target then target is removed.
+	 * @param relPath path of file to create
+	 * @return
+	 */
+	public static Path createFile(String baseDir, String relPath) {
+		Path p = getPath(baseDir, relPath);
+//		if (p.toFile().exists()) {
+//			p.toFile().delete();
+//		}
+		try {
+			Files.createDirectories(p.getParent());
+			p = Files.createFile(p);
+		} catch (IOException e) {
+			log.warn(e.getMessage() + " exists will skip");
+			return null;
+		}
+
+		return p;
+	}
+
 	public static int runCmd(final String cmd, final String outdir) {
 		int exitValue = -1;
-		LOGGER.error("Now doing a maven install of project in " + outdir);
+		log.error("Now doing a maven install of project in " + outdir);
 
 		File prjFold = Utils.getPath(outdir).toFile();
 		// Execute a command and get its process handle
@@ -344,14 +372,14 @@ public class Utils {
 			try {
 				exitValue = proc.waitFor();
 			} catch (InterruptedException e) {
-				LOGGER.error("Process was interrupted");
+				log.error("Process was interrupted");
 			}
 
 		} catch (IOException e) {
-			LOGGER.error("Error running:" + cmd, e);
+			log.error("Error running:" + cmd, e);
 		}
 
-		LOGGER.info("Exit status:" + exitValue + " for:" + cmd);
+		log.info("Exit status:" + exitValue + " for:" + cmd);
 		return exitValue;
 	}
 
@@ -361,14 +389,62 @@ public class Utils {
 				Scanner sc = new Scanner(src);
 				while (sc.hasNextLine()) {
 					if (isError)
-						LOGGER.error(sc.nextLine());
+						log.error(sc.nextLine());
 					else
-						LOGGER.info(sc.nextLine());
+						log.info(sc.nextLine());
 
 				}
 				sc.close();
 			}
 		}).start();
+	}
+
+	public static void deletePath(Path path) throws IOException {
+		if (path.toFile().exists()) {
+			if (path.toFile().isFile()) {
+				Files.delete(path);
+			} else if (path.toFile().isDirectory()) {
+				Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+					@Override
+					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+						if (!file.endsWith(".sqlite")) {
+							log.debug("Deleting file:" + file);
+							Files.delete(file);
+						}
+						return FileVisitResult.CONTINUE;
+					}
+
+					@Override
+					public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+						// try to delete the file anyway, even if its attributes
+						// could not be read, since delete-only access is
+						// theoretically possible
+						if (file.toFile().exists()) {
+							log.debug("Deleting file again:" + file);
+							Files.delete(file);
+						}
+						return FileVisitResult.CONTINUE;
+					}
+
+					@Override
+					public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+						if (exc == null) {
+							if (!path.equals(dir)) {
+								log.debug("Deleting dir:" + dir);
+								Files.delete(dir);
+							}
+							return FileVisitResult.CONTINUE;
+						} else {
+							// directory iteration failed; propagate exception
+							// throw exc;
+							// Windows seems to be slow noticing we've removed everything from the folder
+							log.error("Ignoring failed to delete folder", exc);
+							return FileVisitResult.CONTINUE;
+						}
+					}
+				});
+			}
+		}
 	}
 
 }

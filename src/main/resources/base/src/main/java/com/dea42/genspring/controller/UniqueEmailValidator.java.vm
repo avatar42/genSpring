@@ -1,0 +1,49 @@
+package ${basePkg}.controller;
+
+import javax.validation.ConstraintValidatorContext;
+
+import org.apache.commons.beanutils.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import ${basePkg}.service.AccountServices;
+import ${basePkg}.utils.Utils;
+import lombok.extern.slf4j.Slf4j;
+/**
+ * Check to see if email is already used by a user if used on form instead of
+ * field then ignores if idFieldName > 0
+ * 
+ * @author avata
+ *
+ */
+@Slf4j
+public class UniqueEmailValidator extends BaseConstraintValidator<UniqueEmail, Object> {
+
+	@Autowired
+	private AccountServices accountServices;
+
+	@Override
+	public void initialize(final UniqueEmail constraintAnnotation) {
+		initialize(constraintAnnotation.fieldName(), null, constraintAnnotation.idFieldName(),
+				constraintAnnotation.message());
+	}
+
+	@Override
+	public boolean isValid(final Object formBean, final ConstraintValidatorContext context) {
+		String messageTemplate;
+		try {
+			if (!isNew(formBean, context))
+				return true;
+
+			if (!accountServices.isEmailAlreadyInUse(BeanUtils.getProperty(formBean, fieldName)))
+				return true;
+
+			messageTemplate = Utils.getProp(bundle, msgKey, msgKey);
+		} catch (final Exception e) {
+			log.error(e.getMessage(), e);
+			messageTemplate = e.getLocalizedMessage();
+		}
+		storeErrors(context, messageTemplate);
+		return false;
+	}
+
+}

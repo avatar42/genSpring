@@ -97,7 +97,7 @@ Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Ja
 		USAGE: Genspring [options] [table names]<br>
 		Where options are:<br>
 		-double = use Double instead of BigDecimal for entities beans **(also genSpring.useDouble in properties file)**<br>
-		-toString = generate toString() methods for entities beans **(also genSpring.beanToString in properties file)**<br>
+		~~-toString = generate toString() methods for entities beans **(Always true now)**~~<br>
 		~~-beanEquals = generate equals() methods for entities beans **(Always true now)**~~<br><br>
 		<br>
 		if table names not given then runs on all tables in DB.<br>
@@ -128,15 +128,7 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate [th
 ./src/main/webapp/public/resources/sheet.css ** css file for Google sheet tabs exported as HTML**<br>
 
 ## Basic web app framework pages
-./src/main/resources/templates/error/general.html<br>
-./src/main/resources/templates/fragments/alert.html<br>
-./src/main/resources/templates/fragments/footer.html<br>
-./src/main/resources/templates/fragments/header.html **(nav header)** <br>
-./src/main/resources/templates/home/homeNotSignedIn.html<br>
-./src/main/resources/templates/home/homeSignedIn.html<br>
-./src/main/resources/templates/home/signin.html<br>
-./src/main/resources/templates/home/signup.html<br>
-./src/main/resources/templates/index.html<br>
+./src/main/resources/templates/*.html<br>
 ./src/main/webapp/favicon.ico ** sample site icon**<br>
 ## Sample css files
 ./src/main/webapp/resources/css/bootstrap.min.css<br>
@@ -145,11 +137,7 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate [th
 ./src/main/webapp/resources/js/bootstrap.min.js<br>
 ./src/main/webapp/resources/js/jquery.min.js<br>
 ## Needed fonts and icons
-./src/main/webapp/resources/fonts/glyphicons-halflings-regular.eot<br>
-./src/main/webapp/resources/fonts/glyphicons-halflings-regular.svg<br>
-./src/main/webapp/resources/fonts/glyphicons-halflings-regular.ttf<br>
-./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff<br>
-./src/main/webapp/resources/fonts/glyphicons-halflings-regular.woff2<br>
+./src/main/webapp/resources/fonts/*<br>
 ## App URL mapping file
 ./src/main/webapp/WEB-INF/web.xml<br>
 <br>

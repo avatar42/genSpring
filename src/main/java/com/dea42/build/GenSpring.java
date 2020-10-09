@@ -1,6 +1,5 @@
 package com.dea42.build;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.FileVisitResult;
@@ -18,13 +17,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -49,11 +45,7 @@ import lombok.extern.slf4j.Slf4j;
  *          See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
  */
 @Slf4j
-public class GenSpring {
-	public static final String PROPKEY = "genSpring";
-	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.5.0";
-	public static String ACCOUNT_CLASS = "Account";
+public class GenSpring extends CommonMethods {
 	public static int IMPORT_TYPE_SERVICE = 0;
 	public static int IMPORT_TYPE_FORM = 1;
 	public static int IMPORT_TYPE_BEAN = 2;
@@ -99,50 +91,10 @@ public class GenSpring {
 	public static int SS_XML_SCHEMACOLLECTION_SCHEMA_NAME = 31;// 'null'
 	public static int SS_XML_SCHEMACOLLECTION_NAME = 32;// 'null'
 
-	protected long TEST_USER_ID;
-	protected String TEST_USER;
-	protected String TEST_PASS;
-	protected String TEST_ROLE;
-
-	protected long ADMIN_USER_ID;
-	protected String ADMIN_USER;
-	protected String ADMIN_PASS;
-	protected String ADMIN_ROLE;
-
-	private boolean useDouble = false;
-	private boolean beanToString = false;
-	private ResourceBundle bundle;
-	private ResourceBundle renames;
-	private String bundleName;
-	private String srcGroupId = "com.dea42";
-	private String srcArtifactId = "genspring";
-	private String srcPkg;
-	private String srcPath;
-	private String baseGroupId;
-	private String baseModule;
-	private String baseArtifactId;
-	private String basePkg;
-	private String basePath;
-	private String baseDir;
-	private String appVersion;
-	private int year = 2001;
-	private String schema = null;
-	private List<String> filteredTables;
-	private String colCreated;
-	private String colLastMod;
-
-	// TODO: make this configurable and add to PasswordConstraintValidator
-	private int maxPassLen = 30;
-
 	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
 
-	public GenSpring() throws IOException {
-		this(PROPKEY);
-	}
-
 	public GenSpring(String bundleName) throws IOException {
-		this.bundleName = bundleName;
-		initVars();
+		initVars(bundleName);
 	}
 
 	/**
@@ -182,14 +134,6 @@ public class GenSpring {
 				p.toFile().delete();
 			}
 		}
-	}
-
-	public boolean isUseDouble() {
-		return useDouble;
-	}
-
-	public void setUseDouble(boolean useDouble) {
-		this.useDouble = useDouble;
 	}
 
 	/**
@@ -373,7 +317,7 @@ public class GenSpring {
 
 	public void copyCommon() throws IOException {
 		Path staticPath = Utils.getPath(Java2VM.TEMPLATE_FOLDER);
-		Java2VM j2m = new Java2VM(bundleName);
+		Java2VM j2m = new Java2VM(getBundelName());
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
 			@Override
 			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
@@ -392,9 +336,6 @@ public class GenSpring {
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 				log.info("Copying:" + file);
 				String relPath = staticPath.relativize(file).toString().replace('\\', '/').replace(srcPath, basePath);
-
-				if (file.toString().contains("UnitBase"))
-					log.info("name:'" + file.getFileName() + "'");
 
 				if (file.toString().endsWith(".vm")) {
 					relPath = relPath.substring(0, relPath.length() - 3);
@@ -427,50 +368,6 @@ public class GenSpring {
 		});
 	}
 
-	protected void initVars() throws IOException {
-		GregorianCalendar gc = new GregorianCalendar();
-		year = gc.get(Calendar.YEAR);
-
-		bundle = ResourceBundle.getBundle(bundleName);
-		renames = ResourceBundle.getBundle("rename");
-		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir");
-		schema = Utils.getProp(bundle, PROPKEY + ".schema");
-		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg");
-		baseModule = Utils.getProp(bundle, PROPKEY + ".module");
-		baseArtifactId = Utils.getProp(bundle, PROPKEY + ".artifactId", baseModule);
-		basePkg = baseGroupId + '.' + baseModule;
-		basePath = basePkg.replace('.', '/');
-		appVersion = Utils.getProp(bundle, PROPKEY + ".version", "1.0");
-		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
-		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
-		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
-		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
-
-		filteredTables = Utils.getPropList(bundle, PROPKEY + ".filteredTables");
-		// SQLite tables to always ignore
-		filteredTables.add("hibernate_sequence");
-		filteredTables.add("sqlite_sequence");
-
-		srcPkg = srcGroupId + '.' + srcArtifactId;
-		srcPath = srcPkg.replace('.', '/');
-		File outDir = Utils.getPath(baseDir).toFile();
-		if (!outDir.exists()) {
-			if (!outDir.mkdirs()) {
-				throw new IOException("Could not create output dir:" + baseDir);
-			}
-		}
-
-		TEST_USER_ID = Utils.getProp(bundle, "default.userid", 1l);
-		TEST_USER = Utils.getProp(bundle, "default.user", "user@dea42.com");
-		TEST_PASS = Utils.getProp(bundle, "default.userpass", "ChangeMe");
-		TEST_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", "USER");
-		ADMIN_USER_ID = Utils.getProp(bundle, "default.adminid", 2l);
-		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin@dea42.com");
-		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "ChangeMe");
-		ADMIN_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", "ADMIN");
-
-	}
-
 	/**
 	 * Generate folder structure and project level files
 	 * 
@@ -499,20 +396,6 @@ public class GenSpring {
 		writeIndex(colsInfo.keySet());
 		writeApiIndex(colsInfo.keySet());
 		updateMsgProps(colsInfo);
-	}
-
-	/**
-	 * @return the bundleName
-	 */
-	public String getBundleName() {
-		return bundleName;
-	}
-
-	/**
-	 * @param bundleName the bundleName to set
-	 */
-	public void setBundleName(String bundleName) {
-		this.bundleName = bundleName;
 	}
 
 	private StringBuilder commentAdd(StringBuilder sb, String comment) {
@@ -549,7 +432,6 @@ public class GenSpring {
 		String firstColumnName = null;
 		String className = Utils.tabToStr(renames, tableName);
 
-		Db db = new Db(PROPKEY + ".genFiles()", bundleName, Utils.getProp(bundle, PROPKEY + ".outdir", "."));
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
 
 		log.debug("tableName:" + tableName);
@@ -600,7 +482,7 @@ public class GenSpring {
 			}
 			colInfo.setRequired(rs.getInt(NULLABLE) == 0);
 			int stype = rs.getInt(DATA_TYPE);
-			if (db.isSQLite()) {
+			if (isSQLite()) {
 				String typ = rs.getString(TYPE_NAME);
 				if ("DATETIME".equalsIgnoreCase(typ)) {
 					stype = Types.TIMESTAMP;
@@ -617,7 +499,7 @@ public class GenSpring {
 			case Types.SQLXML:
 				colInfo.setType("String");
 				String tmp = null;
-				if (db.isSQLite()) {
+				if (isSQLite()) {
 					tmp = rs.getString(TYPE_NAME);
 					int s = tmp.indexOf('(');
 					if (s > -1) {
@@ -928,6 +810,9 @@ public class GenSpring {
 		boolean dataChged = false;
 		try {
 			data = new String(Files.readAllBytes(p));
+			data = data + "app.name=" + appName + System.lineSeparator();
+			data = data + "app.description=" + appDescription + System.lineSeparator();
+			data = data + "index.greeting=Welcome to the " + appName + " application!" + System.lineSeparator();
 			Set<String> set = colsInfo.keySet();
 			for (String className : set) {
 				// If table already in there then skip
@@ -2506,8 +2391,8 @@ public class GenSpring {
 					if (!outPath.toFile().isDirectory())
 						outPath.toFile().mkdirs();
 
-					dbUrl = "jdbc:sqlite:" + outPath.toAbsolutePath().toString().replace('\\', '/') + "/" + bundleName
-							+ "DB.sqlite";
+					dbUrl = "jdbc:sqlite:" + outPath.toAbsolutePath().toString().replace('\\', '/') + "/"
+							+ getBundelName() + "DB.sqlite";
 
 				}
 				ps.println("spring.datasource.url=" + dbUrl);
@@ -2841,7 +2726,7 @@ public class GenSpring {
 		try {
 			Db db = new Db(PROPKEY + ".main()", PROPKEY);
 			int i = 0;
-			GenSpring obj = new GenSpring();
+			GenSpring obj = new GenSpring(PROPKEY);
 			List<String> tableNames = new ArrayList<String>();
 			for (; i < args.length; i++) {
 				if (args[i].length() > 0 && args[i].charAt(0) == '-') {
@@ -2864,7 +2749,6 @@ public class GenSpring {
 					tableNames.add(args[i]);
 				}
 			}
-			obj.initVars();
 
 			if (tableNames.isEmpty()) {
 				tableNames = obj.getTablesNames(db);

@@ -11,7 +11,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
  * Title: WebAppApplication <br>
  * Description: The boot start class. <br>
  * 
- * @author Gened by ${baseGroupId}.build.GenSpring version 0.2.3<br>
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
  * @version ${appVersion}<br>
  */
 @SpringBootApplication

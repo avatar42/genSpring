@@ -28,7 +28,7 @@ import ${basePkg}.service.AccountServices;
  * Title: SecurityConfiguration <br>
  * Description: Class for configuring app security. <br>
  * 
- * @author Gened by ${baseGroupId}.build.GenSpring version 0.2.3<br>
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
  * @version ${appVersion}<br>
  */
 @Configuration

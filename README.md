@@ -1,6 +1,6 @@
 # Properties that may be used by both programs
 ## DB properties
-### DB to create tables in (note if blank and db.driver=org.sqlite.JDBC creates a SQLite DB in sheet.outdir folder. See Db.getUrl(ResourceBundle bundle, String folder))
+### DB to create tables in (note if blank and db.driver=org.sqlite.JDBC creates a SQLite DB in genSpring.outdir folder. See Db.getUrl(ResourceBundle bundle, String folder))
 db.url=jdbc:sqlite:L:/sites/git/genSpring/target/watchlistDB.sqlite 
 ### DB driver to use
 db.driver=org.sqlite.JDBC 
@@ -31,15 +31,15 @@ Sheet1User.testRows=8<br>
 Creates a DB from a Google sheet with a table for each selected tab <br>
  
 # Setup
-Basically set your options in /genSpring/src/main/resources/sheet.properties <br>
+Basically set your options in /genSpring/src/main/resources/genSpring.properties <br>
 ** Note after a clean you will be asked to auth to Google to access the sheet. See target/tokens folder** 
  
 ## optional SQLite db output location
-sheet.outdir=../genSpringTest
+genSpring.outdir=../genSpringTest
 ## Google sheet to read from
-sheet.id=1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE 
+genSpring.id=1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE 
 ## tabs to export
-sheet.tabs=Networks,shows,Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard 
+genSpring.tabs=Networks,shows,Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard 
  
 ## tab adjustments
 ### columns to export. If missing exports all existing
@@ -54,7 +54,7 @@ Sheet2.required=A,C-D
 Sheet1.lastRow=251 <br>
 
 ### [optional] Tables each row should be prefixed / linked to a user ID. ID 1 is used for the import.
-sheet.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
+genSpring.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
 
 ### [optional] Columns to be placed in separate table linked to source table and account. 
 Sheet1.user=E<br>
@@ -74,8 +74,8 @@ genSpring.outdir=../genSpringTest
 genSpring.Copyright=Copyright (c) 2001- 
 ## ignored if blank
 genSpring.Company=RMRR 
-## defaults to 1.0
-genSpring.version=1.0 
+## defaults to GenSpring.genSpringVersion
+genSpring.version= 
 ## base package / groupId
 genSpring.pkg=com.dea42 
 ## sub package / artifactId
@@ -164,7 +164,7 @@ Use the integration maven profile to run test of a cargo deployed version of the
  
 # Running the web app
 - Import generated project as existing maven project<br>
-- Do maven install ** Note this runs a basic test of the build as well by creating to sample projects and building them**<br>
+- Do maven install ** Note this runs a basic tests of the build as well**<br>
 - Run ../genSpringTest/src/main/java/com/dea42/genSpring/WebAppApplication.java as Java or Spring Boot app<br>
 - Wait for start up<br>
 - Point browser to  http://localhost:8080/

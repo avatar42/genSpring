@@ -7,7 +7,7 @@
 	<artifactId>${baseArtifactId}</artifactId>
 	<version>${appVersion}-SNAPSHOT</version>
 	<packaging>war</packaging>
-	<description>GenSpring regression test output app</description>
+	<description>${appDescription}</description>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>

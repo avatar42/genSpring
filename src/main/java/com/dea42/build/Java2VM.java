@@ -14,20 +14,14 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.List;
 import java.util.Properties;
-import java.util.ResourceBundle;
 import java.util.regex.Pattern;
 
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
 
-import com.dea42.common.Db;
 import com.dea42.common.Utils;
 
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -37,98 +31,22 @@ import lombok.extern.slf4j.Slf4j;
  *
  */
 @Slf4j
-@Data
-public class Java2VM {
+public class Java2VM extends CommonMethods {
 	public static final String RESOURCE_FOLDER = "src/main/resources";
 	public static final String TEMPLATE_ROOT = "base";
 	public static final String TEMPLATE_FOLDER = RESOURCE_FOLDER + "/" + TEMPLATE_ROOT;
 
-	protected long TEST_USER_ID;
-	protected String TEST_USER;
-	protected String TEST_PASS;
-	protected String TEST_ROLE;
-
-	protected long ADMIN_USER_ID;
-	protected String ADMIN_USER;
-	protected String ADMIN_PASS;
-	protected String ADMIN_ROLE;
-	private boolean useDouble = false;
-	private boolean beanToString = false;
-	private ResourceBundle bundle;
-	private ResourceBundle renames;
-	private String bundleName;
-	private String srcGroupId = "com.dea42";
-	private String srcArtifactId = "genspring";
-	private String srcPkg;
-	private String srcPath;
-	private String baseGroupId;
-	private String baseModule;
-	private String baseArtifactId;
-	private String basePkg;
-	private String basePath;
-	private String baseDir;
-	private String appVersion;
-	private int year = 2001;
-	private String schema = null;
-	private List<String> filteredTables;
-	private String colCreated;
-	private String colLastMod;
-
-	// TODO: make this configurable and add to PasswordConstraintValidator
-	private int maxPassLen = 30;
-
-	private String idCls = "Long";
-	private String idPrim = "long";
-	private String idMod = "l";
-
 	private VelocityContext context;
 
 	public Java2VM(String bundleName) throws IOException {
-		this.bundleName = bundleName;
-		initVars();
+		initVars(bundleName);
 	}
 
-	protected void initVars() throws IOException {
-		GregorianCalendar gc = new GregorianCalendar();
-		year = gc.get(Calendar.YEAR);
-
-		bundle = ResourceBundle.getBundle(bundleName);
-		renames = ResourceBundle.getBundle("rename");
-		baseDir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir");
-		schema = Utils.getProp(bundle, GenSpring.PROPKEY + ".schema");
-		baseGroupId = Utils.getProp(bundle, GenSpring.PROPKEY + ".pkg");
-		baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
-		baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
-		basePkg = baseGroupId + '.' + baseModule;
-		basePath = basePkg.replace('.', '/');
-		appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0");
-		useDouble = Utils.getProp(bundle, GenSpring.PROPKEY + ".useDouble", useDouble);
-		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
-		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
-
-		filteredTables = Utils.getPropList(bundle, GenSpring.PROPKEY + ".filteredTables");
-		// SQLite tables to always ignore
-		filteredTables.add("hibernate_sequence");
-		filteredTables.add("sqlite_sequence");
-
-		srcPkg = srcGroupId + '.' + srcArtifactId;
-		srcPath = srcPkg.replace('.', '/');
-
-		TEST_USER_ID = Utils.getProp(bundle, "default.userid", 1l);
-		TEST_USER = Utils.getProp(bundle, "default.user", "user@dea42.com");
-		TEST_PASS = Utils.getProp(bundle, "default.userpass", "ChangeMe");
-		TEST_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", "USER");
-		ADMIN_USER_ID = Utils.getProp(bundle, "default.adminid", 2l);
-		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin@dea42.com");
-		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "ChangeMe");
-		ADMIN_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", "ADMIN");
-
-		Db db = new Db(".initVars()", bundleName, Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", "."));
-		if (db.isSQLite()) {
-			idCls = db.getIdTypeCls().getSimpleName();
-			idPrim = db.getIdTypePrim();
-			idMod = db.getIdTypeMod();
-		}
+	/**
+	 * Read config from property files and init needed classes and vars.
+	 */
+	protected void initVars(String bundleName) throws IOException {
+		super.initVars(bundleName);
 
 		Properties p = new Properties();
 		p.setProperty("resource.loader", "class");
@@ -148,7 +66,8 @@ public class Java2VM {
 		context.put("baseModule", baseModule);
 		context.put("genSpringVersion", GenSpring.genSpringVersion);
 		context.put("appVersion", appVersion);
-
+		context.put("appName", appName);
+		context.put("appDescription", appDescription);
 	}
 
 	/**

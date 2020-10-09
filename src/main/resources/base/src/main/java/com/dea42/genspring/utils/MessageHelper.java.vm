@@ -31,6 +31,7 @@ public final class MessageHelper {
 	public static final String save_cancelled = "save.cancelled";
 	public static final String db_failed = "db.failed";
 	public static final String app_name = "app.name";
+	public static final String app_description = "app.description";
 	public static final String index_greeting = "index.greeting";
 	public static final String lang_change = "lang.change";
 	public static final String lang_en = "lang.en";

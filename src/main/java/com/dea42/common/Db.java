@@ -19,8 +19,10 @@ import javax.naming.InitialContext;
 import javax.sql.DataSource;
 
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import com.dea42.build.CommonMethods;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Title: DB <br>
@@ -32,8 +34,8 @@ import org.slf4j.LoggerFactory;
  * @author David Abigt <br>
  * @version 1.0
  */
+@Slf4j
 public class Db {
-	private static final Logger LOGGER = LoggerFactory.getLogger(Db.class.getName());
 
 	/**
 	 * Get connection to display / log utils
@@ -93,12 +95,8 @@ public class Db {
 	private String config = "db";
 
 	public Db(String calledBy, String config) {
-		this(calledBy, config, null);
-	}
-
-	public Db(String calledBy, String config, String folder) {
 		this.config = config;
-		init(config, folder);
+		init(config);
 		if (calledBy != null) {
 			getConnection(calledBy);
 		} else {
@@ -162,10 +160,11 @@ public class Db {
 		return isSQLite() || isMySQL() || isSqlserver();// || isDb2();
 	}
 
-	public String getUrl(ResourceBundle bundle, String folder) {
+	public String getUrl(ResourceBundle bundle) {
 		dbUrl = Utils.getProp(bundle, "db.url", null);
 		dbDriver = Utils.getProp(bundle, "db.driver", "org.gjt.mm.mysql.Driver");
-		if (StringUtils.isAllBlank(dbUrl) && isSQLite()) {
+		if (StringUtils.isBlank(dbUrl) && isSQLite()) {
+			String folder = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir");
 			// db.url=jdbc:sqlite:L:/sites/git/Watchlist/watchlistDB.sqlite
 			Path outPath = Utils.getPath(folder);
 			if (!outPath.toFile().isDirectory())
@@ -182,14 +181,13 @@ public class Db {
 	 * the DB driver
 	 * 
 	 * @param config
-	 * @param folder TODO
 	 */
-	public void init(String config, String folder) {
+	public void init(String config) {
 		if (!loaded) {
 			ResourceBundle bundle = ResourceBundle.getBundle(config);
 			dbDriver2 = Utils.getProp(bundle, "db.driver2", "com.mysql.jdbc.Driver");
 			dbPool = Utils.getProp(bundle, "db.pool", null);
-			LOGGER.info("db.pool =" + dbPool);
+			log.info("db.pool =" + dbPool);
 
 			if (dbPool != null) {
 				try {
@@ -204,16 +202,16 @@ public class Db {
 				StringBuffer sb = new StringBuffer(16);
 				sb.append(dbPool).append(" is an unknown DataSource ");
 				sb.append("db.pool= ").append(dbPool).append('\n');
-				LOGGER.warn(sb.toString());
+				log.warn(sb.toString());
 
 				for (String key : bundle.keySet()) {
-					LOGGER.info(key + "=" + bundle.getString(key));
+					log.info(key + "=" + bundle.getString(key));
 				}
 				dbUser = Utils.getProp(bundle, "db.user", null);
 				dbPass = Utils.getProp(bundle, "db.password", null);
 				dbName = Utils.getProp(bundle, "db.name", null);
 				schema = Utils.getProp(bundle, "db.schema", null);
-				dbUrl = getUrl(bundle, folder);
+				dbUrl = getUrl(bundle);
 				loaded = true;
 
 			} else {
@@ -238,11 +236,11 @@ public class Db {
 			if (connection == null || connection.isClosed()) {
 				if (connection != null) {
 					openCount--;
-					LOGGER.error("Connection timed out=" + openCount);
+					log.error("Connection timed out=" + openCount);
 				}
 				if (ds == null) {
 					connection = doConnect();
-					LOGGER.info(config + ".getConnection(" + calledBy + ')' + dbUrl + "=" + openCount);
+					log.info(config + ".getConnection(" + calledBy + ')' + dbUrl + "=" + openCount);
 				} else {
 					try {
 						connection = ds.getConnection();
@@ -250,18 +248,18 @@ public class Db {
 						// if connection is stale might get error so grab again.
 						connection = ds.getConnection();
 					}
-					LOGGER.info(config + ".getConnection(" + calledBy + ")" + dbPool + "=" + openCount);
+					log.info(config + ".getConnection(" + calledBy + ")" + dbPool + "=" + openCount);
 				}
 				openCount++;
 				totalCount++;
 			}
 		} catch (ClassNotFoundException e) {
-			LOGGER.error("Exception caught", e);
+			log.error("Exception caught", e);
 
 		} catch (SQLException e) {
-			LOGGER.error("getConnection() error: ", e);
-			LOGGER.error("Open connections=" + openCount);
-			LOGGER.error("Total connections=" + totalCount);
+			log.error("getConnection() error: ", e);
+			log.error("Open connections=" + openCount);
+			log.error("Total connections=" + totalCount);
 
 		}
 		return connection;
@@ -303,12 +301,12 @@ public class Db {
 		try {
 			Class.forName(dbDriver);
 			props.put("db.driver", dbDriver);
-			LOGGER.info("Loaded driver =" + dbDriver);
+			log.info("Loaded driver =" + dbDriver);
 		} catch (ClassNotFoundException e) {
-			LOGGER.error("Could not load prefered driver " + dbDriver, e);
+			log.error("Could not load prefered driver " + dbDriver, e);
 			Class.forName(dbDriver2);
 			props.put("db.driver", dbDriver2);
-			LOGGER.info("Loaded driver =" + dbDriver2);
+			log.info("Loaded driver =" + dbDriver2);
 		}
 
 		if (dbUser != null)
@@ -318,14 +316,14 @@ public class Db {
 		props.put("db.url", dbUrl);
 		props.put("zeroDateTimeBehavior", "convertToNull");
 
-		LOGGER.info(config + ".Connecting to:" + dbUrl);
-		LOGGER.trace("props=" + props);
+		log.info(config + ".Connecting to:" + dbUrl);
+		log.trace("props=" + props);
 
 		try {
 			return DriverManager.getConnection(dbUrl, props);
 		} catch (SQLException e) {
 
-			LOGGER.error("Connecting to:" + dbUrl);
+			log.error("Connecting to:" + dbUrl);
 			throw e;
 		}
 	}
@@ -340,10 +338,10 @@ public class Db {
 	public boolean mkdirs(String s) throws IOException {
 		boolean rtn = true;
 
-		LOGGER.trace("Making " + s);
+		log.trace("Making " + s);
 		// mkdirs does not like / as a separator
 		String fulldir = s.replace('/', '\\');
-		LOGGER.trace("Making " + fulldir);
+		log.trace("Making " + fulldir);
 		File fileObj = new File(fulldir);
 		if (fileObj.exists()) {
 			if (!fileObj.isDirectory()) {
@@ -404,8 +402,8 @@ public class Db {
 	 * @return long
 	 */
 	public long nextPk(String tableName) {
-		LOGGER.debug("nextPk(String tableName)");
-		LOGGER.debug("tableName=" + tableName);
+		log.debug("nextPk(String tableName)");
+		log.debug("tableName=" + tableName);
 
 		ResultSet results;
 		long rtn = 0;
@@ -415,7 +413,7 @@ public class Db {
 			Statement sStatement = con.createStatement();
 			String sql = "SELECT key_name,key_val from pkeys WHERE key_name=\'" + tableName + "\';";
 
-			LOGGER.info("sql=" + sql);
+			log.info("sql=" + sql);
 			results = sStatement.executeQuery(sql);
 			if (results.next()) {
 				rtn = results.getLong("key_val");
@@ -429,14 +427,14 @@ public class Db {
 			}
 			con.close();
 		} catch (ClassNotFoundException e) {
-			LOGGER.error("load(Connection cConnection) error: ", e);
+			log.error("load(Connection cConnection) error: ", e);
 		} catch (SQLException e) {
-			LOGGER.error("load(Connection cConnection) error: ", e);
+			log.error("load(Connection cConnection) error: ", e);
 		} finally {
 			close(getClass().getName());
 		}
 
-		LOGGER.debug("Exiting load(Connection cConnection)" + toString());
+		log.debug("Exiting load(Connection cConnection)" + toString());
 		return rtn;
 	}
 
@@ -446,14 +444,14 @@ public class Db {
 				connection.close();
 				openCount--;
 				if (!connection.isClosed()) {
-					LOGGER.error("Connection did not close.");
+					log.error("Connection did not close.");
 				}
 			}
 			connection = null;
 		} catch (SQLException ex) {
-			LOGGER.error("Unable to close connection to DB");
+			log.error("Unable to close connection to DB");
 		}
-		LOGGER.info("close(" + calledBy + ')' + openCount);
+		log.info("close(" + calledBy + ')' + openCount);
 	}
 
 	/**

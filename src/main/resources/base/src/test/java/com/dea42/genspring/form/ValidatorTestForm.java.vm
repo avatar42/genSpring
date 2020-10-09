@@ -22,7 +22,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
  * Copyright: Copyright (c) 2001-2020<br>
  * Company: RMRR<br>
  * 
- * @author Gened by ${baseGroupId}.build.GenSpring version 0.2.3<br>
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
  * @version ${appVersion}<br>
  */
 @FieldMatch.List({

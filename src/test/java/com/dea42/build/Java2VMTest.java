@@ -20,6 +20,8 @@ import java.util.regex.Pattern;
 
 import org.junit.Test;
 
+import com.dea42.common.Utils;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -57,7 +59,7 @@ public class Java2VMTest {
 	 */
 	public void doJava2vm(String bundleName, String file) throws IOException {
 		Java2VM j = new Java2VM(bundleName);
-		String srcFile = j.getBaseDir() + file.replace("com/dea42/genspring",j.getBasePath());
+		String srcFile = j.getBaseDir() + file.replace("com/dea42/genspring", j.getBasePath());
 		String outFile = "target/base" + file + ".vm";
 		j.java2vm(srcFile, outFile);
 
@@ -96,15 +98,17 @@ public class Java2VMTest {
 		assertNotNull("Checking classpath for:" + rfile, stream);
 
 		String relOutFile = rfile.substring(5, rfile.length() - 3);
-		String outFile = rel + "target/" + relOutFile;
-		j.vm2java(fileStr, outFile);
+		Path outPath = Paths.get(j.getBaseDir(), "target/v2j/", relOutFile);
+		Utils.deletePath(outPath);
 
-		String expected = new String(Files.readAllBytes(Paths.get(rel + "../" + bundleName + "/" + relOutFile)));
-		String actual = new String(Files.readAllBytes(Paths.get(outFile)));
+		j.vm2java(fileStr, outPath.toString());
 
-		log.debug("compare:" + expected.compareTo(actual));
-		assertEquals("Compare of " + outFile + " to ref " + rel + "../" + bundleName + "/" + relOutFile, expected,
-				actual);
+		String expected = new String(Files.readAllBytes(Paths.get(rel + j.getBaseDir() + "/" + relOutFile)));
+		String actual = new String(Files.readAllBytes(outPath));
+
+		log.debug("compare:" + outPath.toAbsolutePath());
+		assertEquals("Compare of " + outPath.toAbsolutePath() + " to ref " + rel + j.getBaseDir() + "/" + relOutFile,
+				expected, actual);
 	}
 
 	@Test
@@ -134,6 +138,28 @@ public class Java2VMTest {
 	@Test
 	public void testVm2JavaUnitBase() throws IOException {
 		dovm2java(TEST_WITH_INT_IDS, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm");
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testVm2JavaUnitBase2() throws IOException {
+		dovm2java(TEST_WITH_LONG_IDS, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm");
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testVm2JavaPom() throws IOException {
+		dovm2java(TEST_WITH_INT_IDS, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm");
 	}
 
 	/**
@@ -204,7 +230,7 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmPom() throws IOException {
-		doJava2vm(TEST_WITH_INT_IDS, "/pom.xml");
+		doJava2vm(TEST_WITH_LONG_IDS, "/pom.xml");
 	}
 
 	/**

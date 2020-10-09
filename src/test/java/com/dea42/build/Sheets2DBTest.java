@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -21,25 +22,27 @@ import java.util.ResourceBundle;
 
 import org.junit.Assume;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * @author avata
  *
  */
+@Slf4j
 public class Sheets2DBTest {
 	public static final String bundleName = "sheettest";
-	private static final Logger LOGGER = LoggerFactory.getLogger(Sheets2DBTest.class.getName());
 
 	/**
 	 * Test method for {@link com.dea42.build.Sheets2DB#columnNumberToLetter(int)}.
+	 * 
+	 * @throws IOException
 	 */
 	@Test
-	public void testColumnNumberToLetter() {
+	public void testColumnNumberToLetter() throws IOException {
 		Sheets2DB s = new Sheets2DB();
 		String col = s.columnNumberToLetter(104);
 		assertEquals("columnNumberToLetter", "CZ", col);
@@ -48,9 +51,11 @@ public class Sheets2DBTest {
 	/**
 	 * Test method for
 	 * {@link com.dea42.build.Sheets2DB#columnLetterToNumber(java.lang.String)}.
+	 * 
+	 * @throws IOException
 	 */
 	@Test
-	public void testColumnLetterToNumber() {
+	public void testColumnLetterToNumber() throws IOException {
 		Sheets2DB s = new Sheets2DB();
 		Integer col = s.columnLetterToNumber("CZ");
 		assertEquals("testColumnLetterToNumber", (Integer) 104, col);
@@ -59,9 +64,11 @@ public class Sheets2DBTest {
 	/**
 	 * Test method for
 	 * {@link com.dea42.build.Sheets2DB#strToCols(java.lang.String)}.
+	 * 
+	 * @throws IOException
 	 */
 	@Test
-	public void testStrToCols() {
+	public void testStrToCols() throws IOException {
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String cols = Utils.getProp(bundle, "shows.columns", "A-I,Q-T,BC-BF");
@@ -83,12 +90,17 @@ public class Sheets2DBTest {
 	}
 
 	private void parseDateStr(String str, long expected) {
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+		try {
+			Sheets2DB s = new Sheets2DB(bundleName, true, true);
 
-		long ms = s.parseDateStr(str);
-		Date d = new Date(ms);
-		LOGGER.debug(str + " -> " + d.toString());
-		assertEquals(str, expected, ms);
+			long ms = s.parseDateStr(str);
+			Date d = new Date(ms);
+			log.debug(str + " -> " + d.toString());
+			assertEquals(str, expected, ms);
+		} catch (IOException e) {
+			log.error("parseDateStr test failed", e);
+			fail("parseDateStr test failed");
+		}
 
 	}
 
@@ -184,7 +196,7 @@ public class Sheets2DBTest {
 			String query = "SELECT * FROM " + schema + tableName;
 			Statement stmt = conn.createStatement();
 			stmt.setMaxRows(1);
-			LOGGER.debug("query=" + query);
+			log.debug("query=" + query);
 			ResultSet rs = stmt.executeQuery(query);
 			assertNotNull("Check ResultSet", rs);
 			ResultSetMetaData rm = rs.getMetaData();
@@ -199,7 +211,7 @@ public class Sheets2DBTest {
 				rs.next();
 			assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
 		} catch (SQLException e) {
-			LOGGER.error("Exception creating DB", e);
+			log.error("Exception creating DB", e);
 			fail("Exception creating DB");
 		} finally {
 			db.close("Sheet2AppTest");
@@ -213,11 +225,11 @@ public class Sheets2DBTest {
 
 		// Validate DB
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
-		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
+		Db db = new Db("Sheet2AppTest", bundleName);
 
 		quickChkTable(db, bundle, "Account");
-		List<String> tables = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
+		List<String> tables = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
 		for (String tableName : tables) {
 			quickChkTable(db, bundle, tableName);
 			List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));

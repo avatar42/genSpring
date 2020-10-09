@@ -6,7 +6,7 @@ import java.util.ResourceBundle;
 
 import org.junit.Test;
 
-import com.dea42.build.Sheets2DB;
+import com.dea42.build.CommonMethods;
 
 public class DbTest {
 
@@ -14,8 +14,8 @@ public class DbTest {
 	public void testDbStringStringString() {
 		String bundleName = "genSpringTest";
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
-		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
+		Db db = new Db("Sheet2AppTest", bundleName);
 		String cwd = System.getProperty("user.dir").toString().replace('\\', '/');
 		int g = cwd.lastIndexOf("/genSpring");
 		if (g > 0)

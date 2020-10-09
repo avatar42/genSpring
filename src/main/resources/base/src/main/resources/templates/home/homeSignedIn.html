@@ -13,7 +13,8 @@
 <body>
 	<div th:replace="fragments/header :: header">&nbsp;</div>
 	<div class="container">
-		<h1 th:text="#{index.greeting}"></h1>
+		<h1 th:text="#{index.greeting(#{app.name})}"></h1>
+		<div th:text="#{app.description}"></div>
 	</div>
 </body>
 </html>

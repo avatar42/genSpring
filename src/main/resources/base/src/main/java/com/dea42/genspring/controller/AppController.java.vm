@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  * Title: AppController <br>
  * Description: Class main web Controller. <br>
  * 
- * @author Gened by ${baseGroupId}.build.GenSpring version 0.2.3<br>
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
  * @version ${appVersion}<br>
  */
 @Slf4j
@@ -91,7 +91,7 @@ public class AppController {
 		}
 		if (accountService.login(account.getEmail(), account.getPassword())) {
 			// see messages.properties and homeSignedIn.html
-			MessageHelper.addSuccessAttribute(ra, "signup.success");
+			MessageHelper.addSuccessAttribute(ra, "signup.success",form.getEmail());
 		} else {
 			MessageHelper.addErrorAttribute(ra, "signup.failed");
 		}
@@ -120,7 +120,7 @@ public class AppController {
 		}
 		if (accountService.login(loginForm.getEmail(), loginForm.getPassword())) {
 			// see messages.properties and homeSignedIn.html
-			MessageHelper.addSuccessAttribute(ra, "signin.success");
+			MessageHelper.addSuccessAttribute(ra, "signin.success",loginForm.getEmail());
 			String referer = loginForm.getReferer();
 			if (StringUtils.isAllBlank(referer)) {
 				// TODO: add /?lang=en to set lang to preferred / last selected.

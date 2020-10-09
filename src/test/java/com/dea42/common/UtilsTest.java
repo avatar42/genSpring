@@ -15,7 +15,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.BlockJUnit4ClassRunner;
 
-import com.dea42.build.Sheets2DB;
+import com.dea42.build.CommonMethods;
 import com.dea42.build.Sheets2DBTest;
 
 /**
@@ -58,11 +58,11 @@ public class UtilsTest {
 	@Test
 	public void testGetPropListResourceBundleString() {
 		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
-		List<String> list = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
-		assertTrue(Sheets2DB.PROPKEY + ".tabs", list.contains("Roamio_Todo"));
+		List<String> list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
+		assertTrue(CommonMethods.PROPKEY + ".tabs", list.contains("Roamio_Todo"));
 
-		list = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tab");
-		assertTrue(Sheets2DB.PROPKEY + ".tab", list.isEmpty());
+		list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tab");
+		assertTrue(CommonMethods.PROPKEY + ".tab", list.isEmpty());
 	}
 
 	/**

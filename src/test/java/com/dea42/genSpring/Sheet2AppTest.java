@@ -27,6 +27,7 @@ import java.util.ResourceBundle;
 import org.junit.Assume;
 import org.junit.Test;
 
+import com.dea42.build.CommonMethods;
 import com.dea42.build.GenSpring;
 import com.dea42.build.Sheets2DB;
 import com.dea42.common.Db;
@@ -107,8 +108,8 @@ public class Sheet2AppTest {
 
 		Map<String, Long> modTimes = new HashMap<String, Long>();
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		Path outdir = Utils.getPath(Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", "."), "src");
-		Path pom = Utils.getPath(Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", "."), "pom.xml");
+		Path outdir = Utils.getPath(Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "."), "src");
+		Path pom = Utils.getPath(Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "."), "pom.xml");
 
 		modTimes.put(pom.toString(), pom.toFile().lastModified());
 		try {
@@ -200,7 +201,7 @@ public class Sheet2AppTest {
 			Utils.deletePath(Utils.getPath(outdir, "pom.xml"));
 		}
 		if (clearDB) {
-			String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
+			String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
 			Path dbFile = Utils.getPath(outdir.replace('\\', '/'), bundleName + "DB.sqlite");
 			if (dbFile.toFile().exists()) {
 				dbFile.toFile().delete();
@@ -263,12 +264,12 @@ public class Sheet2AppTest {
 		s.getSheet();
 
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		String outdir = Utils.getProp(bundle, Sheets2DB.PROPKEY + ".outdir", ".");
-		Db db = new Db("Sheet2AppTest", bundleName, outdir);
+		String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
+		Db db = new Db("Sheet2AppTest", bundleName);
 		String schema = db.getPrefix();
 
 		Connection conn = db.getConnection("Sheet2AppTest");
-		List<String> tabs = Utils.getPropList(bundle, Sheets2DB.PROPKEY + ".tabs");
+		List<String> tabs = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
 		for (String tabName : tabs) {
 			String tableName = Utils.tabToStr(renames, tabName);
 			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);

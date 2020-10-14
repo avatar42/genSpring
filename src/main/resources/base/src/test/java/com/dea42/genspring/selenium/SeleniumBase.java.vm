@@ -3,8 +3,15 @@
  */
 package ${basePkg}.selenium;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ResourceBundle;
@@ -124,6 +131,10 @@ public class SeleniumBase extends UnitBase {
 		List<String> names = getMenuLinks("guiMenu", "header.gui", false);
 		assertTrue("Check for more than 0 GUI menu items", names.size() > 0);
 		boolean login = true;
+		checkEditLinks(names.get(0), login);
+		if (login)
+			login = false;
+		names = getMenuLinks("guiMenu", "header.gui", false);
 		for (String name : names) {
 			checkEditLinks(name, login);
 			if (login)
@@ -139,6 +150,7 @@ public class SeleniumBase extends UnitBase {
 
 		// check lang changes
 		openTest("/");
+
 		refs = getMenuLinks("langMenu", "lang.change", true);
 		List<String> langs = new ArrayList<String>();
 		for (String ref : refs) {
@@ -147,6 +159,7 @@ public class SeleniumBase extends UnitBase {
 		for (String ref : refs) {
 			lang = ref.substring(ref.length() - 2, ref.length());
 			open(ref);
+			screenshotRule.docShot("home." + lang);
 			sourceContains("<span>" + getMsg("lang.change") + "</span>", false);
 			for (String lang : langs) {
 				sourceContains(">" + getMsg("lang." + lang) + "</a>", false);
@@ -341,6 +354,7 @@ public class SeleniumBase extends UnitBase {
 	public void loginAdmin() {
 		speedControl();
 		WebElement form = waitForElement(By.id("signinForm"));
+		screenshotRule.docShot("login");
 		ResourceBundle bundle = ResourceBundle.getBundle("app");
 		String user = Utils.getProp(bundle, "default.admin", null);
 		String userpass = Utils.getProp(bundle, "default.adminpass", null);
@@ -369,15 +383,17 @@ public class SeleniumBase extends UnitBase {
 			menu = waitThenClick(By.id("guiMenu"), null);
 			waitThenClick(By.linkText(item), menu);
 		}
-
+		screenshotRule.docShot(item + ".list");
 		waitThenClick(By.linkText(getMsg("edit.new") + " " + item), null);
 		sourceContains(getMsg("edit.new") + " " + item, false);
 		assertNotNull("Checking for cancel button", getBy(By.xpath("//button[@value='cancel']"), null));
+		screenshotRule.docShot(item + ".new");
 		waitThenClick(By.xpath("//button[@value='cancel']"), null);
 
 		waitThenClick(By.linkText("Edit"), null);
 		sourceContains("Edit " + item, false);
 		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']"), null));
+		screenshotRule.docShot(item + ".edit");
 		waitThenClick(By.xpath("//button[@value='save']"), null);
 
 	}
@@ -411,6 +427,56 @@ public class SeleniumBase extends UnitBase {
 		return refs;
 	}
 
+	protected void genfilesMd() throws IOException {
+		Path fileList = Utils.createFile(".","files.md");
+		try (BufferedWriter bw = Files.newBufferedWriter(fileList, StandardOpenOption.TRUNCATE_EXISTING)) {
+			String dbUrl = Utils.getProp(bundle, "db.url");
+			bw.append("DB:" + dbUrl + "<br>");
+			bw.newLine();
+			bw.append("pom.xml<br>");
+			bw.newLine();
+			bw.append("README.md<br>");
+			bw.newLine();
+			bw.append("files.md<br>");
+			bw.newLine();
+			String root = Utils.getPath(".").toString().replace('\\', '/');
+			Path srcPath = Utils.getPath("src");
+			Files.walkFileTree(srcPath, new FileVisitor<Path>() {
+				@Override
+				public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+					Path path = file.normalize();
+					String pathStr = path.toString().replace('\\', '/').replace(root, ".");
+					bw.append(pathStr + "<br>");
+					bw.newLine();
+
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+
+				@Override
+				public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e) {
+			throw e;
+		}
+	}
+
+	/**
+	 * Do basic test of web site
+	 * 
+	 * @throws Exception
+	 */
 	protected void checkSite() throws Exception {
 		String staticTop = "/public";
 		// check statics
@@ -448,11 +514,34 @@ public class SeleniumBase extends UnitBase {
 	}
 
 	public class ScreenShotRule extends TestWatcher {
+		String docShots = "screenshots/";
 		String testName = "";
 		private long startTime = 0;
 		private long endTime = 0;
 
 		public ScreenShotRule() {
+			Path ds = Utils.getPath(docShots);
+			File p = ds.toFile().getParentFile();
+			if (!p.exists()) {
+				p.mkdirs();
+			}
+		}
+
+		public void docShot(String shotName) {
+			Path picPath = Utils.getPath(docShots, shotName + ".png");
+			takeShot(picPath.toFile());
+		}
+
+		public void takeShot(File destFile) {
+			try {
+				TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
+
+				File scrFile = takesScreenshot.getScreenshotAs(OutputType.FILE);
+				FileUtils.copyFile(scrFile, destFile);
+			} catch (IOException ioe) {
+				throw new RuntimeException(ioe);
+			}
+
 		}
 
 		@Override
@@ -471,16 +560,9 @@ public class SeleniumBase extends UnitBase {
 		@Override
 		protected void failed(Throwable e, Description description) {
 			endTime = System.currentTimeMillis();
-			try {
-				TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
-
-				File scrFile = takesScreenshot.getScreenshotAs(OutputType.FILE);
-				File destFile = new File(testName + ".screenShot.png");
-				FileUtils.copyFile(scrFile, destFile);
-				log.error("saved screenshot to:" + destFile.getAbsolutePath(), e);
-			} catch (IOException ioe) {
-				throw new RuntimeException(ioe);
-			}
+			File destFile = new File(testName + ".screenShot.png");
+			takeShot(destFile);
+			log.error("saved screenshot to:" + destFile.getAbsolutePath(), e);
 		}
 
 		@Override

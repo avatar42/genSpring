@@ -3,6 +3,8 @@
  */
 package ${basePkg}.selenium;
 
+import java.io.IOException;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.openqa.selenium.By;
@@ -22,12 +24,15 @@ public class SmokeTest extends SeleniumBase {
 
 	/**
 	 * Test test framework is working
+	 * 
+	 * @throws IOException
 	 */
 	@Test
-	public void getSearchPage() {
+	public void getSearchPage() throws IOException {
 		open("https://www.google.com");
 		WebElement element = driver.findElement(By.name("q"));
 		assertNotNull("Testing driver works", element);
+		genfilesMd();
 	}
 
 	/**

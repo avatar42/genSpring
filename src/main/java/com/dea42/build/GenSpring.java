@@ -40,9 +40,8 @@ import lombok.extern.slf4j.Slf4j;
  * <br>
  * 
  * @author David Abigt<br>
- * @version 1.0<br>
- *          <br>
- *          See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
+ *         <br>
+ *         See http://jakarta.apache.org/ojb/jdbc-types.html for data type info
  */
 @Slf4j
 public class GenSpring extends CommonMethods {
@@ -106,10 +105,15 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				for (String key : bundle.keySet()) {
 					String val = bundle.getString(key);
-					if (StringUtils.isBlank(val))
-						ps.println(key + "=");
-					else
+					if (StringUtils.isBlank(val)) {
+						if ("db.url".equals(key)) {
+							ps.println(key + "=" + db.getDbUrl());
+						} else {
+							ps.println(key + "=");
+						}
+					} else {
 						ps.println(key + "=" + val);
+					}
 					log.debug(key + "=" + val);
 				}
 				log.warn("Wrote:" + p.toString());
@@ -396,6 +400,7 @@ public class GenSpring extends CommonMethods {
 		writeIndex(colsInfo.keySet());
 		writeApiIndex(colsInfo.keySet());
 		updateMsgProps(colsInfo);
+		updateREADME(colsInfo);
 	}
 
 	private StringBuilder commentAdd(StringBuilder sb, String comment) {
@@ -832,6 +837,63 @@ public class GenSpring extends CommonMethods {
 						}
 					}
 					data = data + System.lineSeparator();
+				}
+			}
+			if (dataChged) {
+				Files.write(p, data.getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
+				log.warn("Wrote:" + p.toString());
+			} else {
+				log.warn(p.toString() + " up to date so will skip.");
+			}
+		} catch (Exception e) {
+			log.error("failed to update " + p, e);
+		}
+	}
+
+	/**
+	 * Add screen shot links to the README.md page
+	 * 
+	 * @param colsInfo
+	 */
+	private void updateREADME(Map<String, Map<String, ColInfo>> colsInfo) {
+		String outFile = baseDir + "/README.md";
+		Path p = Utils.getPath(outFile);
+		String data = "";
+		boolean dataChged = false;
+		try {
+			data = new String(Files.readAllBytes(p));
+			Set<String> set = colsInfo.keySet();
+			// If already in there then skip
+			if (!data.contains("### Admin screens" + System.lineSeparator())) {
+				data = data + System.lineSeparator() + "### Admin screens" + System.lineSeparator();
+				for (String className : set) {
+					if (classHasUserFields(className)) {
+						dataChged = true;
+						data = data + "#### " + className + " screens" + System.lineSeparator();
+						data = data + "![" + className + " list screen](screenshots/" + className + ".list.png)"
+								+ System.lineSeparator();
+						data = data + "![" + className + " new screen](screenshots/" + className + ".new.png)"
+								+ System.lineSeparator();
+						data = data + "![" + className + " edit screen](screenshots/" + className + ".edit.png)"
+								+ System.lineSeparator();
+						data = data + System.lineSeparator();
+					}
+				}
+			}
+			if (!data.contains("### User screens" + System.lineSeparator())) {
+				data = data + System.lineSeparator() + "### User screens" + System.lineSeparator();
+				for (String className : set) {
+					if (!classHasUserFields(className)) {
+						dataChged = true;
+						data = data + "#### " + className + " screens" + System.lineSeparator();
+						data = data + "![" + className + " list screen](screenshots/" + className + ".list.png)"
+								+ System.lineSeparator();
+						data = data + "![" + className + " new screen](screenshots/" + className + ".new.png)"
+								+ System.lineSeparator();
+						data = data + "![" + className + " edit screen](screenshots/" + className + ".edit.png)"
+								+ System.lineSeparator();
+						data = data + System.lineSeparator();
+					}
 				}
 			}
 			if (dataChged) {

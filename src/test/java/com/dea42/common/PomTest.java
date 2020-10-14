@@ -3,16 +3,16 @@
  */
 package com.dea42.common;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import org.junit.Test;
 
-import com.dea42.build.CommonMethods;
+import com.dea42.build.Java2VM;
 
 /**
  * 
@@ -30,8 +30,15 @@ public class PomTest {
 	public void test() throws IOException {
 		Path file = Utils.getPath("pom.xml");
 		String data = new String(Files.readAllBytes(file));
-		assertTrue("Checking pom.xml version is " + CommonMethods.genSpringVersion,
-				data.contains("<version>" + CommonMethods.genSpringVersion + "-SNAPSHOT</version>"));
+		Java2VM cm = new Java2VM("genSpringTest");
+		assertTrue("Checking pom.xml groupId is " + cm.getSrcGroupId(),
+				data.contains("<groupId>" + cm.getSrcGroupId() + "</groupId>"));
+		assertTrue("Checking pom.xml artifactId is " + cm.getSrcArtifactId(),
+				data.contains("<artifactId>" + cm.getSrcArtifactId() + "</artifactId>"));
+		assertTrue("Checking pom.xml version is " + cm.getGenSpringVersion(),
+				data.contains("<version>" + cm.getGenSpringVersion() + "-SNAPSHOT</version>"));
+		assertEquals("Checking pom.xml id", cm.getSrcId(),
+				cm.getSrcGroupId() + ":" + cm.getSrcArtifactId() + ":jar:" + cm.getGenSpringVersion() + "-SNAPSHOT");
 	}
 
 }

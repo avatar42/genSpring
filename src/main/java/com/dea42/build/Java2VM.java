@@ -64,7 +64,7 @@ public class Java2VM extends CommonMethods {
 		context.put("basePkg", basePkg);
 		context.put("baseGroupId", baseGroupId);
 		context.put("baseModule", baseModule);
-		context.put("genSpringVersion", GenSpring.genSpringVersion);
+		context.put("genSpringVersion", genSpringVersion);
 		context.put("appVersion", appVersion);
 		context.put("appName", appName);
 		context.put("appDescription", appDescription);
@@ -115,7 +115,7 @@ public class Java2VM extends CommonMethods {
 		} else {
 			data = data.replace(baseGroupId, "${baseGroupId}");
 			data = data.replace(baseModule, "${baseModule}");
-			data = data.replace(GenSpring.genSpringVersion, "${genSpringVersion}");
+			data = data.replace(genSpringVersion, "${genSpringVersion}");
 			data = data.replace("@version " + appVersion + "<br>", "@version ${appVersion}<br>");
 //			data = data.replaceAll("(" + idPrim + ") ([A-Z,_]*)_ID;", "\\${idPrim} $2_ID;");
 			data = Pattern.compile("(" + idPrim + ") ([A-Z,_]*)_ID;").matcher(data).replaceAll("\\${idPrim} $2_ID;");

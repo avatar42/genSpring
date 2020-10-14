@@ -32,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
  * <br>
  * 
  * @author David Abigt <br>
- * @version 1.0
  */
 @Slf4j
 public class Db {

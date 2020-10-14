@@ -1,14 +1,18 @@
 package ${basePkg}.utils;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
 import org.apache.commons.lang3.StringUtils;
-import lombok.extern.slf4j.Slf4j;
 
+import lombok.extern.slf4j.Slf4j;
 /**
  * General utils used by app from GenSpring static resources
  * 
@@ -103,6 +107,54 @@ public class Utils {
 		}
 
 		return defaultVal;
+	}
+	
+	/**
+	 * Returns a path that is this path with redundant name elements eliminated.
+	 * Adds "../" to path if currently in target folder to deal with diffs in
+	 * running from direct and as embedded maven install test
+	 * 
+	 * @param path the path string or initial part of the path string
+	 * @param more additional strings to be joined to form the path string
+	 * @return the resulting path or this path if it does not contain redundant name
+	 *         elements; an empty path is returned if this path does have a root
+	 *         component and all name elements are redundant
+	 * 
+	 */
+	public static Path getPath(final String path, final String... more) {
+		// toAbsolutePath() required for getParent() to work
+		Path cwd = Paths.get(".").toAbsolutePath();
+		String tpath = path.replace('\\', '/');
+		// check for in target folder. If so make rel to parent
+		if (cwd.getParent().endsWith("target")) {
+			tpath = cwd.getParent().getParent() + "/" + path.replace('\\', '/');
+		}
+
+		return Paths.get(tpath, more).toAbsolutePath().normalize();
+	}
+
+	/**
+	 * Creates all the parent folders as needed and an empty file. It returns null
+	 * if the old file exists.
+	 * 
+	 * @param baseDir path of folder to use as root for relPath. If ends in target then target is removed.
+	 * @param relPath path of file to create
+	 * @return
+	 */
+	public static Path createFile(String baseDir, String relPath) {
+		Path p = getPath(baseDir, relPath);
+//		if (p.toFile().exists()) {
+//			p.toFile().delete();
+//		}
+		try {
+			Files.createDirectories(p.getParent());
+			p = Files.createFile(p);
+		} catch (IOException e) {
+			log.warn(e.getMessage() + " exists will skip");
+			return null;
+		}
+
+		return p;
 	}
 
 }

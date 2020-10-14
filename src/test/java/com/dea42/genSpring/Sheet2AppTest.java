@@ -199,6 +199,10 @@ public class Sheet2AppTest {
 			Utils.deletePath(Utils.getPath(outdir, "target"));
 			Utils.deletePath(Utils.getPath(outdir, "bin"));
 			Utils.deletePath(Utils.getPath(outdir, "pom.xml"));
+			Utils.deletePath(Utils.getPath(outdir, "README.md"));
+			Utils.deletePath(Utils.getPath(outdir, "files.md"));
+			Utils.deletePath(Utils.getPath(outdir, "listFiles.bat"));
+			Utils.deletePath(Utils.getPath(outdir, "screenshots"));
 		}
 		if (clearDB) {
 			String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
@@ -341,7 +345,7 @@ public class Sheet2AppTest {
 
 				String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
 				String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
-				String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", "1.0.0");
+				String appVersion = Utils.getProp(bundle, GenSpring.PROPKEY + ".version", gs.getGenSpringVersion());
 
 				Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war")
 						.normalize();

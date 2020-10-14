@@ -13,7 +13,6 @@ import lombok.Data;
  * <br>
  * 
  * @author David Abigt <br>
- * @version 1.0
  */
 @Data
 public class ColInfo implements Serializable {

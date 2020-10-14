@@ -4,11 +4,18 @@
 package com.dea42.build;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
+
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -26,8 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CommonMethods {
 	public static final String PROPKEY = "genSpring";
-	// Note change pom.xml to match
-	public static final String genSpringVersion = "0.5.1";
 	public static String ACCOUNT_CLASS = "Account";
 	public static String ACCOUNT_TABLE = "Account";
 	public static String USERID_COLUMN = "userId";
@@ -44,15 +49,19 @@ public class CommonMethods {
 	protected String ADMIN_PASS;
 	protected String ADMIN_ROLE;
 
+	// read from pom.xml
+	protected String srcId;
+	protected String srcGroupId;
+	protected String srcArtifactId;
+	protected String genSpringVersion;
+	protected String srcPkg;
+	protected String srcPath;
+
 	protected boolean useDouble = false;
 	protected boolean beanToString = false;
 	private String bundelName;
 	protected ResourceBundle bundle;
 	protected ResourceBundle renames;
-	protected String srcGroupId = "com.dea42";
-	protected String srcArtifactId = "genspring";
-	protected String srcPkg;
-	protected String srcPath;
 	protected String baseGroupId;
 	protected String baseArtifactId;
 	protected String baseModule;
@@ -76,10 +85,29 @@ public class CommonMethods {
 	protected String idPrim = "long";
 	protected String idMod = "l";
 
+	private void getPomValues() throws IOException {
+		MavenXpp3Reader reader = new MavenXpp3Reader();
+		try {
+			Path p = Utils.getPath("pom.xml");
+			Model model = reader.read(new FileReader(p.toFile()));
+			srcId = model.getId();
+			srcGroupId = model.getGroupId();
+			srcArtifactId = model.getArtifactId();
+			genSpringVersion = model.getVersion();
+			if (genSpringVersion.endsWith("-SNAPSHOT"))
+				genSpringVersion = genSpringVersion.substring(0, genSpringVersion.length() - 9);
+			srcPkg = srcGroupId + '.' + srcArtifactId;
+			srcPath = srcPkg.replace('.', '/');
+		} catch (FileNotFoundException | XmlPullParserException e) {
+			throw new IOException(e);
+		}
+
+	}
+
 	protected void initVars(String bundleName) throws IOException {
 		GregorianCalendar gc = new GregorianCalendar();
 		year = gc.get(Calendar.YEAR);
-
+		getPomValues();
 		setBundelName(bundleName);
 		try {
 			log.debug("loading:" + bundleName);
@@ -94,10 +122,10 @@ public class CommonMethods {
 			log.error("Failed to read:rename", e);
 			throw e;
 		}
-		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir","target");
+		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir", "target");
 		schema = Utils.getProp(bundle, PROPKEY + ".schema");
-		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg");
-		baseModule = Utils.getProp(bundle, PROPKEY + ".module");
+		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg", srcGroupId);
+		baseModule = Utils.getProp(bundle, PROPKEY + ".module", srcArtifactId);
 		baseArtifactId = Utils.getProp(bundle, PROPKEY + ".artifactId", baseModule);
 		basePkg = baseGroupId + '.' + baseModule;
 		basePath = basePkg.replace('.', '/');
@@ -114,8 +142,6 @@ public class CommonMethods {
 		filteredTables.add("hibernate_sequence");
 		filteredTables.add("sqlite_sequence");
 
-		srcPkg = srcGroupId + '.' + srcArtifactId;
-		srcPath = srcPkg.replace('.', '/');
 		File outDir = Utils.getPath(baseDir).toFile();
 		if (!outDir.exists()) {
 			if (!outDir.mkdirs()) {

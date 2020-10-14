@@ -338,7 +338,8 @@ public class Utils {
 	 * Creates all the parent folders as needed and an empty file. It returns null
 	 * if the old file exists.
 	 * 
-	 * @param baseDir path of folder to use as root for relPath. If ends in target then target is removed.
+	 * @param baseDir path of folder to use as root for relPath. If ends in target
+	 *                then target is removed.
 	 * @param relPath path of file to create
 	 * @return
 	 */
@@ -431,7 +432,17 @@ public class Utils {
 						if (exc == null) {
 							if (!path.equals(dir)) {
 								log.debug("Deleting dir:" + dir);
-								Files.delete(dir);
+								try {
+									Files.delete(dir);
+								} catch (IOException e) {
+									// see an occasional race condition so give second try after a sec
+									try {
+										Thread.sleep(100);
+									} catch (InterruptedException e1) {
+										// ignored
+									}
+									Files.delete(dir);
+								}
 							}
 							return FileVisitResult.CONTINUE;
 						} else {

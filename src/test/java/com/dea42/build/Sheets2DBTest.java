@@ -225,7 +225,6 @@ public class Sheets2DBTest {
 
 		// Validate DB
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName);
 
 		quickChkTable(db, bundle, "Account");

@@ -311,9 +311,9 @@ public class Utils {
 	}
 
 	/**
-	 * Returns a path that is this path with redundant name elements eliminated.
-	 * Adds "../" to path if currently in target folder to deal with diffs in
-	 * running from direct and as embedded maven install test
+	 * Returns a path that is this path with redundant name elements eliminated. If
+	 * System.getProperty("user.dir") ends in target folder uses parent to deal with
+	 * diffs in running from inside Eclipse and as embedded maven install test
 	 * 
 	 * @param path the path string or initial part of the path string
 	 * @param more additional strings to be joined to form the path string
@@ -324,14 +324,51 @@ public class Utils {
 	 */
 	public static Path getPath(final String path, final String... more) {
 		// toAbsolutePath() required for getParent() to work
-		Path cwd = Paths.get(".").toAbsolutePath();
-		String tpath = path.replace('\\', '/');
+		Path cwd = Paths.get(System.getProperty("user.dir")).toAbsolutePath();
 		// check for in target folder. If so make rel to parent
-		if (cwd.getParent().endsWith("target")) {
-			tpath = cwd.getParent().getParent() + "/" + path.replace('\\', '/');
+		if (cwd.endsWith("target")) {
+			cwd = cwd.getParent().toAbsolutePath();
+		}
+		Path p;
+		if (more.length == 0) {
+			p = Paths.get(path, more);
+		} else {
+			// try to deal with an absolute path passed in more
+			List<String> m = new ArrayList<String>(more.length);
+			for (int i = 0; i < more.length; i++) {
+				String fs = more[i];
+				if (fs.startsWith("/") || (fs.length() > 1 && fs.charAt(1) == ':')) {
+					fs = getRelPath(cwd.toString(), fs);
+				}
+				m.add(i, fs);
+			}
+			p = Paths.get(path, m.toArray(more));
 		}
 
-		return Paths.get(tpath, more).toAbsolutePath().normalize();
+		Path rtn = cwd.resolve(p).toAbsolutePath().normalize();
+		return rtn;
+//		return Paths.get(tpath, more).toAbsolutePath().normalize();
+	}
+
+	/**
+	 * Calls getPath(final String path, final String... more) then
+	 * .toString().replace('\\', '/') to convert to String
+	 * 
+	 * @see getPath(String, String...)
+	 * 
+	 * @param path
+	 * @param more
+	 * @return
+	 */
+	public static String getPathAsString(final String path, final String... more) {
+		return getPath(path, more).toString().replace('\\', '/');
+	}
+
+	public static String getRelPath(final String base, final String rel) {
+		Path basePath = Paths.get(base).toAbsolutePath();
+		Path childPath = Paths.get(rel).toAbsolutePath();
+		Path relPath = basePath.relativize(childPath);
+		return relPath.toString();
 	}
 
 	/**
@@ -340,10 +377,10 @@ public class Utils {
 	 * 
 	 * @param baseDir path of folder to use as root for relPath. If ends in target
 	 *                then target is removed.
-	 * @param relPath path of file to create
+	 * @param relPath paths of file to create
 	 * @return
 	 */
-	public static Path createFile(String baseDir, String relPath) {
+	public static Path createFile(String baseDir, String... relPath) {
 		Path p = getPath(baseDir, relPath);
 //		if (p.toFile().exists()) {
 //			p.toFile().delete();
@@ -400,11 +437,15 @@ public class Utils {
 		}).start();
 	}
 
+	/**
+	 * Delete the path
+	 * 
+	 * @param path
+	 * @throws IOException
+	 */
 	public static void deletePath(Path path) throws IOException {
 		if (path.toFile().exists()) {
-			if (path.toFile().isFile()) {
-				Files.delete(path);
-			} else if (path.toFile().isDirectory()) {
+			if (path.toFile().isDirectory()) {
 				Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
 					@Override
 					public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -455,6 +496,12 @@ public class Utils {
 					}
 				});
 			}
+			Files.delete(path);
+		}
+		if (path.toFile().exists()) {
+			throw new IOException(path + " still exists");
+		} else {
+			log.debug("Deleted:" + path.toAbsolutePath());
 		}
 	}
 

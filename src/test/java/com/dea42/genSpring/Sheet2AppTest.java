@@ -237,6 +237,7 @@ public class Sheet2AppTest {
 		if (pom.exists()) {
 			long ts = pom.lastModified();
 			backupFileOrFolder(bundle, outdir, ts, "pom.xml");
+			backupFileOrFolder(bundle, outdir, ts, "README.md");
 			backupFileOrFolder(bundle, outdir, ts, bundleName + "DB.sqlite");
 			backupFileOrFolder(bundle, outdir, ts, "src");
 		}

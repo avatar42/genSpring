@@ -428,7 +428,7 @@ public class SeleniumBase extends UnitBase {
 	}
 
 	protected void genfilesMd() throws IOException {
-		Path fileList = Utils.createFile(".","files.md");
+		Path fileList = Utils.createFile(".","files.md",true);
 		try (BufferedWriter bw = Files.newBufferedWriter(fileList, StandardOpenOption.TRUNCATE_EXISTING)) {
 			String dbUrl = Utils.getProp(bundle, "db.url");
 			bw.append("DB:" + dbUrl + "<br>");

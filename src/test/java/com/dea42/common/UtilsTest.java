@@ -7,7 +7,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -18,11 +17,14 @@ import org.junit.runners.BlockJUnit4ClassRunner;
 import com.dea42.build.CommonMethods;
 import com.dea42.build.Sheets2DBTest;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * @author avata
  *
  */
 @RunWith(BlockJUnit4ClassRunner.class)
+@Slf4j
 public class UtilsTest {
 
 	/**
@@ -107,24 +109,57 @@ public class UtilsTest {
 	}
 
 	/**
-	 * Test method for
+	 * Tests method for
+	 * {@link com.dea42.common.Utils#getPathAsString(java.lang.String, java.lang.String)}.
+	 * and
 	 * {@link com.dea42.common.Utils#getPath(java.lang.String, java.lang.String)}.
+	 * since getPathAsString just converts getPath return to standardized String
 	 */
 	@Test
-	public void testGetPath() {
-		String cwd = System.getProperty("user.dir").toString().replace('\\', '/');
-		if (cwd.endsWith("target"))
-			cwd = cwd.substring(0, cwd.length() - 7);
+	public void testGetPathAsString() {
+		String prjRoot = System.getProperty("user.dir").toString().replace('\\', '/');
+		if (prjRoot.endsWith("target"))
+			prjRoot = prjRoot.substring(0, prjRoot.length() - 7);
 
-		Path p = Utils.getPath("static");
-		assertEquals(cwd + "/static", p.toString().replace('\\', '/'));
+		String p = Utils.getPathAsString("src/main/resources/base");
+		assertEquals(prjRoot + "/src/main/resources/base", p);
+		p = Utils.getPathAsString("../genSpring/src/main/resources/base");
+		assertEquals(prjRoot + "/src/main/resources/base", p);
+		p = Utils.getPathAsString("../genSpring", "src/main/resources/base");
+		assertEquals(prjRoot + "/src/main/resources/base", p);
+
 		// no way to cd in Java. Must run manually in other folder to test in target
 		// folder logic
 		// TODO: ? % java -cp .:"/Applications/IntelliJ IDEA 13 CE.app/Contents/lib/*"
 		// org.junit.runner.JUnitCore UtilsTest
-		p = Utils.getPath("../genSpring/static");
-		assertEquals(cwd + "/static", p.toString().replace('\\', '/'));
-
+		System.setProperty("user.dir", prjRoot + "/target");
+		log.info("Changed to:" + System.getProperty("user.dir"));
+		p = Utils.getPathAsString("src/main/resources/base");
+		assertEquals(prjRoot + "/src/main/resources/base", p);
+		p = Utils.getPathAsString("../genSpring/src/main/resources/base");
+		assertEquals(prjRoot + "/src/main/resources/base", p);
+		p = Utils.getPathAsString("../genSpringTest", "target/v2j/",
+				"src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm");
+		assertEquals(prjRoot.replace("/genSpring", "/genSpringTest")
+				+ "/target/v2j/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm",
+				p);
+		p = Utils.getPathAsString("../genSpringTest",
+				prjRoot + "/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm");
+		assertEquals(prjRoot.replace("/genSpring", "/genSpringTest")
+				+ "/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm",
+				p);
+		log.debug("passed:" + p);
 	}
 
+	/**
+	 * Test method for
+	 * {@link com.dea42.common.Utils#getRelPath(java.lang.String, java.lang.String)}.
+	 */
+	@Test
+	public void testGetRelPath() {
+		String relPathStr = Utils.getRelPath("D:\\SpringTools4.6.1\\workspace\\genSpring", "D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java");
+		assertEquals("..\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java", relPathStr);
+	}
+
+	
 }

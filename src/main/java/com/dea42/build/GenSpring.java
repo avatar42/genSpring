@@ -100,7 +100,7 @@ public class GenSpring extends CommonMethods {
 	 * Simplify test generation by just passing props use to gen to the app's tests
 	 */
 	private void writeTestProps() {
-		Path p = Utils.createFile(baseDir, "/src/test/resources/test.properties");
+		Path p = Utils.createFile(baseDir, "src/test/resources/test.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				for (String key : bundle.keySet()) {
@@ -122,7 +122,7 @@ public class GenSpring extends CommonMethods {
 				p.toFile().delete();
 			}
 		}
-		p = Utils.createFile(baseDir, "/src/test/resources/rename.properties");
+		p = Utils.createFile(baseDir, "src/test/resources/rename.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				for (String key : renames.keySet()) {
@@ -146,7 +146,7 @@ public class GenSpring extends CommonMethods {
 	 * @param list
 	 */
 	private void writeIndex(Set<String> set) {
-		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/index.html");
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.home", null));
@@ -166,7 +166,7 @@ public class GenSpring extends CommonMethods {
 	}
 
 	private void writeApiIndex(Set<String> set) {
-		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/api_index.html");
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/api_index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.restApi", null));
@@ -200,7 +200,7 @@ public class GenSpring extends CommonMethods {
 	}
 
 	private void writeNav(Set<String> set) {
-		Path p = Utils.createFile(baseDir, "/src/main/resources/templates/fragments/header.html");
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/fragments/header.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("<!DOCTYPE html>");
@@ -326,7 +326,7 @@ public class GenSpring extends CommonMethods {
 			@Override
 			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
 				String relDir = staticPath.relativize(dir).toString().replace('\\', '/').replace(srcPath, basePath);
-				Path target = Utils.getPath(baseDir + "/" + relDir);
+				Path target = Utils.getPath(baseDir, relDir);
 				Files.createDirectories(target);
 
 				log.debug("preVisitDirectory: " + dir + "->" + target);
@@ -338,10 +338,10 @@ public class GenSpring extends CommonMethods {
 			 */
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-				log.info("Copying:" + file);
 				String relPath = staticPath.relativize(file).toString().replace('\\', '/').replace(srcPath, basePath);
 
 				if (file.toString().endsWith(".vm")) {
+					log.info("Converting:" + file);
 					relPath = relPath.substring(0, relPath.length() - 3);
 					j2m.vm2java(file.toString(), relPath);
 				} else {
@@ -353,6 +353,8 @@ public class GenSpring extends CommonMethods {
 						} catch (Exception e) {
 							log.error("failed to create " + p, e);
 						}
+					} else {
+						log.warn("Exists. skipping:" + relPath);
 					}
 				}
 				return FileVisitResult.CONTINUE;
@@ -757,7 +759,7 @@ public class GenSpring extends CommonMethods {
 	private void writeApiController(Set<String> set) {
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + "/ApiController.java";
+		String outFile = "src/main/java/" + relPath + "/ApiController.java";
 		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
@@ -809,8 +811,7 @@ public class GenSpring extends CommonMethods {
 	 * @param colsInfo
 	 */
 	private void updateMsgProps(Map<String, Map<String, ColInfo>> colsInfo) {
-		String outFile = baseDir + "/src/main/resources/messages.properties";
-		Path p = Utils.getPath(outFile);
+		Path p = Utils.getPath(baseDir, "src/main/resources/messages.properties");
 		String data = "";
 		boolean dataChged = false;
 		try {
@@ -856,12 +857,10 @@ public class GenSpring extends CommonMethods {
 	 * @param colsInfo
 	 */
 	private void updateREADME(Map<String, Map<String, ColInfo>> colsInfo) {
-		String outFile = baseDir + "/README.md";
-		Path p = Utils.getPath(outFile);
+		Path p = Utils.getPath(baseDir, "README.md");
 		String data = "";
 		boolean dataChged = false;
 		try {
-			data = new String(Files.readAllBytes(p));
 			Set<String> set = colsInfo.keySet();
 			// If already in there then skip
 			if (!data.contains("### Admin screens" + System.lineSeparator())) {
@@ -916,8 +915,7 @@ public class GenSpring extends CommonMethods {
 		Set<String> set = colsInfo.keySet();
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + "/ApiControllerTest.java";
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/test/java", relPath, "ApiControllerTest.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1080,8 +1078,7 @@ public class GenSpring extends CommonMethods {
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".repo";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + "Repository.java";
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/java", relPath, className + "Repository.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1187,8 +1184,7 @@ public class GenSpring extends CommonMethods {
 
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		String outFile = "/src/main/resources/templates/edit_" + fieldName + ".html";
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/edit_" + fieldName + ".html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader(className, "edit"));
@@ -1416,9 +1412,7 @@ public class GenSpring extends CommonMethods {
 
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		String outFile = "/src/main/resources/templates/" + fieldName + "s.html";
-
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/" + fieldName + "s.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> processed = new HashSet<String>();
@@ -1466,8 +1460,7 @@ public class GenSpring extends CommonMethods {
 		Set<String> set = colsInfo.keySet();
 		String pkgNam = basePkg;
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + "/MockBase.java";
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/test/java", relPath, "MockBase.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -1829,9 +1822,8 @@ public class GenSpring extends CommonMethods {
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/test/java/" + relPath + '/' + className + "ControllerTest.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/test/java", relPath, className + "ControllerTest.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -2070,9 +2062,8 @@ public class GenSpring extends CommonMethods {
 
 		String pkgNam = basePkg + ".controller";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + "Controller.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/java", relPath, className + "Controller.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -2287,9 +2278,8 @@ public class GenSpring extends CommonMethods {
 		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String pkgNam = basePkg + ".service";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + "Services.java";
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/java", relPath, className + "Services.java");
 		if (p != null) {
 			boolean hasPasswordField = false;
 			for (ColInfo c : colNameToInfoMap.values()) {
@@ -2434,7 +2424,7 @@ public class GenSpring extends CommonMethods {
 	private void writeAppProps() {
 		String dbUrl = Utils.getProp(bundle, "db.url", "");
 		String dbDriver = Utils.getProp(bundle, "db.driver", "");
-		Path p = Utils.createFile(baseDir, "/src/main/resources/application.properties");
+		Path p = Utils.createFile(baseDir, "src/main/resources/application.properties");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("spring.jpa.hibernate.ddl-auto=none");
@@ -2488,8 +2478,7 @@ public class GenSpring extends CommonMethods {
 
 		String pkgNam = basePkg + ".form";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + "Form.java";
-		Path p = Utils.createFile(baseDir, outFile);
+		Path p = Utils.createFile(baseDir, "src/main/java", relPath, className + "Form.java");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
@@ -2599,7 +2588,7 @@ public class GenSpring extends CommonMethods {
 				p.toFile().delete();
 			}
 
-			log.debug("Created bean" + outFile);
+			log.debug("Created bean" + p);
 		}
 	}
 
@@ -2619,7 +2608,7 @@ public class GenSpring extends CommonMethods {
 
 		String pkgNam = basePkg + ".entity";
 		String relPath = pkgNam.replace('.', '/');
-		String outFile = "/src/main/java/" + relPath + '/' + className + ".java";
+		String outFile = "src/main/java/" + relPath + '/' + className + ".java";
 		Path p = Utils.createFile(baseDir, outFile);
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {

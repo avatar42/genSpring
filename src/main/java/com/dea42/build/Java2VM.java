@@ -61,6 +61,7 @@ public class Java2VM extends CommonMethods {
 		context.put("idCls", idCls);
 		context.put("idPrim", idPrim);
 		context.put("idMod", idMod);
+		context.put("idparse", idparse);
 		context.put("basePkg", basePkg);
 		context.put("baseGroupId", baseGroupId);
 		context.put("baseModule", baseModule);
@@ -68,6 +69,7 @@ public class Java2VM extends CommonMethods {
 		context.put("appVersion", appVersion);
 		context.put("appName", appName);
 		context.put("appDescription", appDescription);
+
 	}
 
 	/**
@@ -92,40 +94,64 @@ public class Java2VM extends CommonMethods {
 		throw new IOException(fpath + " is not the parent of " + rpath);
 	}
 
-	public void vm2java(String file, String relPath) throws IOException {
-		Path p = Utils.createFile(baseDir, relPath);
+	/**
+	 * Do Velocity.mergeTemplate() on templatefilePathStr outputting to
+	 * outFilePathStr, Note if outFilePathStr exists will skip.
+	 * 
+	 * @param templatefilePathStr
+	 * @param outFilePathStr
+	 * @throws IOException
+	 */
+	public void vm2java(String templatefilePathStr, String outFilePathStr) throws IOException {
+		Path p = Utils.createFile(baseDir, outFilePathStr);
 		if (p != null) {
+			log.debug("Converting:" + templatefilePathStr + " to " + p);
 			Writer writer = new FileWriter(p.toFile());
-			Velocity.mergeTemplate(getResourcePathString(file), "UTF-8", context, writer);
+			Velocity.mergeTemplate(getResourcePathString(templatefilePathStr), "UTF-8", context, writer);
 			writer.flush();
 			writer.close();
+		} else {
+			log.warn(outFilePathStr + " exists. Skipping:" + templatefilePathStr);
 		}
 	}
 
-	public void java2vm(String inpath, String outFile) throws IOException {
-		Path file = Paths.get(inpath);
-		String data = new String(Files.readAllBytes(file));
-		data = data.replace(basePkg, "${basePkg}");
-		if (file.getFileName().endsWith("pom.xml")) {
-			data = data.replace("<groupId>" + baseGroupId + "</groupId>", "<groupId>${baseGroupId}</groupId>");
-			data = data.replace("<artifactId>" + baseArtifactId + "</artifactId>",
-					"<artifactId>${baseArtifactId}</artifactId>");
-			data = data.replace("<version>" + appVersion + "-SNAPSHOT</version>",
-					"<version>${appVersion}-SNAPSHOT</version>");
-		} else {
-			data = data.replace(baseGroupId, "${baseGroupId}");
-			data = data.replace(baseModule, "${baseModule}");
-			data = data.replace(genSpringVersion, "${genSpringVersion}");
-			data = data.replace("@version " + appVersion + "<br>", "@version ${appVersion}<br>");
-//			data = data.replaceAll("(" + idPrim + ") ([A-Z,_]*)_ID;", "\\${idPrim} $2_ID;");
-			data = Pattern.compile("(" + idPrim + ") ([A-Z,_]*)_ID;").matcher(data).replaceAll("\\${idPrim} $2_ID;");
-			data = Pattern.compile("id\", ([0-9])" + idMod + "\\);").matcher(data).replaceAll("id\", $1\\${idMod}\\);");
-			// .setId(0${idMod})
-			data = Pattern.compile(".setId\\(([0-9])" + idMod + "\\);").matcher(data)
-					.replaceAll(".setId\\($1\\${idMod}\\);");
-		}
-		Path p = Utils.createFile(baseDir, outFile);
+	/**
+	 * Attempts to convert srcFilePathStr to Velocity template based on know
+	 * replacement values and write the converted data to outTemplatefilePathStr
+	 * 
+	 * @See initVars(String)
+	 * 
+	 * @param srcFilePathStr
+	 * @param outTemplatefilePathStr
+	 * @throws IOException
+	 */
+	public void java2vm(String srcFilePathStr, String outTemplatefilePathStr) throws IOException {
+		Path p = Utils.createFile(baseDir, outTemplatefilePathStr);
 		if (p != null) {
+			Path file = Paths.get(srcFilePathStr);
+			String data = new String(Files.readAllBytes(file));
+			data = data.replace(basePkg, "${basePkg}");
+			if (file.getFileName().endsWith("pom.xml")) {
+				data = data.replaceFirst("<groupId>.*?</groupId>", "<groupId>\\${baseGroupId}</groupId>");
+				data = data.replaceFirst("<artifactId>.*?</artifactId>",
+						"<artifactId>\\${baseArtifactId}</artifactId>");
+				data = data.replaceFirst("<version>.*?</version>", "<version>\\${appVersion}-SNAPSHOT</version>");
+				data = data.replaceFirst("<description>.*?</description>",
+						"<description>\\${appDescription}</description>");
+			} else {
+				data = data.replace(baseGroupId, "${baseGroupId}");
+				data = data.replace(baseModule, "${baseModule}");
+				data = data.replace(genSpringVersion, "${genSpringVersion}");
+				data = data.replace("@version " + appVersion + "<br>", "@version ${appVersion}<br>");
+//			data = data.replaceAll("(" + idPrim + ") ([A-Z,_]*)_ID;", "\\${idPrim} $2_ID;");
+				data = Pattern.compile("(" + idPrim + ") ([A-Z,_]*)_ID;").matcher(data)
+						.replaceAll("\\${idPrim} $2_ID;");
+				data = Pattern.compile("id\", ([0-9])" + idMod + "\\);").matcher(data)
+						.replaceAll("id\", $1\\${idMod}\\);");
+				// .setId(0${idMod})
+				data = Pattern.compile(".setId\\(([0-9])" + idMod + "\\);").matcher(data)
+						.replaceAll(".setId\\($1\\${idMod}\\);");
+			}
 			try {
 				Files.write(p, data.getBytes(), StandardOpenOption.APPEND);
 				log.warn("Wrote:" + p.toString());

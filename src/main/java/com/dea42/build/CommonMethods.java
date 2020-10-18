@@ -82,6 +82,7 @@ public class CommonMethods {
 	protected Db db;
 	protected boolean isSQLite = false;
 	protected String idCls = "Long";
+	protected String idparse = "parseLong";
 	protected String idPrim = "long";
 	protected String idMod = "l";
 
@@ -164,6 +165,7 @@ public class CommonMethods {
 			idCls = db.getIdTypeCls().getSimpleName();
 			idPrim = db.getIdTypePrim();
 			idMod = db.getIdTypeMod();
+			idparse = "parseInt";
 		}
 
 	}

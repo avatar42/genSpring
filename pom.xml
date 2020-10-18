@@ -6,7 +6,7 @@
 
 	<groupId>com.dea42</groupId>
 	<artifactId>genspring</artifactId>
-	<version>0.5.2-SNAPSHOT</version>
+	<version>0.5.3-SNAPSHOT</version>
 	<name>GenSpring</name>
 	<description>Spring Boot app generator</description>
 
@@ -135,9 +135,11 @@
 				<configuration>
 					<failIfNoTests>false</failIfNoTests>
 					<workingDirectory>${project.build.directory}</workingDirectory>
+					<!-- 
 					<excludes>
 						<exclude>**/Java2VMTest.java</exclude>
 					</excludes>
+					 -->
 				</configuration>
 			</plugin>
 

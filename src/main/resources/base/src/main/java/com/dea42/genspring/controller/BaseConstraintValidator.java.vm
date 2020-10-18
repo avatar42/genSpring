@@ -69,12 +69,17 @@ public class BaseConstraintValidator<A extends Annotation, T> implements Constra
 	 */
 	protected boolean isNew(final Object data, final ConstraintValidatorContext context) {
 		try {
-			Long id = Long.parseLong(BeanUtils.getProperty(data, idfieldName));
-			return (id != null && id == 0);
+			String s = BeanUtils.getProperty(data, idfieldName);
+			if (s != null) {
+				${idCls} id = ${idCls}.${idparse}(s);
+				return (id != null && id == 0);
+			} else {
+				return true;
+			}
 		} catch (InvocationTargetException | NoSuchMethodException e) {
 			// not here / accessible so assume not new
 		} catch (Exception e) {
-			log.warn(fieldName, e);
+			log.warn(idfieldName, e);
 		}
 		return false;
 	}

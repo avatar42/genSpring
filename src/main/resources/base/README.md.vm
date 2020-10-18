@@ -3,8 +3,10 @@ ${appDescription}
 
 [Files list](files.md)
 
+#[[
 ## Screen shots
 ### Common screens
+]]#
 ![Login screen](screenshots/login.png)
 ![English home screen](screenshots/home.en.png)
 ![German home screen](screenshots/home.de.png)

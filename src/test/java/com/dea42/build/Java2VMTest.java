@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.junit.Assume;
 import org.junit.Test;
 
 import com.dea42.common.Utils;
@@ -49,40 +50,43 @@ public class Java2VMTest {
 	}
 
 	/**
-	 * Convert file to Velocity template and compare with current template. Note
-	 * useful for making templates from modified regression test generated apps to
-	 * pull mods back in.
+	 * Use the java2vm to convert file pointed to be fileStr to a template then
+	 * check the expectedText(s) are in the generated template.
 	 * 
-	 * @param bundleName
+	 * @param java2vm
 	 * @param file
+	 * @param bundleName
 	 * @throws IOException
 	 */
-	public void doJava2vm(String bundleName, String file) throws IOException {
-		Java2VM j = new Java2VM(bundleName);
-		String srcFile = j.getBaseDir() + file.replace("com/dea42/genspring", j.getBasePath());
-		String outFile = "target/base" + file + ".vm";
-		j.java2vm(srcFile, outFile);
+	public void doJava2vm(Java2VM java2vm, String file, String... expectedText) throws IOException {
+		Path srcFile = Utils.getPath(java2vm.getBaseDir(), file.replace("com/dea42/genspring", java2vm.getBasePath()));
+		Assume.assumeTrue("Checking " + srcFile + " does not exists", srcFile.toFile().exists());
+		Path outPath = Utils.getPath(java2vm.getBaseDir(), "target/base", file + ".vm");
+		Utils.deletePath(outPath);
+		java2vm.java2vm(srcFile.toString(), outPath.toString());
 
-		String expected = new String(Files.readAllBytes(Paths.get(Java2VM.TEMPLATE_FOLDER + file + ".vm")));
-		String actual = new String(Files.readAllBytes(Paths.get(outFile)));
-
-		log.debug("compare:" + expected.compareTo(actual));
-		assertEquals("Compare of " + file + ".vm to ref", expected, actual);
+		String actual = new String(Files.readAllBytes(outPath));
+		for (String expected : expectedText) {
+			assertTrue("Looking for " + expected + " in " + outPath.toAbsolutePath(), actual.contains(expected));
+		}
 	}
 
 	/**
+	 * Use the java2vm to convert file pointed to be templatefilePathStr to a template then
+	 * check the expectedText(s) are in the generated template.
 	 * 
-	 * @param bundleName
-	 * @param fileStr
+	 * @param java2vm
+	 * @param templatefilePathStr
+	 * @param expectedText
+	 * 
 	 * @throws IOException
 	 */
-	public void dovm2java(String bundleName, String fileStr) throws IOException {
+	public void dovm2java(Java2VM java2vm, String templatefilePathStr, String... expectedText) throws IOException {
 
-		File f = new File(fileStr);
-		assertTrue("Check exists:" + fileStr, f.exists());
+		Path srcPath = Utils.getPath(templatefilePathStr);
+		assertTrue("Check exists:" + templatefilePathStr, srcPath.toFile().exists());
 
-		Java2VM j = new Java2VM(bundleName);
-		String rfile = j.getResourcePathString(fileStr);
+		String rfile = java2vm.getResourcePathString(srcPath.toString());
 		InputStream stream = getClass().getResourceAsStream("/" + rfile);
 		ClassLoader cl = getClass().getClassLoader();
 
@@ -97,18 +101,15 @@ public class Java2VMTest {
 
 		assertNotNull("Checking classpath for:" + rfile, stream);
 
-		String relOutFile = rfile.substring(5, rfile.length() - 3);
-		Path outPath = Paths.get(j.getBaseDir(), "target/v2j/", relOutFile);
+		Path outPath = Utils.getPath(java2vm.getBaseDir(), "target/v2j/", rfile.substring(5, rfile.length() - 3));
 		Utils.deletePath(outPath);
 
-		j.vm2java(fileStr, outPath.toString());
+		java2vm.vm2java(srcPath.toString(), outPath.toString());
 
-		String expected = new String(Files.readAllBytes(Paths.get(rel + j.getBaseDir() + "/" + relOutFile)));
 		String actual = new String(Files.readAllBytes(outPath));
-
-		log.debug("compare:" + outPath.toAbsolutePath());
-		assertEquals("Compare of " + outPath.toAbsolutePath() + " to ref " + rel + j.getBaseDir() + "/" + relOutFile,
-				expected, actual);
+		for (String expected : expectedText) {
+			assertTrue("Looking for " + expected + " in " + outPath.toAbsolutePath(), actual.contains(expected));
+		}
 	}
 
 	@Test
@@ -137,7 +138,11 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testVm2JavaUnitBase() throws IOException {
-		dovm2java(TEST_WITH_INT_IDS, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
+				"package com.dea42.genspring;", "protected static int ADMIN_USER_ID",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2);",
+				"public static String asJsonString(final Object obj)");
 	}
 
 	/**
@@ -148,7 +153,26 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testVm2JavaUnitBase2() throws IOException {
-		dovm2java(TEST_WITH_LONG_IDS, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm");
+		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
+				"package dea.example.regression;", "protected static int ADMIN_USER_ID",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2);",
+				"public static String asJsonString(final Object obj)");
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testVm2JavaUnitBase4() throws IOException {
+		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
+				"package com.dea42.genspring;", "protected static long ADMIN_USER_ID",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2l);",
+				"public static String asJsonString(final Object obj)");
 	}
 
 	/**
@@ -159,7 +183,42 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testVm2JavaPom() throws IOException {
-		dovm2java(TEST_WITH_INT_IDS, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
+				"<artifactId>" + j.getBaseArtifactId() + "</artifactId>",
+				"<version>" + j.getGenSpringVersion() + "-SNAPSHOT</version>",
+				"<description>" + j.getAppDescription() + "</description>");
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testVm2JavaPom2() throws IOException {
+		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
+
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
+				"<artifactId>" + j.getBaseArtifactId() + "</artifactId>",
+				"<version>" + j.getAppVersion() + "-SNAPSHOT</version>",
+				"<description>" + j.getAppDescription() + "</description>");
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testVm2JavaREADME() throws IOException {
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/README.md.vm", "## Screen shots",
+				"![French home screen](screenshots/home.fr.png)", "# " + j.getAppName(), j.getAppDescription());
+
 	}
 
 	/**
@@ -171,7 +230,12 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmUnitBase() throws IOException {
-		doJava2vm(TEST_WITH_INT_IDS, "/src/test/java/com/dea42/genspring/UnitBase.java");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
+				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");
 	}
 
 	/**
@@ -183,7 +247,10 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmAppControllerTest() throws IOException {
-		doJava2vm(TEST_WITH_INT_IDS, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
+				"package ${basePkg}.controller;", "account.setId(0${idMod});");
 	}
 
 	/**
@@ -195,7 +262,10 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmAppControllerTest4() throws IOException {
-		doJava2vm(TEST_WITH_LONG_IDS, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java");
+		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
+				"package ${basePkg}.controller;", "account.setId(0${idMod});");
 	}
 
 	/**
@@ -206,7 +276,10 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmSeleniumBase() throws IOException {
-		doJava2vm(TEST_WITH_INT_IDS, "/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java", "package ${basePkg}.selenium;",
+				"protected String context = \"${baseModule}\";");
 	}
 
 	/**
@@ -218,7 +291,11 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmPom2() throws IOException {
-		doJava2vm(TEST_WITH_INT_IDS, "/pom.xml");
+		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
+
+		doJava2vm(j, "/pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
+				"<version>${appVersion}-SNAPSHOT</version>", "<packaging>war</packaging>",
+				"<description>${appDescription}</description>", "<mainClass>${basePkg}.WebAppApplication</mainClass>");
 	}
 
 	/**
@@ -230,7 +307,11 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmPom() throws IOException {
-		doJava2vm(TEST_WITH_LONG_IDS, "/pom.xml");
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		doJava2vm(j, "/pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
+				"<version>${appVersion}-SNAPSHOT</version>", "<packaging>war</packaging>",
+				"<description>${appDescription}</description>", "<mainClass>${basePkg}.WebAppApplication</mainClass>");
 	}
 
 	/**
@@ -242,7 +323,12 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmUnitBase2() throws IOException {
-		doJava2vm(TEST_WITH_ALT_OPTIONS, "/src/test/java/com/dea42/genspring/UnitBase.java");
+		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
+				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");
 	}
 
 	/**
@@ -254,7 +340,12 @@ public class Java2VMTest {
 	 */
 	@Test
 	public void testJava2vmUnitBase4() throws IOException {
-		doJava2vm(TEST_WITH_LONG_IDS, "/src/test/java/com/dea42/genspring/UnitBase.java");
+		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
+
+		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
+				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
+				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");
 	}
 
 	/**
@@ -294,37 +385,6 @@ public class Java2VMTest {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-//		Utils.deletePath(Paths.get("target", "base"));
-//		JUnitCore junit = new JUnitCore();
-//		String[] tests = { "testJava2vmPom", "testJava2vmUnitBase", "testJava2vmSeleniumBase" };
-//		try {
-//			int cnt = 0;
-//			List<String> chged = new ArrayList<String>();
-//			for (String test : tests) {
-//				cnt++;
-//				Request req = Request.method(Java2VMTest.class, test);
-//				final Result result = junit.run(req);
-//				// Check result.getFailures etc.
-//				if (!result.wasSuccessful()) {
-//					String error = result.getFailures().toString();
-//					log.warn(test + ":" + error);
-//					if (error.contains("No tests found matching Method")) {
-//						throw new Exception(error);
-//					} else {
-//						chged.add(test);
-//					}
-//				}
-//			}
-//			log.debug("Converted " + cnt + " files, of them these appear to have changed or failed:" + chged);
-//		} catch (Exception e) {
-//			log.error("bad test", e);
-//			for (final Method method : Java2VMTest.class.getDeclaredMethods()) {
-//				Class<? extends Annotation> annotation = Test.class;
-//				if (method.isAnnotationPresent(annotation) && method.getName().startsWith("testJava2vm")) {
-//					log.error("Test:" + method.getName());
-//				}
-//			}
-//		}
 	}
 
 }

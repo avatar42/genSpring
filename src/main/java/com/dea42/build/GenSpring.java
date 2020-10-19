@@ -861,6 +861,7 @@ public class GenSpring extends CommonMethods {
 		String data = "";
 		boolean dataChged = false;
 		try {
+			data = new String(Files.readAllBytes(p));
 			Set<String> set = colsInfo.keySet();
 			// If already in there then skip
 			if (!data.contains("### Admin screens" + System.lineSeparator())) {

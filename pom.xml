@@ -6,7 +6,7 @@
 
 	<groupId>com.dea42</groupId>
 	<artifactId>genspring</artifactId>
-	<version>0.5.3-SNAPSHOT</version>
+	<version>0.5.4-SNAPSHOT</version>
 	<name>GenSpring</name>
 	<description>Spring Boot app generator</description>
 

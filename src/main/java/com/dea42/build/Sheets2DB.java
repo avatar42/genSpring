@@ -549,6 +549,10 @@ public class Sheets2DB extends CommonMethods {
 								rowsUserData.put(rowId, rowMap);
 							}
 							if (wantedColNums.isEmpty() || wantedColNums.contains(i) || userColNums.contains(i)) {
+								// deal with blank cells
+								if (cells[i] != null && StringUtils.isBlank(cells[i].toString()))
+									cells[i] = null;
+
 								rowMap.put(ha[i], cells[i]);
 
 								Class<?> fieldCls = ft.get(ha[i]);
@@ -825,10 +829,15 @@ public class Sheets2DB extends CommonMethods {
 			} else if (cls.isAssignableFrom(Integer.class)) {
 				sb.append("INTEGER");
 			} else if (cls.isAssignableFrom(Date.class)) {
-				if (isSQLite())
-					sb.append("INTEGER");
-				else
-					sb.append("DATETIME");
+//				// Note SQLite does not have Date type
+//				// https://stackoverflow.com/questions/17227110/how-do-datetime-values-work-in-sqlite
+//				if (isSQLite())
+//					sb.append("TEXT");
+////				sb.append("INTEGER");
+////				sb.append("REAL");
+//				else
+				// technically not supported by SQLite but works as Integer with hint.
+				sb.append("DATETIME");
 			} else if (cls.isAssignableFrom(Time.class)) {
 				if (isSQLite())
 					sb.append("INTEGER");
@@ -967,7 +976,11 @@ public class Sheets2DB extends CommonMethods {
 						}
 					}
 				} else if (val instanceof Date) {
-					sb.append("'").append(DB_DATETIME.format(((Date) val).getTime())).append("'");
+					if (isSQLite()) {
+						sb.append(((Date) val).getTime());
+					} else {
+						sb.append("'").append(DB_DATETIME.format(((Date) val).getTime())).append("'");
+					}
 				} else if (val instanceof Time) {
 					if (isSQLite()) {
 						sb.append(((Time) val).getTime());
@@ -1081,8 +1094,8 @@ public class Sheets2DB extends CommonMethods {
 			// Build a new authorized API client service.
 			final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 			// https://docs.google.com/spreadsheets/d/1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE/edit?usp=sharing
-			final String spreadsheetId = Utils.getProp(bundle, PROPKEY+".id");
-			tabs = Utils.getPropList(bundle, PROPKEY+".tabs");
+			final String spreadsheetId = Utils.getProp(bundle, PROPKEY + ".id");
+			tabs = Utils.getPropList(bundle, PROPKEY + ".tabs");
 
 			Sheets service = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
 					.setApplicationName(APPLICATION_NAME).build();

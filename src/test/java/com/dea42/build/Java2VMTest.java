@@ -4,6 +4,7 @@
 package com.dea42.build;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -59,6 +60,7 @@ public class Java2VMTest {
 	 * @throws IOException
 	 */
 	public void doJava2vm(Java2VM java2vm, String file, String... expectedText) throws IOException {
+		assertFalse("Found absolute path:" + file, file.charAt(0) == '/');
 		Path srcFile = Utils.getPath(java2vm.getBaseDir(), file.replace("com/dea42/genspring", java2vm.getBasePath()));
 		Assume.assumeTrue("Checking " + srcFile + " does not exists", srcFile.toFile().exists());
 		Path outPath = Utils.getPath(java2vm.getBaseDir(), "target/base", file + ".vm");
@@ -69,11 +71,12 @@ public class Java2VMTest {
 		for (String expected : expectedText) {
 			assertTrue("Looking for " + expected + " in " + outPath.toAbsolutePath(), actual.contains(expected));
 		}
+		log.debug("Created:" + outPath);
 	}
 
 	/**
-	 * Use the java2vm to convert file pointed to be templatefilePathStr to a template then
-	 * check the expectedText(s) are in the generated template.
+	 * Use the java2vm to convert file pointed to be templatefilePathStr to a
+	 * template then check the expectedText(s) are in the generated template.
 	 * 
 	 * @param java2vm
 	 * @param templatefilePathStr
@@ -232,10 +235,24 @@ public class Java2VMTest {
 	public void testJava2vmUnitBase() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
 				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
 				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
 				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");
+	}
+
+	/**
+	 * Not really a test as much as quick convert of new POC files into templates.
+	 * 
+	 * @throws IOException
+	 */
+	@Test
+	public void testJava2vmNewStuff() throws IOException {
+		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
+
+		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchCriteria.java", "package ${basePkg}.search;");
+		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchOperation.java", "package ${basePkg}.search;");
+		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchSpecification.java", "package ${basePkg}.search;");
 	}
 
 	/**
@@ -249,7 +266,7 @@ public class Java2VMTest {
 	public void testJava2vmAppControllerTest() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
 				"package ${basePkg}.controller;", "account.setId(0${idMod});");
 	}
 
@@ -264,7 +281,7 @@ public class Java2VMTest {
 	public void testJava2vmAppControllerTest4() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
 				"package ${basePkg}.controller;", "account.setId(0${idMod});");
 	}
 
@@ -278,7 +295,7 @@ public class Java2VMTest {
 	public void testJava2vmSeleniumBase() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java", "package ${basePkg}.selenium;",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/selenium/SeleniumBase.java", "package ${basePkg}.selenium;",
 				"protected String context = \"${baseModule}\";");
 	}
 
@@ -293,7 +310,7 @@ public class Java2VMTest {
 	public void testJava2vmPom2() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
-		doJava2vm(j, "/pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
+		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
 				"<version>${appVersion}-SNAPSHOT</version>", "<packaging>war</packaging>",
 				"<description>${appDescription}</description>", "<mainClass>${basePkg}.WebAppApplication</mainClass>");
 	}
@@ -309,7 +326,7 @@ public class Java2VMTest {
 	public void testJava2vmPom() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
-		doJava2vm(j, "/pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
+		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
 				"<version>${appVersion}-SNAPSHOT</version>", "<packaging>war</packaging>",
 				"<description>${appDescription}</description>", "<mainClass>${basePkg}.WebAppApplication</mainClass>");
 	}
@@ -325,7 +342,7 @@ public class Java2VMTest {
 	public void testJava2vmUnitBase2() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
 				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
 				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
 				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");
@@ -342,7 +359,7 @@ public class Java2VMTest {
 	public void testJava2vmUnitBase4() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
-		doJava2vm(j, "/src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
+		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
 				"protected static ${idPrim} TEST_USER_ID;", "protected static ${idPrim} ADMIN_USER_ID;",
 				"TEST_USER_ID = Utils.getProp(appBundle, \"default.userid\", 1${idMod});",
 				"ADMIN_USER_ID = Utils.getProp(appBundle, \"default.adminid\", 2${idMod});");

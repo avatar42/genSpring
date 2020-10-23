@@ -319,6 +319,66 @@ public class GenSpring extends CommonMethods {
 		}
 	}
 
+	/**
+	 * Copy the files in static/[bundelName] to the new project (if they do not
+	 * exist) creating any needed folders along the way.
+	 * 
+	 * @throws IOException
+	 */
+	public void copyCustom() throws IOException {
+		Path staticPath = Utils.getPath("static/" + getBundelName());
+		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				String relDir = staticPath.relativize(dir).toString().replace('\\', '/').replace(srcPath, basePath);
+				Path target = Utils.getPath(baseDir, relDir);
+				Files.createDirectories(target);
+
+				log.debug("preVisitDirectory: " + dir + "->" + target);
+				return FileVisitResult.CONTINUE;
+			}
+
+			/**
+			 * Copy the custom file into new tree
+			 */
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				String relPath = staticPath.relativize(file).toString().replace('\\', '/').replace(srcPath, basePath);
+
+				Path p = Utils.createFile(baseDir, relPath);
+				if (p != null) {
+					try {
+						Files.copy(file, p, StandardCopyOption.REPLACE_EXISTING);
+						log.warn("Wrote:" + p.toString());
+					} catch (Exception e) {
+						log.error("failed to create " + p, e);
+					}
+				} else {
+					log.warn("Exists. skipping:" + relPath);
+				}
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+				log.debug("visitFileFailed: " + file);
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+				log.debug("postVisitDirectory: " + dir);
+				return FileVisitResult.CONTINUE;
+			}
+		});
+	}
+
+	/**
+	 * Convert or copy files in Java2VM.TEMPLATE_FOLDER to new folder as needed
+	 * creating any needed folders as well.
+	 * 
+	 * @throws IOException
+	 */
 	public void copyCommon() throws IOException {
 		Path staticPath = Utils.getPath(Java2VM.TEMPLATE_FOLDER);
 		Java2VM j2m = new Java2VM(getBundelName());
@@ -381,6 +441,8 @@ public class GenSpring extends CommonMethods {
 	 * @throws Exception
 	 */
 	public void writeProject(List<String> tableNames) throws Exception {
+
+		copyCustom();
 
 		copyCommon();
 
@@ -716,6 +778,7 @@ public class GenSpring extends CommonMethods {
 		for (String tableName : tableNames) {
 			writeBean(tableName, colsInfo);
 			writeForm(tableName, colsInfo);
+			writeSearchForm(tableName, colsInfo);
 			writeRepo(tableName, colsInfo);
 			writeService(tableName, colsInfo);
 			writeListPage(tableName, colsInfo);
@@ -766,6 +829,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RestController;");
@@ -793,7 +857,7 @@ public class GenSpring extends CommonMethods {
 					ps.println("");
 					ps.println("    @GetMapping(\"/" + fieldName + "s\")");
 					ps.println("    public List<" + className + "> getAll" + className + "s(){");
-					ps.println("        return this." + fieldName + "Services.listAll();");
+					ps.println("        return this." + fieldName + "Services.listAll(null).toList();");
 					ps.println("    }");
 				}
 				ps.println("}");
@@ -930,11 +994,16 @@ public class GenSpring extends CommonMethods {
 				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
 				ps.println("");
 				ps.println("import java.util.ArrayList;");
+				ps.println("import java.util.Iterator;");
 				ps.println("import java.util.List;");
+				ps.println("import java.util.function.Function;");
 				ps.println("");
 				ps.println("import org.junit.Test;");
 				ps.println("import org.junit.runner.RunWith;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
+				ps.println("import org.springframework.data.domain.Page;");
+				ps.println("import org.springframework.data.domain.Pageable;");
+				ps.println("import org.springframework.data.domain.Sort;");
 				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
@@ -987,8 +1056,8 @@ public class GenSpring extends CommonMethods {
 						}
 					}
 					ps.println("		list.add(o);");
-					ps.println("");
-					ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
+					ps.println("		Page<" + className + "> p = getPage(list);");
+					ps.println("		given(" + fieldName + "Services.listAll(null)).willReturn(p);");
 					ps.println("");
 					ps.println("		this.mockMvc.perform(get(\"/api/" + fieldName
 							+ "s\").with(user(\"user\").roles(\"ADMIN\"))).andExpect(status().isOk())");
@@ -1084,15 +1153,17 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import org.springframework.data.jpa.repository.JpaRepository;");
+				ps.println("import org.springframework.data.jpa.repository.JpaSpecificationExecutor;");
+				ps.println("import org.springframework.data.repository.CrudRepository;");
 				ps.println("import org.springframework.stereotype.Repository;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("");
 				ps.println(
 						getClassHeader(className + "Repository", "Class for the " + className + " Repository.", null));
 				ps.println("@Repository");
-				ps.println("public interface " + className + "Repository extends JpaRepository<" + className + ", "
-						+ pkinfo.getType() + ">{");
+				ps.println("public interface " + className + "Repository extends CrudRepository<" + className + ", "
+						+ pkinfo.getType() + ">,");
+				ps.println("JpaSpecificationExecutor<" + className + "> {");
 				if ((pkinfo.getStype() != Types.INTEGER) && (pkinfo.getStype() != Types.BIGINT)) {
 					ps.println(
 							"//TODO: Primary key is not int or bigint which will require custom code to be added below");
@@ -1479,10 +1550,16 @@ public class GenSpring extends CommonMethods {
 						"import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;");
 				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
 				ps.println("");
+				ps.println("import java.util.Iterator;");
+				ps.println("import java.util.List;");
 				ps.println("import java.util.Map;");
+				ps.println("import java.util.function.Function;");
 				ps.println("");
 				ps.println("import javax.servlet.Filter;");
-				ps.println("import lombok.extern.slf4j.Slf4j;");
+				ps.println("");
+				ps.println("import org.springframework.data.domain.Page;");
+				ps.println("import org.springframework.data.domain.Pageable;");
+				ps.println("import org.springframework.data.domain.Sort;");
 				ps.println("import org.apache.commons.lang3.StringUtils;");
 				ps.println("import org.apache.tools.ant.UnsupportedAttributeException;");
 				ps.println("import org.junit.Before;");
@@ -1509,6 +1586,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("import " + basePkg + ".utils.Message;");
 				ps.println("import " + basePkg + ".utils.Utils;");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("");
 				ps.println(getClassHeader("MockBase", "The base class for mock testing.", null));
 				ps.println("@Slf4j");
@@ -1799,7 +1877,101 @@ public class GenSpring extends CommonMethods {
 				ps.println("		log.debug(\"Returning:\" + rtn);");
 				ps.println("		return rtn;");
 				ps.println("	}");
+				ps.println("	/**");
+				ps.println("	 * Converts a List<T> to Page<T> for mock returns");
+				ps.println("	 * ");
+				ps.println("	 * @param <T>");
+				ps.println("	 * @param list");
+				ps.println("	 * @return");
+				ps.println("	 */");
+				ps.println("	protected <T> Page<T> getPage(List<T> list) {");
+				ps.println("		Page<T> p = new Page<T>() {");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public int getNumber() {");
+				ps.println("				return 0;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public int getSize() {");
+				ps.println("				return 0;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public int getNumberOfElements() {");
+				ps.println("				return list.size();");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public List<T> getContent() {");
+				ps.println("				return list;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public boolean hasContent() {");
+				ps.println("				return false;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public Sort getSort() {");
+				ps.println("				return null;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public boolean isFirst() {");
+				ps.println("				return false;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public boolean isLast() {");
+				ps.println("				return false;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public boolean hasNext() {");
+				ps.println("				return false;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public boolean hasPrevious() {");
+				ps.println("				return false;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public Pageable nextPageable() {");
+				ps.println("				return null;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public Pageable previousPageable() {");
+				ps.println("				return null;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public Iterator<T> iterator() {");
+				ps.println("				return list.iterator();");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public int getTotalPages() {");
+				ps.println("				return 1;");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public long getTotalElements() {");
+				ps.println("				return list.size();");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			@Override");
+				ps.println("			public <U> Page<U> map(Function<? super T, ? extends U> converter) {");
+				ps.println("				return null;");
+				ps.println("			}");
+				ps.println("		};");
+				ps.println("");
+				ps.println("		return p;");
+				ps.println("	}");
 				ps.println("}");
+				ps.println("");
 				ps.println("");
 				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
@@ -1833,6 +2005,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("import java.util.List;");
 				ps.println("import org.junit.Test;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
+				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("import org.springframework.test.web.servlet.ResultActions;");
 				ps.println("import com.google.common.collect.ImmutableMap;");
 				ps.println("import lombok.extern.slf4j.Slf4j;");
@@ -1887,7 +2060,8 @@ public class GenSpring extends CommonMethods {
 				ps.println("		" + className + " o = get" + className + "(1" + pkinfo.getMod() + ");");
 				ps.println("		list.add(o);");
 				ps.println("");
-				ps.println("		given(" + fieldName + "Services.listAll()).willReturn(list);");
+				ps.println("		Page<" + className + "> p = getPage(list);");
+				ps.println("		given(" + fieldName + "Services.listAll(null)).willReturn(p);");
 				ps.println("");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s\");");
 				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"class." + className
@@ -2085,9 +2259,11 @@ public class GenSpring extends CommonMethods {
 				ps.println("import org.springframework.web.servlet.ModelAndView;");
 				ps.println("import org.springframework.web.servlet.mvc.support.RedirectAttributes;");
 				ps.println("import java.util.Date;");
+				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".form." + className + "Form;");
+				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
 				ps.println("import " + basePkg + ".service." + className + "Services;");
 				ps.println("import " + basePkg + ".utils.MessageHelper;");
 				ps.println("import " + basePkg + ".utils.Utils;");
@@ -2103,8 +2279,10 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("	@GetMapping");
 				ps.println("	public String getAll" + className + "s(Model model) {");
-				ps.println(
-						"		model.addAttribute(\"" + fieldName + "s\", this." + fieldName + "Service.listAll());");
+				ps.println("		" + className + "SearchForm form = (" + className
+						+ "SearchForm) model.getAttribute(\"" + fieldName + "SearchForm\");");
+				ps.println("		model.addAttribute(\"" + fieldName + "s\", this." + fieldName
+						+ "Service.listAll(form));");
 				ps.println("		return \"" + fieldName + "s\";");
 				ps.println("	}");
 				ps.println("");
@@ -2290,22 +2468,35 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
+				ps.println("import java.math.BigDecimal;");
 				ps.println("import java.util.List;");
-				ps.println("import java.util.Optional;");
-				ps.println("import java.util.ResourceBundle;");
 				ps.println("");
-				ps.println("import javax.annotation.PostConstruct;");
-				ps.println("");
-				ps.println("import org.apache.commons.lang3.StringUtils;");
-				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.data.domain.Page;");
+				ps.println("import org.springframework.data.domain.PageRequest;");
+				ps.println("import org.springframework.data.domain.Pageable;");
+				ps.println("import org.springframework.data.domain.Sort;");
 				ps.println("import org.springframework.stereotype.Service;");
 //				ps.println("import org.springframework.transaction.annotation.Transactional;");
 				ps.println("");
 				addImports(ps, colNameToInfoMap, IMPORT_TYPE_SERVICE);
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".repo." + className + "Repository;");
+				ps.println("import " + basePkg + ".search.SearchCriteria;");
+				ps.println("import " + basePkg + ".search.SearchOperation;");
+				ps.println("import " + basePkg + ".search.SearchSpecification;");
+				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
 				ps.println("import " + basePkg + ".utils.Utils;");
+				ps.println("");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
+				if (ACCOUNT_CLASS.equals(className)) {
+					ps.println("import java.util.List;");
+					ps.println("import java.util.Optional;");
+					ps.println("import java.util.ResourceBundle;");
+					ps.println("");
+					ps.println("import javax.annotation.PostConstruct;");
+					ps.println("import org.apache.commons.lang3.StringUtils;");
+				}
 				ps.println("");
 				ps.println(getClassHeader(className + "Services", className + "Services.", null));
 				ps.println("@Slf4j");
@@ -2363,8 +2554,60 @@ public class GenSpring extends CommonMethods {
 					ps.println("	}");
 					ps.println("");
 				}
-				ps.println("	public List<" + className + "> listAll() {");
-				ps.println("		return (List<" + className + ">) " + fieldName + "Repository.findAll();");
+				ps.println("	public Page<" + className + "> listAll(" + className + "SearchForm form) {");
+				ps.println("		SearchSpecification<" + className + "> searchSpec = new SearchSpecification<"
+						+ className + ">();");
+				ps.println("		if (form != null) {");
+				ps.println("			log.debug(form.toString());");
+				for (ColInfo c : colNameToInfoMap.values()) {
+					if (c.isDate()) {
+						ps.println("");
+						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
+								+ "\", form.get" + c.getGsName() + "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("			}");
+						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
+								+ "\", form.get" + c.getGsName() + "Max(), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("			}");
+					} else if ("BigDecimal".equals(c.getType())) {
+						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
+						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Min();");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName() + "\",");
+						ps.println("						form.get" + c.getGsName()
+								+ "Min().setScale(bd.scale() - 1, BigDecimal.ROUND_DOWN),");
+						ps.println("						SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("			}");
+						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
+						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Min();");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName() + "\",");
+						ps.println("						form.get" + c.getGsName()
+								+ "Min().setScale(bd.scale() - 1, BigDecimal.ROUND_UP),");
+						ps.println("						SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("			}");
+					} else if ("String".equals(c.getType())) {
+						ps.println("			if (form.get" + c.getGsName() + "() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
+								+ "\", form.get" + c.getGsName() + "().toLowerCase(), SearchOperation.LIKE));");
+						ps.println("			}");
+					} else { // must be a number
+						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
+								+ "\", form.get" + c.getGsName() + "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("			}");
+						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
+								+ "\", form.get" + c.getGsName() + "Max(), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("			}");
+					}
+				}
+				ps.println("");
+				ps.println("		} else {");
+				ps.println("			form = new " + className + "SearchForm();");
+				ps.println("		}");
+				ps.println("		Pageable pageable = PageRequest.of(form.getPage(), form.getPageSize(),");
+				ps.println("				form.getSort());");
+				ps.println("		return " + fieldName + "Repository.findAll(searchSpec, pageable);");
 				ps.println("	}");
 				ps.println("	");
 				ps.println("	public " + className + " save(" + className + " " + fieldName + ") {");
@@ -2582,6 +2825,93 @@ public class GenSpring extends CommonMethods {
 				}
 				ps.println("		return form;");
 				ps.println("	}");
+				ps.println("}");
+				log.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				log.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+
+			log.debug("Created bean" + p);
+		}
+	}
+
+	private void writeSearchForm(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+
+		String pkgNam = basePkg + ".search";
+		String relPath = pkgNam.replace('.', '/');
+		Path p = Utils.createFile(baseDir, "src/main/java", relPath, className + "SearchForm.java");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				ps.println("import java.io.Serializable;");
+				ps.println("");
+				ps.println("import org.springframework.data.domain.Sort;");
+				ps.println("import " + basePkg + ".utils.MessageHelper;");
+				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("import lombok.Data;");
+				ps.println("");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
+				ps.println(getClassHeader(tableName + " Form",
+						"Class for holding data from the " + tableName + " table for editing.", ""));
+
+				ps.println("@Data");
+				ps.println("public class " + className + "SearchForm implements Serializable {");
+				ps.println("	private static final long serialVersionUID = 1L;");
+				ps.println("");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if ("String".equals(info.getType())) {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
+								+ info.getDefaultVal() + ";");
+					} else {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Min;");
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Max;");
+					}
+				}
+
+				ps.println("	private String sortField = \"id\";");
+				ps.println("	private int page = 0;");
+				ps.println("	private int pageSize = 10;");
+				ps.println("	private boolean sortAsc = true;");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Clones " + className + " obj into form");
+				ps.println("	 *");
+				ps.println("	 * @param obj");
+				ps.println("	 */");
+				ps.println("	public static " + className + "SearchForm getInstance(" + className + " obj) {");
+				ps.println("		" + className + "SearchForm form = new " + className + "SearchForm();");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if ("String".equals(info.getType())) {
+						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
+					} else {
+						ps.println("		form.set" + info.getGsName() + "Min(obj.get" + info.getGsName() + "());");
+						ps.println("		form.set" + info.getGsName() + "Max(obj.get" + info.getGsName() + "());");
+					}
+				}
+				ps.println("		return form;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	/**");
+				ps.println("	 * Generate a Sort from fields");
+				ps.println("	 * @return");
+				ps.println("	 */");
+				ps.println("	public Sort getSort() {");
+				ps.println("		if (sortAsc)");
+				ps.println("			return Sort.by(sortField).ascending();");
+				ps.println("");
+				ps.println("		return Sort.by(sortField).descending();");
+				ps.println("	}");
+				ps.println("");
 				ps.println("}");
 				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {

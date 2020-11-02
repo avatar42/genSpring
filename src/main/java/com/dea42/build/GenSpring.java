@@ -379,9 +379,8 @@ public class GenSpring extends CommonMethods {
 	 * 
 	 * @throws IOException
 	 */
-	public void copyCommon() throws IOException {
+	public void copyCommon(Java2VM j2m) throws IOException {
 		Path staticPath = Utils.getPath(Java2VM.TEMPLATE_FOLDER);
-		Java2VM j2m = new Java2VM(getBundelName());
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
 			@Override
 			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
@@ -442,22 +441,23 @@ public class GenSpring extends CommonMethods {
 	 */
 	public void writeProject(List<String> tableNames) throws Exception {
 
-		copyCustom();
-
-		copyCommon();
-
-		writeAppProps();
-		writeTestProps();
-
 		Map<String, Map<String, ColInfo>> colsInfo = new HashMap<String, Map<String, ColInfo>>();
 		for (String tableName : tableNames) {
 			String className = Utils.tabToStr(renames, tableName);
 			colsInfo.put(className, gatherTableInfo(tableName));
 		}
+		Java2VM j2m = new Java2VM(getBundelName());
+		addMockBaseVars(colsInfo, j2m);
+
+		copyCustom();
+
+		copyCommon(j2m);
+
+		writeAppProps();
+		writeTestProps();
 
 		genTableMaintFiles(tableNames, colsInfo);
 
-		writeMockBase(colsInfo);
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
 		writeNav(colsInfo.keySet());
@@ -785,6 +785,7 @@ public class GenSpring extends CommonMethods {
 			writeObjController(tableName, colsInfo);
 			writeObjControllerTest(tableName, colsInfo);
 			writeEditPage(tableName, colsInfo);
+			writeSearchPage(tableName, colsInfo);
 		}
 	}
 
@@ -1367,6 +1368,232 @@ public class GenSpring extends CommonMethods {
 	}
 
 	/**
+	 * 
+	 * @param ps
+	 * @param parentStr
+	 * @param className
+	 * @param colsInfo
+	 * @param Edit      form name plus . on end
+	 * @throws Exception
+	 */
+	private void writeSearchSubObjects(PrintStream ps, String parentStr, String className,
+			Map<String, Map<String, ColInfo>> colsInfo, String form) throws Exception {
+//		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+//
+//		String field = className.substring(0, 1).toLowerCase() + className.substring(1);
+//		String fieldName = parentStr + field;
+//		// guard against null objects and sub objects in list
+//		String div = "div th:if=\"${" + form + fieldName + " != null}\"";
+//
+//		for (String key : colNameToInfoMap.keySet()) {
+//			if (PKEY_INFO.equals(key))
+//				continue;
+//			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+//			if (info.isPk()) {
+//				ps.println("				<input type=\"hidden\" class=\"form-control\" id=\"" + field + "."
+//						+ info.getVName() + "\" th:field=\"*{" + field + "." + info.getVName() + "}\" />");
+//			} else if (info.getForeignTable() != null) {
+//				writeEditSubObjects(ps, fieldName + ".", info.getForeignTable(), colsInfo, form);
+//			} else if (info.isList()) {
+//				String unless = "				<div" + " th:unless=\"${" + form + fieldName
+//						+ " != null}\" th:text=\"${" + form + fieldName + "}\"></div>";
+//				String divs = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "div");
+//				ps.println("				<" + divs + " class=\"form-group\">");
+//				ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+//						+ "\" class=\"col-lg-2 control-label\"");
+//				ps.println("						th:text=\"#{" + info.getMsgKey() + "} + ':'\"></label>");
+//
+//				ps.println("					<" + div + " class=\"col-lg-10\" id=\"" + form + fieldName + "."
+//						+ info.getVName() + "\"");
+//				ps.println(
+//						"	                        th:text=\"${" + form + fieldName + "." + info.getVName() + "}\">");
+//				ps.println("					</div>");
+//				ps.println(unless);
+//				ps.println("				</div>");
+//			}
+//
+//		}
+
+	}
+
+	private void writeSearchPage(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+
+//		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/search_" + fieldName + ".html");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println(htmlHeader(className, "edit"));
+				ps.println("	<div class=\"container\">");
+				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
+				ps.println("			th:action=\"@{/" + fieldName + "s/search}\" th:object=\"${" + fieldName
+						+ "SearchForm}\"");
+				ps.println("			th:fragment=\"" + fieldName + "SearchForm\">");
+				ps.println("			<!--/* Show general error messages when form contains errors */-->");
+				ps.println("			<th:block th:if=\"${#fields.hasErrors('${" + fieldName + "SearchForm.*}')}\">");
+				ps.println("				<div th:each=\"fieldErrors : ${#fields.errors('${" + fieldName
+						+ "SearchForm.*}')}\">");
+				ps.println("					<div th:each=\"message : ${fieldErrors.split(';')}\">");
+				ps.println("						<div");
+				ps.println(
+						"							th:replace=\"fragments/alert :: alert (type='danger', message=${message})\">Alert</div>");
+				ps.println("					</div>");
+				ps.println("				</div>");
+				ps.println("			</th:block>");
+				ps.println("			<fieldset>");
+				ps.println("				<legend th:text=\"#{search.search} + ' ' + #{class." + className
+						+ "}\"></legend>");
+				ps.println("");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isPk()) {
+						// ignore for not at least
+//						ps.println("				<input type=\"hidden\" class=\"form-control\" id=\""
+//								+ info.getVName() + "\" th:field=\"*{" + info.getVName() + "}\" />");
+					} else if (info.getForeignTable() != null) {
+						writeSearchSubObjects(ps, "", info.getType(), colsInfo, fieldName + "SearchForm.");
+					} else if (info.isString()) {
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.like}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
+					} else if (info.isDate()) {
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "Min')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "Min\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.after}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "Min\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "Min}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "Min')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "Max')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "Max\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.before}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "Max\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "Max}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "Max')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
+					} else { // number assumed
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "Min')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "Min\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.gte}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "Min\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "Min}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "Min')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
+						ps.println("				<div class=\"form-group\"");
+						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+								+ "Max')}? 'has-error'\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "Max\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.lte}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
+								+ info.getVName() + "Max\"");
+						ps.println("							th:field=\"*{" + info.getVName() + "Max}\" />");
+						ps.println("						<ul class=\"help-block\"");
+						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+								+ "Max')}\">");
+						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+						ps.println(
+								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+						ps.println("							</li>");
+						ps.println("						</ul>");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
+
+					}
+
+				}
+				ps.println("				<div class=\"form-group\">");
+				ps.println("					<div class=\"col-lg-offset-2 col-lg-10\">");
+				ps.println("						<button type=\"submit\" name=\"action\" value=\"search\"");
+				ps.println(
+						"							class=\"btn btn-default\" th:text=\"#{search.search}\"></button>");
+				ps.println("					</div>");
+				ps.println("				</div>");
+				ps.println("			</fieldset>");
+				ps.println("		</form>");
+				ps.println("	</div>");
+				ps.println("");
+				ps.println(htmlFooter());
+				log.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				log.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	/**
 	 * Write the row loop for the list table
 	 * 
 	 * @param ps
@@ -1430,11 +1657,15 @@ public class GenSpring extends CommonMethods {
 	 * @param processed
 	 * @param tableName
 	 * @param colsInfo
+	 * @param topField  TODO
 	 * @throws Exception
 	 */
 	private void writeListHeaders(PrintStream ps, Set<String> processed, String tableName,
-			Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+			Map<String, Map<String, ColInfo>> colsInfo, String topField) throws Exception {
 		String className = Utils.tabToStr(renames, tableName);
+		if (topField == null)
+			topField = className.substring(0, 1).toLowerCase() + className.substring(1);
+
 		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
 		// write table header
 		for (String key : colNameToInfoMap.keySet()) {
@@ -1445,27 +1676,30 @@ public class GenSpring extends CommonMethods {
 				continue;
 			if (!processed.contains(key) && info.isList()) {
 				if (info.getForeignTable() != null) {
-					writeListHeaders(ps, processed, info.getForeignTable(), colsInfo);
+					writeListHeaders(ps, processed, info.getForeignTable(), colsInfo, topField);
 				} else {
-					String th = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "th");
-					if (colNameToInfoMap.containsKey(key + "link")) {
-						ps.println("            <" + th + " th:text=\"#{" + info.getMsgKey() + "}\">"
-								+ info.getColName() + "</th>");
-						processed.add(key);
-						processed.add(key + "link");
-					} else if (key.endsWith("link")
-							&& colNameToInfoMap.containsKey(key.substring(0, key.length() - 4))) {
+					if (key.endsWith("link")) {
 						key = key.substring(0, key.length() - 4);
-						info = (ColInfo) colNameToInfoMap.get(key);
-						ps.println("            <" + th + " th:text=\"#{" + info.getMsgKey() + "}\">"
-								+ info.getColName() + "</th>");
-						processed.add(key);
-						processed.add(key + "link");
-					} else {
-						ps.println("            <" + th + " th:text=\"#{" + info.getMsgKey() + "}\">"
-								+ info.getColName() + "</th>");
-						processed.add(key);
 					}
+
+					String th = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "th");
+					ps.println("            <" + th + ">");
+					ps.println(
+							"				<a th:if=\"${" + "SearchForm.sortField == '" + info.getVName() + "'}\"");
+					ps.println("					th:href=\"@{'/" + topField + "s/search/' + ${"
+							+ "SearchForm.page} + '?sortField=" + info.getVName()
+							+ "&sortDir=' + ${SearchForm.reverseSortDir}}\"");
+					ps.println(
+							"					th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName() + "</a>");
+					ps.println("					<a th:if=\"${" + "SearchForm.sortField != '" + info.getVName()
+							+ "'}\"");
+					ps.println("					th:href=\"@{'/" + topField + "s/search/' + ${"
+							+ "SearchForm.page} + '?sortField=" + info.getVName() + "&sortDir=asc'}\"");
+					ps.println(
+							"					th:text=\"#{" + info.getMsgKey() + "}\">" + info.getColName() + "</a>");
+					ps.println("            </th>");
+					processed.add(key);
+					processed.add(key + "link");
 				}
 			}
 		}
@@ -1489,14 +1723,17 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> processed = new HashSet<String>();
 				ps.println(htmlHeader(className, "listView"));
-				ps.println("	<div class=\"container\">");
+				ps.println(
+						"	<div class=\"container\" th:with=\"SearchForm=${session." + fieldName + "SearchForm}\">");
 				ps.println("		<h1 th:text=\"#{class." + className + "} + ' ' + #{edit.list}\"></h1>");
+				ps.println("		<a th:href=\"@{/" + fieldName
+						+ "s/search}\" th:text=\"#{search.search} + ' ' + #{class." + className + "}\"></a> <br />");
 				ps.println("		<a th:href=\"@{/" + fieldName + "s/new}\" th:text=\"#{edit.new} + ' ' + #{class."
 						+ className + "}\"></a> <br /><br />");
 				ps.println("");
 				ps.println("	    <table>");
 				ps.println("	        <tr>");
-				writeListHeaders(ps, processed, tableName, colsInfo);
+				writeListHeaders(ps, processed, tableName, colsInfo, null);
 				ps.println("            <th th:text=\"#{edit.actions}\"></th>");
 				ps.println("	        </tr>");
 				// write data loop
@@ -1511,6 +1748,46 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("	        </tr>");
 				ps.println("	    </table>");
+				ps.println("		<div th:if=\"${" + "SearchForm.page > 1}\">");
+				ps.println("			<div class=\"row col-sm-10\">");
+				ps.println("				<div class=\"col-sm-2\">Total Rows:");
+				ps.println("					[[${" + "SearchForm.totalItems}]]</div>");
+				ps.println("				<div class=\"col-sm-1\">");
+				ps.println("					<span");
+				ps.println(
+						"						th:each=\"i: ${#numbers.sequence(1, " + "SearchForm.totalPages)}\">");
+				ps.println("						<a th:if=\"${" + "SearchForm.page != i}\"");
+				ps.println(
+						"						th:href=\"@{'/" + fieldName + "s/search/' + ${i}+ '?sortField=' + ${"
+								+ "SearchForm.sortField} + '&sortDir=' + ${" + "SearchForm.sortDir}}\">[[${i}]]</a>");
+				ps.println("						<span th:unless=\"${" + "SearchForm.page != i}\">[[${i}]]</span>");
+				ps.println("						&nbsp; &nbsp;");
+				ps.println("					</span>");
+				ps.println("				</div>");
+				ps.println("				<div class=\"col-sm-1\">");
+				ps.println("					<a");
+				ps.println("						th:if=\"${" + "SearchForm.page < SearchForm.totalPages}\"");
+				ps.println("						th:href=\"@{'/" + fieldName + "s/search/' + ${"
+						+ "SearchForm.page + 1}+ '?sortField=' + ${" + "SearchForm.sortField} + '&sortDir=' + ${"
+						+ "SearchForm.sortDir}}\">Next</a>");
+				ps.println("					<span");
+				ps.println("						th:unless=\"${"
+						+ "SearchForm.page < SearchForm.totalPages}\">Next</span>");
+				ps.println("				</div>");
+				ps.println("");
+				ps.println("				<div class=\"col-sm-1\">");
+				ps.println("					<a");
+				ps.println("						th:if=\"${" + "SearchForm.page < SearchForm.totalPages}\"");
+				ps.println("						th:href=\"@{'/" + fieldName + "s/search/' + ${"
+						+ "SearchForm.totalPages}+ '?sortField=' + ${" + "SearchForm.sortField} + '&sortDir=' + ${"
+						+ "SearchForm.sortDir}}\">Last</a>");
+				ps.println("					<span");
+				ps.println("						th:unless=\"${"
+						+ "SearchForm.page < SearchForm.totalPages}\">Last</span>");
+				ps.println("				</div>");
+				ps.println("			</div>");
+				ps.println("		</div>");
+				ps.println("");
 				ps.println("    </div>");
 				ps.println("");
 				ps.println(htmlFooter());
@@ -1526,459 +1803,67 @@ public class GenSpring extends CommonMethods {
 	 * Write the base class used by tests the employ mock object. TODO: replace with
 	 * velocity template
 	 * 
+	 * @param j2m TODO
 	 * @param set
 	 */
-	private void writeMockBase(Map<String, Map<String, ColInfo>> colsInfo) {
+	private void addMockBaseVars(Map<String, Map<String, ColInfo>> colsInfo, Java2VM j2m) {
 		Set<String> set = colsInfo.keySet();
-		String pkgNam = basePkg;
-		String relPath = pkgNam.replace('.', '/');
-		Path p = Utils.createFile(baseDir, "src/test/java", relPath, "MockBase.java");
-		if (p != null) {
-			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println("package " + pkgNam + ';');
-				ps.println("");
-				ps.println("import static org.hamcrest.CoreMatchers.containsString;");
-				ps.println(
-						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;");
-				ps.println(
-						"import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;");
-				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;");
-				ps.println("import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;");
-				ps.println(
-						"import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;");
-				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
-				ps.println("");
-				ps.println("import java.util.Iterator;");
-				ps.println("import java.util.List;");
-				ps.println("import java.util.Map;");
-				ps.println("import java.util.function.Function;");
-				ps.println("");
-				ps.println("import javax.servlet.Filter;");
-				ps.println("");
-				ps.println("import org.springframework.data.domain.Page;");
-				ps.println("import org.springframework.data.domain.Pageable;");
-				ps.println("import org.springframework.data.domain.Sort;");
-				ps.println("import org.apache.commons.lang3.StringUtils;");
-				ps.println("import org.apache.tools.ant.UnsupportedAttributeException;");
-				ps.println("import org.junit.Before;");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
-				ps.println("import org.springframework.boot.test.mock.mockito.MockBean;");
-				ps.println(
-						"import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.UserRequestPostProcessor;");
-				ps.println("import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;");
-				ps.println("import org.springframework.test.web.servlet.ResultActions;");
-				ps.println("import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;");
-				ps.println("import org.springframework.test.web.servlet.request.RequestPostProcessor;");
-				ps.println("import org.springframework.test.web.servlet.setup.MockMvcBuilders;");
-				ps.println("import org.springframework.web.context.WebApplicationContext;");
-				ps.println("import " + basePkg + ".service.UserServices;");
-				ps.println("import " + basePkg + ".repo.UserRepository;");
-				if (!set.contains(ACCOUNT_CLASS)) {
-					ps.println("import " + basePkg + ".service." + ACCOUNT_CLASS + "Services;");
-					ps.println("import " + basePkg + ".repo." + ACCOUNT_CLASS + "Repository;");
-				}
-				for (String className : set) {
-					ps.println("import " + basePkg + ".repo." + className + "Repository;");
-					ps.println("import " + basePkg + ".service." + className + "Services;");
-				}
-				ps.println("");
-				ps.println("import " + basePkg + ".utils.Message;");
-				ps.println("import " + basePkg + ".utils.Utils;");
-				ps.println("import lombok.extern.slf4j.Slf4j;");
-				ps.println("");
-				ps.println(getClassHeader("MockBase", "The base class for mock testing.", null));
-				ps.println("@Slf4j");
-				ps.println("public class MockBase extends UnitBase {");
-				ps.println("    @MockBean");
-				ps.println("    protected UserServices<?> userServices;");
-				ps.println("    @MockBean");
-				ps.println("    protected UserRepository userRepository;");
-				ps.println("");
-				if (!set.contains(ACCOUNT_CLASS)) {
-					ps.println("    @MockBean");
-					ps.println("    protected " + ACCOUNT_CLASS + "Services accountServices;");
-					ps.println("    @MockBean");
-					ps.println("    protected " + ACCOUNT_CLASS + "Repository accountRepository;");
-				}
-				for (String className : set) {
-					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-					ps.println("    @MockBean");
-					ps.println("    protected " + className + "Services " + fieldName + "Services;");
-					ps.println("    @MockBean");
-					ps.println("    protected " + className + "Repository " + fieldName + "Repository;");
-				}
-				ps.println("	@Autowired");
-				ps.println("	protected WebApplicationContext webApplicationContext;");
-				ps.println("");
-				ps.println("	@Autowired");
-				ps.println("	private Filter springSecurityFilterChain;");
-				ps.println("");
-				ps.println("	@Before()");
-				ps.println("	public void setup() {");
-				ps.println("		// Init MockMvc Object and build");
-				ps.println("		mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)");
-				ps.println(
-						"				.apply(SecurityMockMvcConfigurers.springSecurity()).addFilters(springSecurityFilterChain).build();");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Send request and if not expecting request check header for nav");
-				ps.println("	 * ");
-				ps.println("	 * @param type");
-				ps.println("	 * @param relURL");
-				ps.println("	 * @param modelName");
-				ps.println("	 * @param model");
-				ps.println("	 * @param params");
-				ps.println("	 * @param login");
-				ps.println("	 * @param redirectedUrl if null expects 200 return code.");
-				ps.println("	 * @return ResultActions object for further checks.");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println(
-						"	protected ResultActions send(String type, String relURL, String modelName, Object model, Map<String, String> params,");
-				ps.println("			String login, String redirectedUrl) throws Exception {");
-				ps.println("		MockHttpServletRequestBuilder req = null;");
-				ps.println("		if (SEND_GET.equals(type)) {");
-				ps.println("			req = get(relURL);");
-				ps.println("		} else if (SEND_POST.equals(type)) {");
-				ps.println("			req = post(relURL);");
-				ps.println("		} else {");
-				ps.println("			throw new UnsupportedAttributeException(\"Send type not supported\", type);");
-				ps.println("		}");
-				ps.println("		if (!StringUtils.isAllBlank(modelName)) {");
-				ps.println("			req = req.flashAttr(modelName, model);");
-				ps.println("		}");
-				ps.println("		if (params != null && !params.isEmpty()) {");
-				ps.println("			for (String key : params.keySet()) {");
-				ps.println("				req = req.param(key, params.get(key));");
-				ps.println("			}");
-				ps.println("		}");
-				ps.println("		if (!StringUtils.isAllBlank(login)) {");
-				ps.println("			UserRequestPostProcessor urpp = user(login);");
-				ps.println("			if (ADMIN_USER.equals(login)) {");
-				ps.println("				urpp = urpp.roles(ADMIN_ROLE);");
-				ps.println("			} else {");
-				ps.println("				urpp = urpp.roles(TEST_ROLE);");
-				ps.println("			}");
-				ps.println("			req = req.with(urpp);");
-				ps.println("		} else {");
-				ps.println("			req = req.with(anonymous());");
-				ps.println("		}");
-				ps.println("");
-				ps.println("		ResultActions result = this.mockMvc.perform(req);");
-				ps.println("		if (redirectedUrl != null) {");
-				ps.println("			// If redirect then just check right one");
-				ps.println("			try {");
-				ps.println(
-						"				result.andExpect(status().is3xxRedirection()).andExpect(redirectedUrl(redirectedUrl));");
-				ps.println("			} catch (Throwable e) {");
-				ps.println(
-						"				log.error(\"Instead of redirect got:\" + result.andReturn().getResponse().getContentAsString());");
-				ps.println("				throw e;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("		} else if (headless.contains(relURL)) {");
-				ps.println("			// For pops just check status");
-				ps.println("			result.andExpect(status().isOk());");
-				ps.println("		} else {");
-				ps.println("			// else do full header check");
-				ps.println("			checkHeader(result, login);");
-				ps.println("		}");
-				ps.println("		return result;");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Check header is on page and complete. TODO: add active module check");
-				ps.println("	 * ");
-				ps.println("	 * @param result");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println("	public void checkHeader(ResultActions result, String user) throws Exception {");
-				ps.println("		result.andExpect(status().isOk());");
-				ps.println("		contentContainsKey(result, \"app.name\");");
-				ps.println("		// GUI menu");
-				ps.println("		contentContainsKey(result, \"header.gui\");");
-				for (String className : set) {
-					if (classHasUserFields(className)) {
-						ps.println("		if (\"" + ADMIN_USER + "\".equals(user)) ");
-						ps.println("			contentContainsKey(result, \"class." + className + "\", false);");
-					} else {
-						ps.println("		contentContainsKey(result, \"class." + className + "\", false);");
-					}
-				}
-				ps.println("// REST menu");
-				ps.println("		contentContainsKey(result, \"header.restApi\");");
-				for (String className : set) {
-					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-					if (classHasUserFields(className)) {
-						ps.println("		if (\"" + ADMIN_USER + "\".equals(user)) ");
-						ps.println("			contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);");
-					} else {
-						ps.println("		contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);");
-					}
-				}
-				ps.println("// Login / out");
-				ps.println("		contentContainsKey(result, \"lang.en\");");
-				ps.println("		contentContainsKey(result, \"lang.fr\");");
-				ps.println("		contentContainsKey(result, \"lang.de\");");
-				ps.println("");
-				ps.println("		if (user == null)");
-				ps.println("			contentContainsKey(result, \"signin.signin\");");
-				ps.println("		else");
-				ps.println("			contentContainsKey(result, \"signin.logout\");");
-				ps.println("");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Do mock get as admin user, check the nav header then return the handle.");
-				ps.println("	 * ");
-				ps.println("	 * @param relURL");
-				ps.println("	 * @return");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println("	protected ResultActions getAsAdmin(String relURL) throws Exception {");
-				ps.println("		return send(SEND_GET, relURL, null, null, null, ADMIN_USER, null);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Do mock get as admin user, check for redirect. Wrapper for send().");
-				ps.println("	 * ");
-				ps.println("	 * @param relURL");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println(
-						"	protected void getAsAdminRedirectExpected(String relURL, String redirectedUrl) throws Exception {");
-				ps.println("		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Do mock get not logged in, check for redirect. Wrapper for send().");
-				ps.println("	 * ");
-				ps.println("	 * @param relURL");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println(
-						"	protected void getAsNoOneRedirectExpected(String relURL, String redirectedUrl) throws Exception {");
-				ps.println("		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Do mock get not logged in, check the nav header then return the handle.");
-				ps.println("	 * Wrapper for send().");
-				ps.println("	 * ");
-				ps.println("	 * @param relURL");
-				ps.println("	 * @throws Exception");
-				ps.println("	 */");
-				ps.println("	protected ResultActions getAsNoOne(String relURL) throws Exception {");
-				ps.println("		return send(SEND_GET, relURL, null, null, null, null, null);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	public void contentContainsKey(ResultActions result, String key, String... args) {");
-				ps.println("		contentContainsKey(result, key, false, args);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	public void contentNotContainsKey(ResultActions result, String key, String... args) {");
-				ps.println("		contentContainsKey(result, key, true, args);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Confirm text of key is in content");
-				ps.println("	 * ");
-				ps.println("	 * @param result");
-				ps.println("	 * @param key");
-				ps.println("	 * @param failIfExists flip to fail if there");
-				ps.println("	 */");
-				ps.println(
-						"	public void contentContainsKey(ResultActions result, String key, boolean failIfExists, String... args) {");
-				ps.println(
-						"		String expectedText = Utils.getProp(getMsgBundle(), key, \"??\" + key + \"??\", args);");
-				ps.println("		contentContainsMarkup(result, expectedText, failIfExists);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Check to see if htmlString is in HTML content of result");
-				ps.println("	 * ");
-				ps.println("	 * @param result");
-				ps.println("	 * @param htmlString");
-				ps.println("	 */");
-				ps.println("	public void contentContainsMarkup(ResultActions result, String htmlString) {");
-				ps.println("		contentContainsMarkup(result, htmlString, false);");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * Check to see if htmlString is in HTML content of result");
-				ps.println("	 * ");
-				ps.println("	 * @param result");
-				ps.println("	 * @param htmlString   if null or blank String then just returns");
-				ps.println("	 * @param failIfExists flip to fail if exists instead of when missing.");
-				ps.println("	 */");
-				ps.println(
-						"	public void contentContainsMarkup(ResultActions result, String htmlString, boolean failIfExists) {");
-				ps.println("		// if");
-				ps.println("		if (StringUtils.isBlank(htmlString))");
-				ps.println("			return;");
-				ps.println("");
-				ps.println("		try {");
-				ps.println("			result.andExpect(content().string(containsString(htmlString)));");
-				ps.println("			if (failIfExists) {");
-				ps.println("				log.error(\"Found '\" + htmlString + \"' in \" + content());");
-				ps.println("				fail(\"Found '\" + htmlString + \"' in content\");");
-				ps.println("			}");
-				ps.println("		} catch (Throwable e) {");
-				ps.println("			if (!failIfExists) {");
-				ps.println("				log.error(\"Did not find '\" + htmlString + \"' in \" + content(), e);");
-				ps.println("				fail(\"Did not find '\" + htmlString + \"' in content\");");
-				ps.println("			}");
-				ps.println("		}");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	public void expectSuccessMsg(ResultActions ra, String msgKey) throws Exception {");
-				ps.println("		expectSuccessMsg(ra, msgKey, new Object[0]);");
-				ps.println("	}");
-				ps.println("");
-				ps.println(
-						"	public void expectSuccessMsg(ResultActions ra, String msgKey, Object... args) throws Exception {");
-				ps.println("		Message msg = new Message(msgKey, Message.Type.SUCCESS, args);");
-				ps.println("		// Compares type, key and params.");
-				ps.println("		ra.andExpect(flash().attribute(Message.MESSAGE_ATTRIBUTE, msg));");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	public void expectErrorMsg(ResultActions ra, String msgKey) throws Exception {");
-				ps.println("		expectErrorMsg(ra, msgKey, new Object[0]);");
-				ps.println("	}");
-				ps.println("");
-				ps.println(
-						"	public void expectErrorMsg(ResultActions ra, String msgKey, Object... args) throws Exception {");
-				ps.println("		Message msg = new Message(msgKey, Message.Type.DANGER, args);");
-				ps.println("		// Compares type, key and params.");
-				ps.println("		ra.andExpect(flash().attribute(Message.MESSAGE_ATTRIBUTE, msg));");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * @deprecated see send()");
-				ps.println("	 * @return");
-				ps.println("	 */");
-				ps.println("	protected RequestPostProcessor getMockTestUser() {");
-				ps.println("		log.debug(\"Using the user:\" + TEST_USER + \" with role:ROLE_\" + TEST_ROLE);");
-				ps.println("		UserRequestPostProcessor rtn = user(TEST_USER).roles(TEST_ROLE);");
-				ps.println("		log.debug(\"Returning:\" + rtn);");
-				ps.println("		return rtn;");
-				ps.println("	}");
-				ps.println("");
-				ps.println("	/**");
-				ps.println("	 * @deprecated see send()");
-				ps.println("	 * @return");
-				ps.println("	 */");
-				ps.println("	protected RequestPostProcessor getMockTestAdmin() {");
-				ps.println("		log.debug(\"Using the user:\" + ADMIN_USER + \" with role:ROLE_\" + ADMIN_ROLE);");
-				ps.println("		UserRequestPostProcessor rtn = user(ADMIN_USER).roles(ADMIN_ROLE);");
-				ps.println("		log.debug(\"Returning:\" + rtn);");
-				ps.println("		return rtn;");
-				ps.println("	}");
-				ps.println("	/**");
-				ps.println("	 * Converts a List<T> to Page<T> for mock returns");
-				ps.println("	 * ");
-				ps.println("	 * @param <T>");
-				ps.println("	 * @param list");
-				ps.println("	 * @return");
-				ps.println("	 */");
-				ps.println("	protected <T> Page<T> getPage(List<T> list) {");
-				ps.println("		Page<T> p = new Page<T>() {");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public int getNumber() {");
-				ps.println("				return 0;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public int getSize() {");
-				ps.println("				return 0;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public int getNumberOfElements() {");
-				ps.println("				return list.size();");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public List<T> getContent() {");
-				ps.println("				return list;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public boolean hasContent() {");
-				ps.println("				return false;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public Sort getSort() {");
-				ps.println("				return null;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public boolean isFirst() {");
-				ps.println("				return false;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public boolean isLast() {");
-				ps.println("				return false;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public boolean hasNext() {");
-				ps.println("				return false;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public boolean hasPrevious() {");
-				ps.println("				return false;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public Pageable nextPageable() {");
-				ps.println("				return null;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public Pageable previousPageable() {");
-				ps.println("				return null;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public Iterator<T> iterator() {");
-				ps.println("				return list.iterator();");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public int getTotalPages() {");
-				ps.println("				return 1;");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public long getTotalElements() {");
-				ps.println("				return list.size();");
-				ps.println("			}");
-				ps.println("");
-				ps.println("			@Override");
-				ps.println("			public <U> Page<U> map(Function<? super T, ? extends U> converter) {");
-				ps.println("				return null;");
-				ps.println("			}");
-				ps.println("		};");
-				ps.println("");
-				ps.println("		return p;");
-				ps.println("	}");
-				ps.println("}");
-				ps.println("");
-				ps.println("");
-				log.warn("Wrote:" + p.toString());
-			} catch (Exception e) {
-				log.error("failed to create " + p, e);
-				p.toFile().delete();
+		StringBuilder sb = new StringBuilder();
+		if (!set.contains(ACCOUNT_CLASS)) {
+			sb.append("import " + basePkg + ".service." + ACCOUNT_CLASS + "Services;").append(System.lineSeparator());
+			sb.append("import " + basePkg + ".repo." + ACCOUNT_CLASS + "Repository;").append(System.lineSeparator());
+		}
+		for (String className : set) {
+			sb.append("import " + basePkg + ".repo." + className + "Repository;").append(System.lineSeparator());
+			sb.append("import " + basePkg + ".service." + className + "Services;").append(System.lineSeparator());
+		}
+		j2m.addContext("mockImports", sb.toString());
+
+		sb = new StringBuilder();
+		if (!set.contains(ACCOUNT_CLASS)) {
+			sb.append("    @MockBean").append(System.lineSeparator());
+			sb.append("    protected " + ACCOUNT_CLASS + "Services accountServices;").append(System.lineSeparator());
+			sb.append("    @MockBean").append(System.lineSeparator());
+			sb.append("    protected " + ACCOUNT_CLASS + "Repository accountRepository;")
+					.append(System.lineSeparator());
+		}
+		for (String className : set) {
+			String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+			sb.append("    @MockBean").append(System.lineSeparator());
+			sb.append("    protected " + className + "Services " + fieldName + "Services;")
+					.append(System.lineSeparator());
+			sb.append("    @MockBean").append(System.lineSeparator());
+			sb.append("    protected " + className + "Repository " + fieldName + "Repository;")
+					.append(System.lineSeparator());
+		}
+		j2m.addContext("mockBeans", sb.toString());
+
+		sb = new StringBuilder();
+		for (String className : set) {
+			if (classHasUserFields(className)) {
+				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
+				sb.append("			contentContainsKey(result, \"class." + className + "\", false);")
+						.append(System.lineSeparator());
+			} else {
+				sb.append("		contentContainsKey(result, \"class." + className + "\", false);")
+						.append(System.lineSeparator());
 			}
 		}
+		sb.append("// REST menu").append(System.lineSeparator());
+		sb.append("		contentContainsKey(result, \"header.restApi\");").append(System.lineSeparator());
+		for (String className : set) {
+			String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+			if (classHasUserFields(className)) {
+				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
+				sb.append("			contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);")
+						.append(System.lineSeparator());
+			} else {
+				sb.append("		contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);")
+						.append(System.lineSeparator());
+			}
+		}
+		j2m.addContext("mockNav", sb.toString());
+
 	}
 
 	/**
@@ -2013,6 +1898,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("import " + basePkg + ".MockBase;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".form." + className + "Form;");
+				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
 				ps.println("");
 				ps.println(getClassHeader(className + "ControllerTest", className + "Controller.", null));
 				ps.println("@Slf4j");
@@ -2061,7 +1947,8 @@ public class GenSpring extends CommonMethods {
 				ps.println("		list.add(o);");
 				ps.println("");
 				ps.println("		Page<" + className + "> p = getPage(list);");
-				ps.println("		given(" + fieldName + "Services.listAll(null)).willReturn(p);");
+				ps.println("		given(" + fieldName + "Services.listAll(new " + className
+						+ "SearchForm())).willReturn(p);");
 				ps.println("");
 				ps.println("		ResultActions ra = getAsAdmin(\"/" + fieldName + "s\");");
 				ps.println("		contentContainsMarkup(ra,\"<h1>\" + getMsg(\"class." + className
@@ -2243,9 +2130,13 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
+				ps.println("import java.util.Date;");
+				ps.println("import java.util.List;");
+				ps.println("");
+				ps.println("import javax.servlet.http.HttpServletRequest;");
 				ps.println("import javax.validation.Valid;");
-				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
+				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("import org.springframework.stereotype.Controller;");
 				ps.println("import org.springframework.ui.Model;");
 				ps.println("import org.springframework.validation.Errors;");
@@ -2258,15 +2149,15 @@ public class GenSpring extends CommonMethods {
 				ps.println("import org.springframework.web.bind.annotation.RequestParam;");
 				ps.println("import org.springframework.web.servlet.ModelAndView;");
 				ps.println("import org.springframework.web.servlet.mvc.support.RedirectAttributes;");
-				ps.println("import java.util.Date;");
-				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".form." + className + "Form;");
 				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
 				ps.println("import " + basePkg + ".service." + className + "Services;");
+				ps.println("import " + basePkg + ".utils.Message;");
 				ps.println("import " + basePkg + ".utils.MessageHelper;");
 				ps.println("import " + basePkg + ".utils.Utils;");
+				ps.println("import lombok.extern.slf4j.Slf4j;");
 				ps.println("");
 				ps.println(getClassHeader(className + "Controller", className + "Controller.", null));
 				ps.println("@Slf4j");
@@ -2277,29 +2168,94 @@ public class GenSpring extends CommonMethods {
 				ps.println("	@Autowired");
 				ps.println("	private " + className + "Services " + fieldName + "Service;");
 				ps.println("");
-				ps.println("	@GetMapping");
-				ps.println("	public String getAll" + className + "s(Model model) {");
+				ps.println("	private " + className + "SearchForm getForm(HttpServletRequest request) {");
 				ps.println("		" + className + "SearchForm form = (" + className
-						+ "SearchForm) model.getAttribute(\"" + fieldName + "SearchForm\");");
-				ps.println("		model.addAttribute(\"" + fieldName + "s\", this." + fieldName
-						+ "Service.listAll(form));");
-				ps.println("		return \"" + fieldName + "s\";");
+						+ "SearchForm) request.getSession().getAttribute(\"" + fieldName + "SearchForm\");");
+				ps.println("		if (log.isDebugEnabled())");
+				ps.println("			log.debug(\"pulled from session:\" + form);");
+				ps.println("		if (form == null) {");
+				ps.println("			form = new " + className + "SearchForm();");
+				ps.println("		}");
+				ps.println("		return form;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	private void setForm(HttpServletRequest request, " + className + "SearchForm form) {");
+				ps.println("		request.getSession().setAttribute(\"" + fieldName + "SearchForm\", form);");
+				ps.println("		if (log.isDebugEnabled())");
+				ps.println("			log.debug(\"stored:\" + form);");
+				ps.println("	}");
+				ps.println("");
+				ps.println("");
+				ps.println("	@GetMapping");
+				ps.println("	public ModelAndView getAll(HttpServletRequest request) {");
+				ps.println("		return findPaginated(request, 1, \"id\", \"asc\");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/new\")");
-				ps.println("	public String showNew" + className + "Page(Model model,");
-				ps.println(
-						"			@RequestHeader(value = \"X-Requested-With\", required = false) String requestedWith) {");
-				ps.println("		model.addAttribute(new " + className + "Form());");
-				ps.println("		if (Utils.isAjaxRequest(requestedWith)) {");
-				ps.println("			return \"edit_" + fieldName + "\".concat(\" :: " + fieldName + "Form\");");
+				ps.println("	public ModelAndView showNewPage() {");
+				ps.println("		return showEditPage(0"+pkinfo.getMod()+");");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	@PostMapping(value = \"/search\")");
+				ps.println("	public ModelAndView search(HttpServletRequest request, @ModelAttribute " + className
+						+ "SearchForm form, RedirectAttributes ra,");
+				ps.println("			@RequestParam(value = \"action\", required = true) String action) {");
+				ps.println("		setForm(request, form);");
+				ps.println("		ModelAndView mav = findPaginated(request, 1, \"id\", \"asc\");");
+				ps.println("		@SuppressWarnings(\"unchecked\")");
+				ps.println("		List<" + className + "> list = (List<" + className
+						+ ">) mav.getModelMap().getAttribute(\"" + fieldName + "s\");");
+				ps.println("		if (list == null || list.isEmpty()) {");
+				ps.println("			mav.setViewName(\"search_" + fieldName + "\");");
+				ps.println("			mav.getModelMap().addAttribute(Message.MESSAGE_ATTRIBUTE,");
+				ps.println("					new Message(\"search.noResult\", Message.Type.WARNING));");
 				ps.println("		}");
 				ps.println("");
-				ps.println("		return \"edit_" + fieldName + "\";");
+				ps.println("		return mav;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	@GetMapping(\"/search/{pageNo}\")");
+				ps.println(
+						"	public ModelAndView findPaginated(HttpServletRequest request, @PathVariable(value = \"pageNo\") int pageNo,");
+				ps.println(
+						"			@RequestParam(\"sortField\") String sortField, @RequestParam(\"sortDir\") String sortDir) {");
+				ps.println("		" + className + "SearchForm form = getForm(request);");
+				ps.println("		if (pageNo < 1)");
+				ps.println("			pageNo = 1;");
+				ps.println("");
+				ps.println("		form.setPage(pageNo);");
+				ps.println("		form.setSortField(sortField);");
+				ps.println("		form.setSortAsc(\"asc\".equalsIgnoreCase(sortDir));");
+				ps.println("");
+				ps.println("		if (log.isDebugEnabled())");
+				ps.println("			log.debug(\"Searching with:\" + form);");
+				ps.println("");
+				ps.println("		Page<" + className + "> page = " + fieldName + "Service.listAll(form);");
+				ps.println("");
+				ps.println("		form.setTotalPages(page.getTotalPages());");
+				ps.println("		form.setTotalItems(page.getTotalElements());");
+				ps.println("		setForm(request, form);");
+				ps.println("");
+				ps.println("		ModelAndView mav = new ModelAndView(\"" + fieldName + "s\");");
+				ps.println("		mav.addObject(\"" + fieldName + "s\", page.getContent());");
+				ps.println("		return mav;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	@GetMapping(\"/search\")");
+				ps.println("	public String showSearchPage(HttpServletRequest request, Model model,");
+				ps.println(
+						"			@RequestHeader(value = \"X-Requested-With\", required = false) String requestedWith) {");
+				ps.println("		model.addAttribute(getForm(request));");
+				ps.println("		if (Utils.isAjaxRequest(requestedWith)) {");
+				ps.println(
+						"			return \"search_" + fieldName + "\".concat(\" :: " + fieldName + "SearchForm\");");
+				ps.println("		}");
+				ps.println("");
+				ps.println("		return \"search_" + fieldName + "\";");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@PostMapping(value = \"/save\")");
-				ps.println("	public String save" + className + "(@Valid @ModelAttribute " + className
+				ps.println("	public String save(@Valid @ModelAttribute " + className
 						+ "Form form, Errors errors, RedirectAttributes ra,");
 				ps.println("			@RequestParam(value = \"action\", required = true) String action) {");
 				ps.println("		if (action.equals(\"save\")) {");
@@ -2340,10 +2296,12 @@ public class GenSpring extends CommonMethods {
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/edit/{id}\")");
-				ps.println("	public ModelAndView showEdit" + className + "Page(@PathVariable(name = \"id\") "
-						+ pkinfo.getType() + " id) {");
+				ps.println("	public ModelAndView showEditPage(@PathVariable(name = \"id\") " + pkinfo.getType()
+						+ " id) {");
 				ps.println("		ModelAndView mav = new ModelAndView(\"edit_" + fieldName + "\");");
-				ps.println("		" + className + " " + fieldName + " = " + fieldName + "Service.get(id);");
+				ps.println("		" + className + " " + fieldName + " = null;");
+				ps.println("		if (id > 0)");
+				ps.println("			" + fieldName + " = " + fieldName + "Service.get(id);");
 				ps.println("		mav.addObject(\"" + fieldName + "Form\", " + className + "Form.getInstance("
 						+ fieldName + "));");
 				ps.println("");
@@ -2351,8 +2309,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@GetMapping(\"/delete/{id}\")");
-				ps.println("	public String delete" + className + "(@PathVariable(name = \"id\") " + pkinfo.getType()
-						+ " id) {");
+				ps.println("	public String delete(@PathVariable(name = \"id\") " + pkinfo.getType() + " id) {");
 				ps.println("		" + fieldName + "Service.delete(id);");
 				ps.println("		return \"redirect:/" + fieldName + "s\";");
 				ps.println("	}");
@@ -2471,6 +2428,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("import java.math.BigDecimal;");
 				ps.println("import java.util.List;");
 				ps.println("");
+				ps.println("import org.apache.commons.lang3.StringUtils;");
 				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
 				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("import org.springframework.data.domain.PageRequest;");
@@ -2586,7 +2544,7 @@ public class GenSpring extends CommonMethods {
 						ps.println("						SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					} else if ("String".equals(c.getType())) {
-						ps.println("			if (form.get" + c.getGsName() + "() != null) {");
+						ps.println("			if (!StringUtils.isBlank(form.get" + c.getGsName() + "())) {");
 						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
 								+ "\", form.get" + c.getGsName() + "().toLowerCase(), SearchOperation.LIKE));");
 						ps.println("			}");
@@ -2605,7 +2563,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("		} else {");
 				ps.println("			form = new " + className + "SearchForm();");
 				ps.println("		}");
-				ps.println("		Pageable pageable = PageRequest.of(form.getPage(), form.getPageSize(),");
+				ps.println("		Pageable pageable = PageRequest.of(form.getPage() - 1, form.getPageSize(),");
 				ps.println("				form.getSort());");
 				ps.println("		return " + fieldName + "Repository.findAll(searchSpec, pageable);");
 				ps.println("	}");
@@ -2810,6 +2768,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("	 */");
 				ps.println("	public static " + className + "Form getInstance(" + className + " obj) {");
 				ps.println("		" + className + "Form form = new " + className + "Form();");
+				ps.println("		if (obj != null) {");
 				for (String key : colNameToInfoMap.keySet()) {
 					if (PKEY_INFO.equals(key))
 						continue;
@@ -2820,9 +2779,10 @@ public class GenSpring extends CommonMethods {
 						ps.println(
 								"//		form.set" + info.getGsName() + "Confirm(obj.get" + info.getGsName() + "());");
 					} else {
-						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
+						ps.println("			form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 					}
 				}
+				ps.println("		}");
 				ps.println("		return form;");
 				ps.println("	}");
 				ps.println("}");
@@ -2848,13 +2808,15 @@ public class GenSpring extends CommonMethods {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import java.io.Serializable;");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
 				ps.println("");
 				ps.println("import org.springframework.data.domain.Sort;");
+				ps.println("import org.springframework.format.annotation.DateTimeFormat;");
 				ps.println("import " + basePkg + ".utils.MessageHelper;");
 				ps.println("import " + basePkg + ".entity." + className + ";");
+				ps.println("");
 				ps.println("import lombok.Data;");
 				ps.println("");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
 				ps.println(getClassHeader(tableName + " Form",
 						"Class for holding data from the " + tableName + " table for editing.", ""));
 
@@ -2866,6 +2828,9 @@ public class GenSpring extends CommonMethods {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isDate()) {
+						ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
+					}
 					if ("String".equals(info.getType())) {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
 								+ info.getDefaultVal() + ";");
@@ -2876,10 +2841,11 @@ public class GenSpring extends CommonMethods {
 				}
 
 				ps.println("	private String sortField = \"id\";");
-				ps.println("	private int page = 0;");
+				ps.println("	private int page = 1;");
 				ps.println("	private int pageSize = 10;");
 				ps.println("	private boolean sortAsc = true;");
-				ps.println("");
+				ps.println("	private int totalPages = 0;");
+				ps.println("	private long totalItems = 0;");
 				ps.println("	/**");
 				ps.println("	 * Clones " + className + " obj into form");
 				ps.println("	 *");
@@ -2912,6 +2878,23 @@ public class GenSpring extends CommonMethods {
 				ps.println("		return Sort.by(sortField).descending();");
 				ps.println("	}");
 				ps.println("");
+				ps.println("	public String getSortDir() {");
+				ps.println("		if (sortAsc)");
+				ps.println("			return \"asc\";");
+				ps.println("		else");
+				ps.println("			return \"desc\";");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	public String getReverseSortDir() {");
+				ps.println("		if (sortAsc)");
+				ps.println("			return \"desc\";");
+				ps.println("		else");
+				ps.println("			return \"asc\";");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	boolean getSortAscFlip() {");
+				ps.println("		return !sortAsc;");
+				ps.println("	}");
 				ps.println("}");
 				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {

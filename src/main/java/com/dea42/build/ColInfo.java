@@ -94,7 +94,7 @@ public class ColInfo implements Serializable {
 	}
 
 	/**
-	 * For setting test numbers where l needs added longs
+	 * For setting test numbers where an l needs added to long numbers
 	 * 
 	 * @return
 	 */

@@ -18,6 +18,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import junit.framework.TestCase;
 
+/**
+ * Title: UnitBase <br>
+ * Description: The base class for testing. <br>
+ * Copyright: Copyright (c) 2001-${thisYear}<br>
+ * Company: ${Company}<br>
+ * @author Gened by GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
+ */
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration
 public abstract class UnitBase extends TestCase {

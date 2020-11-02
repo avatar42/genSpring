@@ -250,9 +250,10 @@ public class Java2VMTest {
 	public void testJava2vmNewStuff() throws IOException {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
-		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchCriteria.java", "package ${basePkg}.search;");
-		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchOperation.java", "package ${basePkg}.search;");
-		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchSpecification.java", "package ${basePkg}.search;");
+//		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchCriteria.java", "package ${basePkg}.search;");
+//		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchOperation.java", "package ${basePkg}.search;");
+//		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchSpecification.java", "package ${basePkg}.search;");
+		doJava2vm(j, "src/test/java/com/dea42/genspring/MockBase.java", "package ${basePkg};");
 	}
 
 	/**

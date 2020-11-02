@@ -14,10 +14,12 @@ import javax.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 
 /**
- * Used to generate SearchCriteria list for queries
- * 
- * @author avata
- *
+ * Title: SearchSpecification <br>
+ * Description: Used to generate SearchCriteria list for queries. <br>
+ * Copyright: Copyright (c) 2001-${thisYear}<br>
+ * Company: ${Company}<br>
+ * @author Gened by GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
  */
 public class SearchSpecification<T> implements Specification<T> {
 

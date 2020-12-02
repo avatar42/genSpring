@@ -1,20 +1,14 @@
 <!DOCTYPE html>
 <html xmlns:th="www.thymeleaf.org">
-<head>
+<head th:replace="fragments/header :: common_header(~{::title},~{},~{})">
 <title>Error page</title>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/bootstrap.min.css}" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/site.css}" />
 </head>
 <body>
 	<div class="container">
 		<div
 			th:replace="fragments/alert :: alert (type='danger', message=${errorMessage})">Error:
 			Error</div>
-		<div th:include="fragments/footer :: footer">&copy; 2017 The
-			Static Templates</div>
+		<div th:insert="fragments/footer :: footer">&copy; 2020 default</div>
 	</div>
 </body>
 </html>

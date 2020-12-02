@@ -1,0 +1,7 @@
+CREATE TABLE TabB(id INTEGER NOT NULL primary key autoincrement, Added DATETIME NOT NULL, Updated DATETIME NOT NULL,
+N1k	INTEGER,
+Fkey	INTEGER,
+MoneyVal	REAL,
+Skip	VARCHAR(1),
+MidText	VARCHAR(21),
+Datetime	DATETIME,    CONSTRAINT FK_TabB_Fkey FOREIGN KEY (Fkey)    REFERENCES TabA(Number));

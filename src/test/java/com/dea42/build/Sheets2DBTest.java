@@ -5,21 +5,30 @@ package com.dea42.build;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Time;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.ResourceBundle;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -34,7 +43,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class Sheets2DBTest {
+	// set false to check all the expected values in one run
+	private static final boolean stopOnError = false;
 	public static final String bundleName = "sheettest";
+	public static final String RESOURCE_FOLDER = "src/test/resources";
 
 	/**
 	 * Test method for {@link com.dea42.build.Sheets2DB#columnNumberToLetter(int)}.
@@ -102,6 +114,64 @@ public class Sheets2DBTest {
 			fail("parseDateStr test failed");
 		}
 
+	}
+
+	private Object chkgetTypedVal(Sheets2DB s, Object val, Class<?> fieldCls, Class<?> expectedCls) throws IOException {
+		Object rtn = s.getTypedVal(val, fieldCls);
+		assertNotNull("checking getTypedVal(" + val + ", " + fieldCls + ") not null", rtn);
+		assertTrue("checking getTypedVal(" + val + ", " + fieldCls + ") instanceof " + expectedCls + " was:"
+				+ val.getClass(), rtn.getClass().isAssignableFrom(expectedCls));
+		return rtn;
+	}
+
+	@Test
+	public void testgetTypedVal() throws IOException {
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+
+		// no type assumed
+		Object rtn = s.getTypedVal(null, null);
+		assertNull("checking getTypedVal(null, null) returns null", rtn);
+
+		rtn = chkgetTypedVal(s, "Sat 05/03/20 01:03 PM", null, Date.class);
+		rtn = chkgetTypedVal(s, "Sat 05/03/20 13:03", null, Date.class);
+		rtn = chkgetTypedVal(s, "Sat 5/3/20 1:3 PM", null, Date.class);
+		rtn = chkgetTypedVal(s, "5/3/20 1:3 PM", null, Date.class);
+		rtn = chkgetTypedVal(s, "202003131000", null, Date.class);
+		rtn = chkgetTypedVal(s, "202005232200", null, Date.class);
+
+		rtn = chkgetTypedVal(s, "1:30:00", null, Time.class);
+		rtn = chkgetTypedVal(s, "13:30:00", null, Time.class);
+		rtn = chkgetTypedVal(s, "1:30:00 PM", null, Time.class);
+
+		rtn = chkgetTypedVal(s, "" + System.currentTimeMillis(), null, Long.class);
+		rtn = chkgetTypedVal(s, "123456", null, Integer.class);
+		rtn = chkgetTypedVal(s, "1", null, Integer.class);
+
+		rtn = chkgetTypedVal(s, "123456.1", null, BigDecimal.class);
+
+		rtn = chkgetTypedVal(s, new BigDecimal("1"), null, Integer.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("" + System.currentTimeMillis()), null, Long.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("1.1"), null, BigDecimal.class);
+
+		rtn = chkgetTypedVal(s, "123456-1", null, String.class);
+
+		rtn = chkgetTypedVal(s, Long.parseLong("1"), null, Long.class);
+
+		// type previously set
+		rtn = chkgetTypedVal(s, Long.parseLong("1"), String.class, String.class);
+		rtn = chkgetTypedVal(s, "202005232200", Date.class, Date.class);
+
+		rtn = chkgetTypedVal(s, new BigDecimal("1"), Integer.class, Integer.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("1"), Long.class, Long.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("" + System.currentTimeMillis()), Long.class, Long.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("" + System.currentTimeMillis()), Integer.class, Long.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("1.1"), Long.class, BigDecimal.class);
+		rtn = chkgetTypedVal(s, new BigDecimal("1.1"), Integer.class, BigDecimal.class);
+
+		rtn = chkgetTypedVal(s, 1, BigDecimal.class, BigDecimal.class);
+		rtn = chkgetTypedVal(s, 1, BigDecimal.class, BigDecimal.class);
+		rtn = chkgetTypedVal(s, System.currentTimeMillis(), BigDecimal.class, BigDecimal.class);
+		rtn = chkgetTypedVal(s, System.currentTimeMillis(), BigDecimal.class, BigDecimal.class);
 	}
 
 	/**
@@ -180,17 +250,33 @@ public class Sheets2DBTest {
 	}
 
 	/**
+	 * Run Sheets2DB with Watchlist.properties file and validate the results
+	 */
+	@Test
+	public void testWithWatchlist() throws Exception {
+
+		genDB("Watchlist");
+	}
+
+	/**
 	 * Check the columns and rows are what we expected.
 	 * 
 	 * @param db
 	 * @param bundle
-	 * @param tableName
+	 * @param tabName
+	 * @throws IOException
 	 */
-	private void quickChkTable(Db db, ResourceBundle bundle, String tableName) {
+	private String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws IOException {
+		String rtn = "";
+		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		String schema = db.getPrefix();
-
+		ResourceBundle renames = ResourceBundle.getBundle("rename");
+		String tableName = Utils.tabToStr(renames, tabName);
 		int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
 		int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+		List<Integer> wantedColNums = s.strToCols(Utils.getProp(bundle, tableName + ".columns"));
+		List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
+
 		try {
 			Connection conn = db.getConnection("Sheet2AppTest");
 			String query = "SELECT * FROM " + schema + tableName;
@@ -201,7 +287,21 @@ public class Sheets2DBTest {
 			assertNotNull("Check ResultSet", rs);
 			ResultSetMetaData rm = rs.getMetaData();
 			int size = rm.getColumnCount();
-			assertEquals("Checking expected columns in " + schema + tableName, columns, size);
+			int calcCols = wantedColNums.size() + 1;
+			if (userColNums.size() == 0)
+				calcCols++;
+			else
+				calcCols -= userColNums.size();
+
+			if (stopOnError)
+				assertEquals(
+						"Checking expected columns in " + schema + tableName + " wantedColNums:" + wantedColNums.size()
+								+ " userColNums:" + userColNums.size() + " so probably should be " + calcCols,
+						columns, size);
+			else if (columns != size)
+				rtn += "Checking expected columns in " + schema + tableName + " wantedColNums:" + wantedColNums.size()
+						+ " userColNums:" + userColNums.size() + " so probably should be " + calcCols + " columns:"
+						+ columns + " size:" + size;
 
 			query = "SELECT COUNT(*) FROM " + schema + tableName;
 			stmt = conn.createStatement();
@@ -209,7 +309,11 @@ public class Sheets2DBTest {
 			assertNotNull("Check ResultSet", rs);
 			if (!db.isSQLite())
 				rs.next();
-			assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+			if (stopOnError)
+				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+			else if (rows != rs.getInt(1))
+				rtn += "Checking expected rows in " + schema + tableName + " expected rows:" + rows + " got:"
+						+ rs.getInt(1);
 		} catch (SQLException e) {
 			log.error("Exception creating DB", e);
 			fail("Exception creating DB");
@@ -217,24 +321,67 @@ public class Sheets2DBTest {
 			db.close("Sheet2AppTest");
 		}
 
+		return rtn;
 	}
 
 	private void genDB(String bundleName) throws Exception {
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+		assertNotNull("Check DB:" + Utils.getProp(bundle, "db.url", null), s);
 		s.getSheet();
 
 		// Validate DB
-		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
+		chkSQL(bundleName, bundle);
 		Db db = new Db("Sheet2AppTest", bundleName);
-
-		quickChkTable(db, bundle, "Account");
+		StringBuilder sb = new StringBuilder();
+		sb.append(quickChkTable(db, bundle, "Account")).append('\n');
 		List<String> tables = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
 		for (String tableName : tables) {
-			quickChkTable(db, bundle, tableName);
+			sb.append(quickChkTable(db, bundle, tableName)).append('\n');
 			List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 			if (!userColNums.isEmpty()) {
-				quickChkTable(db, bundle, tableName + "User");
+				sb.append(quickChkTable(db, bundle, tableName + "User")).append('\n');
 			}
 		}
+		String errors = sb.toString().trim();
+		assertTrue(errors, StringUtils.isBlank(errors));
 	}
+
+	public void chkSQL(String bundleName, ResourceBundle bundle) throws IOException {
+		Path staticPath = Utils.getPath(RESOURCE_FOLDER, bundleName);
+		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
+			@Override
+			public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+				return FileVisitResult.CONTINUE;
+			}
+
+			/**
+			 * Copy file into new tree converting package / paths as needed TODO: change to
+			 * use velocityGenerator()
+			 */
+			@Override
+			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+				if (file.toString().endsWith(".sql")) {
+					String expected = new String(Files.readAllBytes(file));
+					String baseDir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "target");
+					Path p = Utils.getPath(baseDir, Sheets2DB.SCRIPTS_FOLDER, file.getFileName().toString());
+					String actual = new String(Files.readAllBytes(p));
+					assertEquals("Comparing generated and stored " + file.getFileName().toString(), expected, actual);
+				}
+
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+				return FileVisitResult.CONTINUE;
+			}
+
+			@Override
+			public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+				return FileVisitResult.CONTINUE;
+			}
+		});
+	}
+
 }

@@ -199,38 +199,19 @@ public class GenSpring extends CommonMethods {
 		return ACCOUNT_CLASS.equals(className) || !StringUtils.isBlank(userColNums);
 	}
 
-	private void writeNav(Set<String> set) {
-		Path p = Utils.createFile(baseDir, "src/main/resources/templates/fragments/header.html");
+	private void writeNav(Set<String> set, Map<String, String> statics) {
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/fragments/nav.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("<!DOCTYPE html>");
 				ps.println("<html xmlns:th=\"http://www.thymeleaf.org\">");
-				ps.println("<head>");
-				ps.println("<link rel=\"stylesheet\" media=\"screen\"");
-				ps.println("	th:href=\"@{/resources/css/bootstrap.min.css}\" />");
-				ps.println("</head>");
 				ps.println("<body>");
-				ps.println("	<div th:fragment=\"header\">");
-				ps.println("		<nav class=\"navbar navbar-inverse navbar-fixed-top\">");
-				ps.println("			<div class=\"container\">");
-				ps.println("				<div class=\"navbar-header\">");
-				ps.println(
-						"					<button type=\"button\" class=\"navbar-toggle\" data-toggle=\"collapse\"");
-				ps.println("						data-target=\".nav-collapse\">");
-				ps.println(
-						"						<span class=\"icon-bar\"></span> <span class=\"icon-bar\"></span> <span");
-				ps.println("							class=\"icon-bar\"></span>");
-				ps.println("					</button>");
-				ps.println(
-						"					<a class=\"navbar-brand\" th:href=\"@{/}\" th:text=\"#{app.name}\"></a>");
-				ps.println("				</div>");
-				ps.println("				<div class=\"navbar-collapse collapse\">");
-				ps.println("					<ul class=\"nav navbar-nav\">");
-				ps.println("						<li id=\"guiMenu\" class=\"dropdown\"><a href=\"#\"");
-				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
-				ps.println(
-						"								th:text=\"#{header.gui}\"></span> <b class=\"caret\"></b> </a>");
-				ps.println("							<ul class=\"dropdown-menu\">");
+				ps.println("	<ul class=\"navbar-nav mr-auto\">");
+				ps.println("		<li th:fragment=\"guiMenu\" id=\"guiMenu\" class=\"nav-item dropdown\"><a");
+				ps.println("			href=\"#\" class=\"nav-link dropdown-toggle\" data-toggle=\"dropdown\"");
+				ps.println("			aria-haspopup=\"true\" aria-expanded=\"false\"><span");
+				ps.println("				th:text=\"#{header.gui}\"></span> <b class=\"caret\"></b> </a>");
+				ps.println("			<ul class=\"dropdown-menu bg-dark\">");
 				for (String className : set) {
 					String li = makeAdminOnly(ps, classHasUserFields(className), "li");
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
@@ -239,12 +220,12 @@ public class GenSpring extends CommonMethods {
 					ps.println("    								<a id=\"guiItem" + className + "\" th:href=\"@{/"
 							+ fieldName + "s}\" th:text=\"#{class." + className + "}\"></a></li>");
 				}
-				ps.println("							</ul></li>");
-				ps.println("						<li id=\"restMenu\" class=\"dropdown\"><a href=\"#\"");
-				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
-				ps.println(
-						"								th:text=\"#{header.restApi}\"></span> <b class=\"caret\"></b></a>");
-				ps.println("							<ul class=\"dropdown-menu\">");
+				ps.println("			</ul></li>");
+				ps.println("		<li th:fragment=\"restMenu\" id=\"restMenu\" class=\"nav-item dropdown\"><a");
+				ps.println("			href=\"#\" class=\"nav-link dropdown-toggle\" data-toggle=\"dropdown\"");
+				ps.println("			aria-haspopup=\"true\" aria-expanded=\"false\"><span");
+				ps.println("				th:text=\"#{header.restApi}\"></span> <b class=\"caret\"></b> </a>");
+				ps.println("			<ul class=\"dropdown-menu bg-dark\">");
 				for (String className : set) {
 					String li = makeAdminOnly(ps, classHasUserFields(className), "li");
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
@@ -254,61 +235,23 @@ public class GenSpring extends CommonMethods {
 							"    								<a id=\"apiItem" + className + "\" th:href=\"@{/api/"
 									+ fieldName + "s}\" th:text=\"#{class." + className + "}\"></a></li>");
 				}
-				ps.println("							</ul></li>");
+				ps.println("			</ul></li>");
+				ps.println("		<li th:fragment=\"staticMenu\" id=\"staticMenu\" class=\"nav-item dropdown\">");
+				if (statics != null && !statics.isEmpty()) {
+					ps.println("			<a href=\"#\" class=\"nav-link dropdown-toggle\" data-toggle=\"dropdown\"");
+					ps.println("			aria-haspopup=\"true\" aria-expanded=\"false\"><span");
+					ps.println("				th:text=\"#{header.static}\"></span> <b class=\"caret\"></b> </a>");
+					ps.println("			<ul class=\"dropdown-menu bg-dark\">");
+					for (String name : statics.keySet()) {
+						String url = statics.get(name);
+						ps.println("								<li>");
+						ps.println("    								<a id=\"" + name + "\" th:href=\"@{" + url
+								+ "}\" th:text=\"#{static." + name + "}\"></a></li>");
+					}
+					ps.println("							</ul>");
+				}
+				ps.println("							</li>");
 				ps.println("					</ul>");
-				ps.println("					<ul class=\"nav navbar-nav navbar-right\">");
-				ps.println("						<li id=\"langMenu\" class=\"dropdown\"><a href=\"#\"");
-				ps.println("							class=\"dropdown-toggle\" data-toggle=\"dropdown\"><span");
-				ps.println(
-						"								th:text=\"#{lang.change}\"></span> <b class=\"caret\"></b></a>");
-				ps.println("							<ul class=\"dropdown-menu\">");
-				ps.println("								<li th:classappend=\"'active'\"><a");
-				ps.println(
-						"									th:href=\"@{/international?lang=en}\" th:text=\"#{lang.en}\"></a></li>");
-				ps.println("								<li th:classappend=\"'active'\"><a");
-				ps.println(
-						"									th:href=\"@{/international?lang=fr}\" th:text=\"#{lang.fr}\"></a></li>");
-				ps.println("								<li th:classappend=\"'active'\"><a");
-				ps.println(
-						"									th:href=\"@{/international?lang=de}\" th:text=\"#{lang.de}\"></a></li>");
-				ps.println("							</ul></li>");
-				ps.println("					</ul>");
-				ps.println("					<ul class=\"nav navbar-nav navbar-right\">");
-				ps.println("						<li th:if=\"${#authorization.expression('!isAuthenticated()')}\">");
-				ps.println("							<a th:href=\"@{/login}\"> <span");
-				ps.println(
-						"								class=\"glyphicon glyphicon-log-in\" aria-hidden=\"true\"></span>&nbsp;<span");
-				ps.println("								th:text=\"#{signin.signin}\"></span>");
-				ps.println("						</a>");
-				ps.println("");
-				ps.println("						</li>");
-				ps.println("						<li th:if=\"${#authorization.expression('isAuthenticated()')}\">");
-				ps.println("							<a th:href=\"@{#}\" onclick=\"$('#form').submit();\"> <span");
-				ps.println(
-						"								class=\"glyphicon glyphicon-log-out\" aria-hidden=\"true\"></span>&nbsp;<span");
-				ps.println("								th:text=\"#{signin.logout}\"></span>");
-				ps.println("						</a>");
-				ps.println(
-						"							<form style=\"visibility: hidden\" id=\"form\" method=\"post\"");
-				ps.println("								action=\"#\" th:action=\"@{/logout}\"></form>");
-				ps.println("						</li>");
-				ps.println("					</ul>");
-				ps.println("				</div>");
-				ps.println("				<!--/.nav-collapse -->");
-				ps.println("			</div>");
-				ps.println("		</nav>");
-				ps.println("		<br>");
-				ps.println("		<div class=\"container\">");
-				ps.println("			<!-- /* Handle the flash message in container */-->");
-				ps.println("			<th:block th:if=\"${message != null}\">");
-				ps.println("				<!-- /* The message code is returned from the @Controller */ -->");
-				ps.println("				<div");
-				ps.println(
-						"					th:replace=\"fragments/alert :: alert (type=${#strings.toLowerCase(message.type)}, message=#{${message.message}(${#authentication.name})})\">&nbsp;</div>");
-				ps.println("			</th:block>");
-				ps.println("		</div>");
-				ps.println("	</div>");
-				ps.println("	<!-- End of header -->");
 				ps.println("</body>");
 				ps.println("</html>");
 				log.warn("Wrote:" + p.toString());
@@ -460,7 +403,7 @@ public class GenSpring extends CommonMethods {
 
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
-		writeNav(colsInfo.keySet());
+		writeNav(colsInfo.keySet(), null);
 		writeIndex(colsInfo.keySet());
 		writeApiIndex(colsInfo.keySet());
 		updateMsgProps(colsInfo);
@@ -881,6 +824,7 @@ public class GenSpring extends CommonMethods {
 		boolean dataChged = false;
 		try {
 			data = new String(Files.readAllBytes(p));
+			data = data + "app.version=" + appVersion + System.lineSeparator();
 			data = data + "app.name=" + appName + System.lineSeparator();
 			data = data + "app.description=" + appDescription + System.lineSeparator();
 			data = data + "index.greeting=Welcome to the " + appName + " application!" + System.lineSeparator();
@@ -1104,31 +1048,28 @@ public class GenSpring extends CommonMethods {
 		StringBuilder sb = new StringBuilder();
 
 		sb.append("<!DOCTYPE html>" + System.lineSeparator());
-		sb.append("<html lang=\"en\" xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
-		sb.append("<head>" + System.lineSeparator() + "<meta charset=\"UTF-8\" />" + System.lineSeparator());
+		sb.append("<html xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
+		sb.append(
+				"<head th:replace=\"fragments/header :: common_header(~{::title},~{},~{})\">" + System.lineSeparator());
 		if (pageType == null)
 			sb.append("<title th:text=\"#{" + className + "}\"></title>" + System.lineSeparator());
 		else
 			sb.append("<title th:text=\"#{edit." + pageType + "} + ' ' + #{class." + className + "}\"></title>"
 					+ System.lineSeparator());
-		sb.append("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />" + System.lineSeparator());
-		sb.append("<link rel=\"stylesheet\" media=\"screen\"" + System.lineSeparator());
-		sb.append("	th:href=\"@{/resources/css/bootstrap.min.css}\" />" + System.lineSeparator());
-		sb.append("<link rel=\"stylesheet\" media=\"screen\"" + System.lineSeparator());
-		sb.append("	th:href=\"@{/resources/css/site.css}\" />" + System.lineSeparator());
-		sb.append("<script th:src=\"@{/resources/js/jquery.min.js}\"></script>" + System.lineSeparator());
-		sb.append("<script th:src=\"@{/resources/js/bootstrap.min.js}\"></script>" + System.lineSeparator());
 		sb.append("</head>" + System.lineSeparator());
-		sb.append("<body>" + System.lineSeparator());
+		sb.append("<body class=\"d-flex flex-column min-vh-100\">" + System.lineSeparator());
 
 		sb.append("	<div th:replace=\"fragments/header :: header\">&nbsp;</div>" + System.lineSeparator());
+		// closed in footer
+		sb.append("	<div class=\"wrapper flex-grow-1\">" + System.lineSeparator());
 
 		return sb.toString();
 	}
 
 	private String htmlFooter() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("	<div th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>" + System.lineSeparator());
+		sb.append("	</div>");
+		sb.append("	<div class=\"mt-auto\" th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>" + System.lineSeparator());
 		sb.append("</body>");
 		sb.append("</html>");
 
@@ -1261,7 +1202,6 @@ public class GenSpring extends CommonMethods {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader(className, "edit"));
-				ps.println("	<div class=\"container\">");
 				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
 				ps.println(
 						"			th:action=\"@{/" + fieldName + "s/save}\" th:object=\"${" + fieldName + "Form}\"");
@@ -1356,7 +1296,6 @@ public class GenSpring extends CommonMethods {
 				ps.println("				</div>");
 				ps.println("			</fieldset>");
 				ps.println("		</form>");
-				ps.println("	</div>");
 				ps.println("");
 				ps.println(htmlFooter());
 				log.warn("Wrote:" + p.toString());
@@ -1426,7 +1365,6 @@ public class GenSpring extends CommonMethods {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader(className, "edit"));
-				ps.println("	<div class=\"container\">");
 				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
 				ps.println("			th:action=\"@{/" + fieldName + "s/search}\" th:object=\"${" + fieldName
 						+ "SearchForm}\"");
@@ -1582,7 +1520,6 @@ public class GenSpring extends CommonMethods {
 				ps.println("				</div>");
 				ps.println("			</fieldset>");
 				ps.println("		</form>");
-				ps.println("	</div>");
 				ps.println("");
 				ps.println(htmlFooter());
 				log.warn("Wrote:" + p.toString());
@@ -2193,7 +2130,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("	@GetMapping(\"/new\")");
 				ps.println("	public ModelAndView showNewPage() {");
-				ps.println("		return showEditPage(0"+pkinfo.getMod()+");");
+				ps.println("		return showEditPage(0" + pkinfo.getMod() + ");");
 				ps.println("	}");
 				ps.println("");
 				ps.println("	@PostMapping(value = \"/search\")");

@@ -1,10 +1,14 @@
 package com.dea42.build;
 
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -66,6 +70,7 @@ public class Sheets2DB extends CommonMethods {
 	private static final String APPLICATION_NAME = "Google Sheets 2 DB";
 	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 	private static final String TOKENS_DIRECTORY_PATH = "tokens";
+	public static final String SCRIPTS_FOLDER = "Scripts";
 
 	/*
 	 * Datetime Date and Time formats supported
@@ -444,6 +449,101 @@ public class Sheets2DB extends CommonMethods {
 		return wantedCols;
 	}
 
+	public Object getTypedVal(Object val, Class<?> fieldCls) {
+		if (val == null)
+			return null;
+		Class<?> cellCls = val.getClass();
+		if (fieldCls == null) {
+			if (val instanceof String) {
+				String s = (String) val;
+				if (!StringUtils.isBlank(s)) {
+					s = s.trim();
+					long d = parseDateStr(s);
+					if (d == 0) {
+						if (StringUtils.isNumeric(s)) {
+							try {
+								val = Integer.parseInt(s);
+							} catch (NumberFormatException e) {
+								try {
+									val = Long.parseLong(s);
+								} catch (NumberFormatException e2) {
+									// should not happen but if does just return val
+									log.warn("Value:(" + s + ") looked like a number but did not parse to one.");
+									val = s;
+								}
+							}
+						} else if (s.contains(".")) {
+							try {
+								val = new BigDecimal(s);
+							} catch (NumberFormatException e) {
+								val = s;
+							}
+						}
+					} else {
+						// if date / time object then use that type instead of String
+						if (d > ONE_DAY_MILS) {
+							val = new Date(d);
+						} else {
+							val = new Time(d);
+						}
+					}
+				}
+			} else if (cellCls.isAssignableFrom(BigDecimal.class)) {
+				BigDecimal bd = (BigDecimal) val;
+				if (bd.stripTrailingZeros().scale() <= 0) {
+					try {
+						try {
+							val = bd.intValueExact();
+						} catch (ArithmeticException e) {
+							val = bd.longValueExact();
+						}
+					} catch (ArithmeticException e) {
+						log.warn("Could not convert BigDecimal to " + fieldCls + " leaving as BigDecimal");
+					}
+				}
+			}
+		} else if (fieldCls.isAssignableFrom(String.class)) {
+			val = val.toString();
+		} else if (!fieldCls.isAssignableFrom(cellCls)) {
+			if (cellCls.isAssignableFrom(BigDecimal.class)) {
+				BigDecimal bd = (BigDecimal) val;
+				if (bd.stripTrailingZeros().scale() <= 0) {
+					try {
+						if (fieldCls.isAssignableFrom(Integer.class)) {
+							try {
+								val = bd.intValueExact();
+							} catch (ArithmeticException e) {
+								val = bd.longValueExact();
+							}
+						} else if (fieldCls.isAssignableFrom(Long.class)) {
+							val = bd.longValueExact();
+						}
+					} catch (ArithmeticException e) {
+						log.warn("Could not convert BigDecimal to " + fieldCls + " leaving as BigDecimal");
+					}
+				}
+			} else if (cellCls.isAssignableFrom(Integer.class) || cellCls.isAssignableFrom(Long.class)) {
+				if (fieldCls.isAssignableFrom(BigDecimal.class)) {
+					val = new BigDecimal("" + val);
+				}
+			} else if (fieldCls.isAssignableFrom(Date.class) || fieldCls.isAssignableFrom(Time.class)) {
+				long d = parseDateStr((String) val);
+				if (d > 0) {
+					// if date / time object then use that type instead of String
+					if (d > ONE_DAY_MILS) {
+						val = new Date(d);
+					} else {
+						val = new Time(d);
+					}
+				}
+			} else {
+				val = val.toString();
+			}
+		}
+
+		return val;
+	}
+
 	public void exportTab(Sheets service, String spreadsheetId, Sheet sheet) throws Exception {
 
 		SheetProperties p = sheet.getProperties();
@@ -470,6 +570,7 @@ public class Sheets2DB extends CommonMethods {
 		List<Integer> wantedColNums = strToCols(Utils.getProp(bundle, tableName + ".columns"));
 		List<Integer> userColNums = strToCols(Utils.getProp(bundle, tableName + ".user"));
 		List<Integer> requiredColNums = strToCols(Utils.getProp(bundle, tableName + ".required"));
+
 		Map<String, String> foreignColNums = Utils.getPropMap(bundle, tableName + ".foreign");
 
 		// Get headers and basic cell data
@@ -505,6 +606,9 @@ public class Sheets2DB extends CommonMethods {
 			} else {
 				int rowId = 1;
 				for (List<Object> row : values) {
+					if (rowId == 306) {
+						log.error("rowId == " + rowId);
+					}
 					if (rowId == frozenRowCount) {
 						// init field lengths to 0
 						int colNum = 0;
@@ -515,7 +619,8 @@ public class Sheets2DB extends CommonMethods {
 									header = "Col" + columnNumberToLetter(colNum + 1);
 								}
 								maxUserFieldLenghts.put(header, 0);
-								userFieldTypes.put(header, null);
+								userFieldTypes.put(header, Utils.getPropCls(bundle,
+										tabName + "." + columnNumberToLetter(colNum + 1) + ".type", null));
 								// note just pulling the keySet scrambles the order
 								ha[colNum] = header;
 								if (requiredColNums.contains(colNum)) {
@@ -526,7 +631,8 @@ public class Sheets2DB extends CommonMethods {
 									header = "Col" + columnNumberToLetter(colNum + 1);
 								}
 								maxFieldLenghts.put(header, 0);
-								fieldTypes.put(header, null);
+								fieldTypes.put(header, Utils.getPropCls(bundle,
+										tabName + "." + columnNumberToLetter(colNum + 1) + ".type", null));
 								// note just pulling the keySet scrambles the order
 								ha[colNum] = header;
 								if (requiredColNums.contains(colNum)) {
@@ -556,67 +662,43 @@ public class Sheets2DB extends CommonMethods {
 								rowMap.put(ha[i], cells[i]);
 
 								Class<?> fieldCls = ft.get(ha[i]);
+								// set blank and cells with errors to null
 								if (cells[i] != null) {
-									Class<?> cellCls = cells[i].getClass();
-									if (cellCls.isAssignableFrom(BigDecimal.class)) {
-										BigDecimal bd = (BigDecimal) cells[i];
-										if (bd.stripTrailingZeros().scale() <= 0)
-											cellCls = Integer.class;
-									}
-									// if String value with text in it, not "" or " "
 									if (cells[i] instanceof String) {
 										String s = (String) cells[i];
-										if (!StringUtils.isBlank(s)) {
-											long d = parseDateStr(s);
-											if (d == 0) {
-												int len = mfl.get(ha[i]);
-												int vlen = s.length();
-												if (len < vlen)
-													mfl.put((String) ha[i], vlen);
-
-												// if null or something other than String then set to String now
-												if (fieldCls == null || !fieldCls.isAssignableFrom(String.class)) {
-													ft.put((String) ha[i], String.class);
-												}
-											} else {
-												// if date / time object then use that type instead of String
-												if (d > ONE_DAY_MILS) {
-													ft.put(ha[i], Date.class);
-													cells[i] = new Date(d);
-												} else {
-													ft.put(ha[i], Time.class);
-													cells[i] = new Time(d);
-												}
-												rowMap.put(ha[i], cells[i]);
-											}
-										}
-									} else if (cells[i] instanceof Boolean) {
-										ft.put(ha[i], Boolean.class);
-									} else if (fieldCls == null) {
-										ft.put(ha[i], cellCls);
-										// if some reason the type changes by row set it to String
-									} else if (!fieldCls.isAssignableFrom(cellCls)) {
-										if (cellCls.isAssignableFrom(BigDecimal.class)) {
-											if (fieldCls.isAssignableFrom(Integer.class)) {
-												ft.put(ha[i], BigDecimal.class);
-											} else {
-												ft.put(ha[i], String.class);
-												int vlen = cells[i].toString().length();
-												mfl.put(ha[i], vlen);
-											}
-										} else if (cellCls.isAssignableFrom(Integer.class)) {
-											if (!fieldCls.isAssignableFrom(BigDecimal.class)) {
-												ft.put(ha[i], String.class);
-												int vlen = cells[i].toString().length();
-												mfl.put(ha[i], vlen);
-											}
-										} else {
-											ft.put(ha[i], String.class);
-											int vlen = cells[i].toString().length();
-											mfl.put(ha[i], vlen);
-										}
+										if (StringUtils.isBlank(s))
+											cells[i] = null;
+										else if (s.startsWith("#VALUE!"))
+											cells[i] = null;
+										else if (s.startsWith("#NUM!"))
+											cells[i] = null;
+										else if (s.startsWith("#REF!"))
+											cells[i] = null;
+										else if (s.startsWith("#N/A"))
+											cells[i] = null;
+										else if (s.equals("#N/A"))
+											cells[i] = null;
 									}
 								}
+
+								if (i == 0 && cells[i] != null) {
+									log.debug("Before:" + i + ":" + cells[i] + ":" + cells[i].getClass() + ":"
+											+ fieldCls);
+								}
+								Object val = getTypedVal(cells[i], fieldCls);
+								if (i == 0 && cells[i] != null) {
+									log.debug("After:" + i + ":" + val + ":" + cells[i].getClass() + ":" + fieldCls);
+								}
+								if (val != null) {
+									ft.put(ha[i], val.getClass());
+									if (val instanceof String) {
+										int len = mfl.get(ha[i]);
+										int vlen = ((String) val).length();
+										if (len < vlen)
+											mfl.put((String) ha[i], vlen);
+									}
+								}
+								rowMap.put(ha[i], val);
 							}
 						}
 						log.debug("rowMap:" + rowMap.toString());
@@ -872,7 +954,14 @@ public class Sheets2DB extends CommonMethods {
 		}
 		sb.append(");");
 
-		runSQL(sb.toString());
+		runSQL(sb.toString(), tableName + ".sql");
+
+		try {
+			Utils.deletePath(Utils.getPath(baseDir, SCRIPTS_FOLDER, tableName + ".data.sql"));
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
 
 		genInsert:
 		// import data gathered into DB
@@ -944,10 +1033,34 @@ public class Sheets2DB extends CommonMethods {
 					continue;
 				}
 				Object val = row.get(name);
-				// for debug breakpoint
-//				if (rowId == 484) {
-//					LOGGER.debug("rowId:" + rowId);
-//				}
+				// Validate val is of expected type
+				Class<?> fieldCls = fieldTypes.get(name);
+				if (val != null && !fieldCls.isInstance(val)) {
+					// deal with numbers to be stored as Strings
+					if (fieldCls.isAssignableFrom(String.class)) {
+						val = val.toString();
+					} else if (val instanceof BigDecimal) {
+						if (fieldCls.isAssignableFrom(Integer.class)) {
+							((BigDecimal) val).intValue();
+							log.warn("rowId:" + rowId + " converting (" + val + ") for " + name + ": to Integer");
+						} else if (fieldCls.isAssignableFrom(Long.class)) {
+							((BigDecimal) val).longValue();
+							log.warn("rowId:" + rowId + " converting (" + val + ") for " + name + ": to Long");
+						} else {
+							log.warn("rowId:" + rowId + " has bad value (" + val + ") is the wrong class:"
+									+ val.getClass().getCanonicalName() + " for " + name + ":"
+									+ fieldCls.getCanonicalName() + " setting to null");
+							val = null;
+						}
+					} else if (!fieldCls.isAssignableFrom(val.getClass())) {
+						// Deal with other random things like - denoting an empty date field that can go
+						// into the DB but then case and Exception when Hibernate reads it.
+						log.warn("rowId:" + rowId + " has bad value (" + val + ") is the wrong class:"
+								+ val.getClass().getCanonicalName() + " for " + name + ":" + fieldCls.getCanonicalName()
+								+ " setting to null");
+						val = null;
+					}
+				}
 				// skip row
 				if (val == null && requiredFields.contains(name)) {
 					log.warn("Skipping due to missing required data:" + row);
@@ -993,7 +1106,7 @@ public class Sheets2DB extends CommonMethods {
 			}
 			sb.append(");");
 			try {
-				runSQL(sb.toString());
+				runSQL(sb.toString(), tableName + ".data.sql");
 				passed++;
 			} catch (SQLException e) {
 				if (failOnAnyError) {
@@ -1052,7 +1165,7 @@ public class Sheets2DB extends CommonMethods {
 
 		log.debug("Creating account table");
 
-		runSQL("DROP TABLE IF EXISTS " + db.getPrefix() + ACCOUNT_TABLE + ";");
+		runSQL("DROP TABLE IF EXISTS " + db.getPrefix() + ACCOUNT_TABLE + ";", ACCOUNT_TABLE + ".drop.sql");
 		genTable(ACCOUNT_TABLE, "", maxFieldLenghts, fieldTypes, requiredFields, rowsData, null);
 
 	}
@@ -1062,13 +1175,32 @@ public class Sheets2DB extends CommonMethods {
 	 * transactions so we can see any trouble rows that might exist in one go.
 	 * 
 	 * @param sql
+	 * @param saveFile TODO
 	 * @return pass / fail
 	 */
-	private boolean runSQL(String sql) throws SQLException {
+	private boolean runSQL(String sql, String saveFile) throws SQLException {
 		log.debug("Running:" + sql);
 		boolean rtn = false;
 
 		try {
+			if (!StringUtils.isBlank(saveFile)) {
+				Path p = Utils.getPath(baseDir, SCRIPTS_FOLDER, saveFile);
+				if (!p.toFile().exists()) {
+					try {
+						Files.createDirectories(p.getParent());
+					} catch (IOException e) {
+						log.warn(e.getMessage());
+					}
+				}
+				try (PrintStream ps = new PrintStream(new FileOutputStream(p.toFile(), true))) {
+					ps.println(sql);
+					log.warn("Wrote:" + p.toString());
+				} catch (Exception e) {
+					log.error("failed to create " + p, e);
+					p.toFile().delete();
+				}
+
+			}
 			Connection conn = db.getConnection(getClass().getSimpleName() + ".runSQL()");
 			Statement stmt = conn.createStatement();
 			rtn = stmt.execute(sql);
@@ -1087,6 +1219,9 @@ public class Sheets2DB extends CommonMethods {
 	}
 
 	public void getSheet() throws Exception {
+		String outdir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", ".");
+		Utils.deletePath(Utils.getPath(outdir, SCRIPTS_FOLDER));
+
 		List<String> tabs = null;
 		try {
 			String schema = db.getPrefix();
@@ -1107,8 +1242,11 @@ public class Sheets2DB extends CommonMethods {
 				SheetProperties p = sheet.getProperties();
 				String tableName = Utils.tabToStr(renames, p.getTitle());
 				if (tabs.contains(tableName) || tabs.contains(p.getTitle())) {
-					runSQL("DROP TABLE IF EXISTS " + schema + tableName + "User;");
-					runSQL("DROP TABLE IF EXISTS " + schema + tableName + ";");
+					List<Integer> userColNums = strToCols(Utils.getProp(bundle, tableName + ".user"));
+					if (!userColNums.isEmpty()) {
+						runSQL("DROP TABLE IF EXISTS " + schema + tableName + "User;", tableName + "User.drop.sql");
+					}
+					runSQL("DROP TABLE IF EXISTS " + schema + tableName + ";", tableName + ".drop.sql");
 				}
 			}
 

@@ -8,7 +8,8 @@ import ${basePkg}.utils.MessageHelper;
 /**
  * Form for logging in only
  * 
- * @author avata
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
  *
  */
 public class LoginForm {

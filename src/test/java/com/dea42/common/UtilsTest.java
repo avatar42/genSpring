@@ -4,6 +4,7 @@
 package com.dea42.common;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -38,6 +39,28 @@ public class UtilsTest {
 		assertEquals("db.driver", "org.sqlite.JDBC", val);
 		val = Utils.getProp(bundle, "db.drive");
 		assertNull("db.drive", val);
+	}
+
+	/**
+	 * Test method for
+	 * {@link com.dea42.common.Utils#getPropCls(java.util.ResourceBundle, java.lang.String, java.lang.Class)}
+	 * 
+	 */
+	@Test
+	public void testGetPropClsGetPropResourceBundleStringClass() {
+		ResourceBundle bundle = ResourceBundle.getBundle("Watchlist");
+		Class<?> val = Utils.getPropCls(bundle, "Roamio_npl.L.type", null);
+		assertNotNull("Checking Roamio_npl.L.type is not null", val);
+		assertTrue("Checking Roamio_npl.L.type is String", val.isAssignableFrom(String.class));
+
+		// shows.24.type=java.util.Date
+		val = Utils.getPropCls(bundle, "shows.BG.type", null);
+		assertNotNull("Checking shows.BG.type is not null", val);
+		assertTrue("Checking shows.BG.type is Date", val.isAssignableFrom(java.util.Date.class));
+
+		val = Utils.getPropCls(bundle, "shows.B.type", null);
+		assertNull("Checking shows.B.type is null", val);
+
 	}
 
 	/**
@@ -145,8 +168,9 @@ public class UtilsTest {
 				p);
 		p = Utils.getPathAsString("../genSpringTest",
 				prjRoot + "/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm");
-		assertEquals(prjRoot.replace("/genSpring", "/genSpringTest")
-				+ "/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm",
+		assertEquals(
+				prjRoot.replace("/genSpring", "/genSpringTest")
+						+ "/src/main/resources/base/src/test/java/com/dea42/genspring/selenium/SeleniumBase.java.vm",
 				p);
 		log.debug("passed:" + p);
 	}
@@ -157,9 +181,10 @@ public class UtilsTest {
 	 */
 	@Test
 	public void testGetRelPath() {
-		String relPathStr = Utils.getRelPath("D:\\SpringTools4.6.1\\workspace\\genSpring", "D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java");
-		assertEquals("..\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java", relPathStr);
+		String relPathStr = Utils.getRelPath("D:\\SpringTools4.6.1\\workspace\\genSpring",
+				"D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java");
+		assertEquals("..\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java",
+				relPathStr);
 	}
 
-	
 }

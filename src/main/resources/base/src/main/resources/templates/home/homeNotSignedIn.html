@@ -1,19 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-<meta charset="UTF-8" />
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/header :: common_header(~{::title},~{},~{})">
 <title th:text="#{view.index.title}"></title>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/bootstrap.min.css}" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/site.css}" />
-<script th:src="@{/resources/js/jquery.min.js}"></script>
-<script th:src="@{/resources/js/bootstrap.min.js}"></script>
 </head>
 <body>
-
-	<div th:replace="~{fragments/header :: header}">Header</div>
+	<div th:replace="fragments/header :: header">&nbsp;</div>
 	<div class="container">
 		<div class="text-center">
 
@@ -23,7 +14,7 @@
 					th:text="#{signin.signup}"></a>
 			</p>
 		</div>
-		<div th:insert="~{fragments/footer :: footer}">&copy; 2020
+		<div class="mt-auto" th:insert="~{fragments/footer :: footer}">&copy; 2020
 			default</div>
 	</div>
 	<script th:inline="javascript" type="text/javascript">
@@ -63,6 +54,5 @@
 		<!-- /.modal-dialog -->
 	</div>
 	<!-- /.modal -->
-</body>
 </body>
 </html>

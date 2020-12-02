@@ -78,6 +78,7 @@ public class CommonMethods {
 	protected String colLastMod;
 	// TODO: make this configurable and add to PasswordConstraintValidator
 	protected int maxPassLen = 30;
+	protected int tomcatPort = 8089;
 
 	protected Db db;
 	protected boolean isSQLite = false;
@@ -123,6 +124,7 @@ public class CommonMethods {
 			log.error("Failed to read:rename", e);
 			throw e;
 		}
+		tomcatPort = Utils.getProp(bundle, PROPKEY + ".tomcatPort", tomcatPort);
 		baseDir = Utils.getProp(bundle, PROPKEY + ".outdir", "target");
 		schema = Utils.getProp(bundle, PROPKEY + ".schema");
 		baseGroupId = Utils.getProp(bundle, PROPKEY + ".pkg", srcGroupId);

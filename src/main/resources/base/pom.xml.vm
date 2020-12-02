@@ -88,6 +88,38 @@
 			<artifactId>lombok</artifactId>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>bootstrap</artifactId>
+			<version>4.0.0-2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>font-awesome</artifactId>
+			<version>5.11.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>webjars-locator</artifactId>
+			<version>0.30</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.webjars/tempusdominus-bootstrap-4 -->
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>tempusdominus-bootstrap-4</artifactId>
+			<version>5.1.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>momentjs</artifactId>
+			<version>2.24.0</version>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.webjars/webjars-servlet-2.x -->
+		<dependency>
+			<groupId>org.webjars</groupId>
+			<artifactId>webjars-servlet-2.x</artifactId>
+			<version>1.4</version>
+		</dependency>
 
 		<!-- DB drivers -->
 		<dependency>
@@ -196,16 +228,34 @@
 							</zipUrlInstaller> -->
 						<timeout>500000</timeout>
 					</container>
-					<!-- <deployables> <deployable> <groupId>org.codehaus.cargo</groupId> 
-						<artifactId>simple-war</artifactId> <type>war</type> <location>${project.build.directory}/genspring-0.0.1-SNAPSHOT.war</location> 
-						<properties> <context>genspring</context> </properties> </deployable> </deployables> -->
+					<!-- 
+					<deployables>
+						<deployable>
+							<groupId>org.codehaus.cargo</groupId>
+							<artifactId>${baseArtifactId}-war</artifactId>
+							<type>war</type>
+							<location>${project.build.directory}/${baseArtifactId}-${appVersion}-SNAPSHOT.war</location>
+							<properties>
+								<context>genSpring</context>
+							</properties>
+						</deployable>
+					</deployables>  -->
 					<configuration>
 						<properties>
-							<cargo.servlet.port>8089</cargo.servlet.port>
+							<!-- cargo.servlet.port default is 8080 but can be reset to avoid 
+								conflicts -->
+							<cargo.servlet.port>${tomcatPort}</cargo.servlet.port>
+							<!-- cargo.rmi.port default is 8205 but can be reset to avoid conflicts -->
+							<cargo.rmi.port>8805</cargo.rmi.port>
+							<!-- cargo.tomcat.ajp.port default is 8009 but can be reset to avoid 
+								conflicts -->
+							<cargo.tomcat.ajp.port>8809</cargo.tomcat.ajp.port>
 							<cargo.logging>low</cargo.logging>
 							<!-- <cargo.hostname>127.0.0.1</cargo.hostname> <cargo.jboss.management-http.port> 
 								9990 </cargo.jboss.management-http.port> <cargo.servlet.users> adminUser:admin1234! 
+								<cargo.remote.username>admin</cargo.remote.username> <cargo.remote.password></cargo.remote.password> 
 								</cargo.servlet.users> -->
+
 						</properties>
 					</configuration>
 				</configuration>

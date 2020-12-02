@@ -18,7 +18,7 @@ Account.unique=email
 ## restrict columns on list page to just these
 Account.list=id,email,role,created
 
-### normal test values See Sheets2DBTest and Sheet2AppTest for examples of use
+### normal test values See Sheets2DBTest and Sheet2AppTest for examples of use (Note these use table names instead of tab names)
 Sheet1.testCols=5<br>
 Sheet2.testCols=5<br>
 Sheet1.testRows=8<br>
@@ -90,7 +90,8 @@ genSpring.beanEquals=true
 genSpring.useDouble=true
 ## Filter tables to gen code for by name
 genSpring.filteredTables=providers
-
+## port for regression test Tomcat to use
+genSpring.tomcatPort=8089
 
 # Running the generator
 Then run /genSpring/src/main/java/com/dea42/build/GenSpring.java as a console Java app. <br>

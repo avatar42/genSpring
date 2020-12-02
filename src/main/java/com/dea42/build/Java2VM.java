@@ -70,13 +70,15 @@ public class Java2VM extends CommonMethods {
 		context.put("appName", appName);
 		context.put("appDescription", appDescription);
 		context.put("thisYear", year);
-		context.put("Company",Utils.getProp(bundle, PROPKEY + ".Company", ""));
+		context.put("Company", Utils.getProp(bundle, PROPKEY + ".Company", ""));
+		context.put("tomcatPort", tomcatPort);
 
 	}
 
 	protected void addContext(String key, String value) {
 		context.put(key, value);
 	}
+
 	/**
 	 * Get resource path relative to RESOURCE_FOLDER. Note automatically deals with
 	 * running in target vs top folder.

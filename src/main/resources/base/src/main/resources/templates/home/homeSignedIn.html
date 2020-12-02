@@ -1,20 +1,15 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<head>
+<head th:replace="fragments/header :: common_header(~{::title},~{},~{})">
 <title th:text="#{view.index.title}"></title>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/bootstrap.min.css}" />
-<link rel="stylesheet" media="screen"
-	th:href="@{/resources/css/site.css}" />
-<script th:src="@{/resources/js/jquery.min.js}"></script>
-<script th:src="@{/resources/js/bootstrap.min.js}"></script>
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
 	<div th:replace="fragments/header :: header">&nbsp;</div>
 	<div class="container">
 		<h1 th:text="#{index.greeting(#{app.name})}"></h1>
 		<div th:text="#{app.description}"></div>
 	</div>
+	<div class="mt-auto" th:insert="~{fragments/footer :: footer}">&copy;
+		2020 default</div>
 </body>
 </html>

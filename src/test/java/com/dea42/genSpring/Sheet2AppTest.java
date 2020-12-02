@@ -195,7 +195,6 @@ public class Sheet2AppTest {
 		if (clearSrc) {
 			String outdir = Utils.getProp(bundle, GenSpring.PROPKEY + ".outdir", ".");
 			Utils.deletePath(Utils.getPath(outdir, "src"));
-			Utils.deletePath(Utils.getPath(outdir, "Scripts"));
 			Utils.deletePath(Utils.getPath(outdir, "target"));
 			Utils.deletePath(Utils.getPath(outdir, "bin"));
 			Utils.deletePath(Utils.getPath(outdir, "pom.xml"));

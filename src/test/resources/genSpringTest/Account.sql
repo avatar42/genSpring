@@ -1,0 +1,4 @@
+CREATE TABLE Account(id INTEGER NOT NULL primary key autoincrement,
+Password	VARCHAR(254) NOT NULL,
+Role	VARCHAR(25) NOT NULL,
+Email	VARCHAR(254) NOT NULL, CONSTRAINT UC_Email UNIQUE (Email));

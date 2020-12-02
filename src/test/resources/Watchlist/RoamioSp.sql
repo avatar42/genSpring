@@ -1,0 +1,12 @@
+CREATE TABLE RoamioSp(id INTEGER NOT NULL primary key autoincrement,
+Channel	VARCHAR(14),
+Keep	VARCHAR(7),
+Num	INTEGER,
+Record	VARCHAR(13),
+Priority	INTEGER NOT NULL,
+Start	INTEGER,
+End	INTEGER,
+Show	VARCHAR(60),
+Include	VARCHAR(8),
+Userid	INTEGER,
+Season	INTEGER,    CONSTRAINT FK_RoamioSp_Userid FOREIGN KEY (Userid)    REFERENCES Account(id));

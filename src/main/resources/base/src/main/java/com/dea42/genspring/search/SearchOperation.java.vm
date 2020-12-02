@@ -1,10 +1,10 @@
-/**
- * 
- */
 package ${basePkg}.search;
 
 /**
- * @author avata
+ * Supported search ops
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
  *
  */
 public enum SearchOperation {

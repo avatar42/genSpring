@@ -1,16 +1,16 @@
-/**
- * 
- */
 package ${basePkg}.search;
 
 import lombok.Data;
 
 /**
- * @author avata
+ * Class for holding Criteria info
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
  *
  */
 @Data
-public class SearchCriteria {
+public class SearchCriteria<T> {
 	private String key;
 	private Object value;
 	private SearchOperation operation;
@@ -18,7 +18,7 @@ public class SearchCriteria {
 	public SearchCriteria() {
 	}
 
-	public SearchCriteria(String key, Object value, SearchOperation operation) {
+	public SearchCriteria(String key, T value, SearchOperation operation) {
 		this.key = key;
 		this.value = value;
 		this.operation = operation;

@@ -153,6 +153,25 @@ public class Utils {
 	 * @param bundle
 	 * @param key
 	 * @param defaultVal
+	 * @return returns bundle value as Class or defaultVal if not found
+	 */
+	public static Class<?> getPropCls(final ResourceBundle bundle, final String key, final Class<?> defaultVal) {
+		try {
+			return Class.forName(bundle.getString(key));
+		} catch (MissingResourceException e) {
+			log.warn(key + " undefined in " + bundle.getBaseBundleName() + " using " + defaultVal);
+		} catch (ClassNotFoundException e) {
+			log.warn(key + " has invalid value in " + bundle.getBaseBundleName() + " using " + defaultVal);
+		}
+
+		return defaultVal;
+	}
+
+	/**
+	 * 
+	 * @param bundle
+	 * @param key
+	 * @param defaultVal
 	 * @return returns bundle value or defaultVal if not found
 	 */
 	public static int getProp(final ResourceBundle bundle, final String key, final int defaultVal) {
@@ -266,6 +285,10 @@ public class Utils {
 		}
 
 		String rtn = sb.toString();
+		// upper case the U in User tables.
+		if (rtn.endsWith("user")) {
+			rtn = rtn.substring(0, rtn.length() - 4) + "User";
+		}
 		try {
 			if (renames != null && renames.containsKey(rtn))
 				return renames.getString(rtn);
@@ -441,7 +464,7 @@ public class Utils {
 	 * Delete the path
 	 * 
 	 * @param path
-	 * @throws IOException
+	 * @throws IOException is still exists after delete attempt
 	 */
 	public static void deletePath(Path path) throws IOException {
 		if (path.toFile().exists()) {

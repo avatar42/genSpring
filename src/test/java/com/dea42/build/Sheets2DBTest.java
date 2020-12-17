@@ -51,10 +51,10 @@ public class Sheets2DBTest {
 	/**
 	 * Test method for {@link com.dea42.build.Sheets2DB#columnNumberToLetter(int)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testColumnNumberToLetter() throws IOException {
+	public void testColumnNumberToLetter() throws Exception {
 		Sheets2DB s = new Sheets2DB();
 		String col = s.columnNumberToLetter(104);
 		assertEquals("columnNumberToLetter", "CZ", col);
@@ -64,10 +64,10 @@ public class Sheets2DBTest {
 	 * Test method for
 	 * {@link com.dea42.build.Sheets2DB#columnLetterToNumber(java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testColumnLetterToNumber() throws IOException {
+	public void testColumnLetterToNumber() throws Exception {
 		Sheets2DB s = new Sheets2DB();
 		Integer col = s.columnLetterToNumber("CZ");
 		assertEquals("testColumnLetterToNumber", (Integer) 104, col);
@@ -77,10 +77,10 @@ public class Sheets2DBTest {
 	 * Test method for
 	 * {@link com.dea42.build.Sheets2DB#strToCols(java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testStrToCols() throws IOException {
+	public void testStrToCols() throws Exception {
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String cols = Utils.getProp(bundle, "shows.columns", "A-I,Q-T,BC-BF");
@@ -109,7 +109,7 @@ public class Sheets2DBTest {
 			Date d = new Date(ms);
 			log.debug(str + " -> " + d.toString());
 			assertEquals(str, expected, ms);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			log.error("parseDateStr test failed", e);
 			fail("parseDateStr test failed");
 		}
@@ -125,7 +125,7 @@ public class Sheets2DBTest {
 	}
 
 	@Test
-	public void testgetTypedVal() throws IOException {
+	public void testgetTypedVal() throws Exception {
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 
 		// no type assumed
@@ -254,7 +254,7 @@ public class Sheets2DBTest {
 	 */
 	@Test
 	public void testWithWatchlist() throws Exception {
-
+// Note dynamic DB so row count checks may fail
 		genDB("Watchlist");
 	}
 
@@ -264,15 +264,15 @@ public class Sheets2DBTest {
 	 * @param db
 	 * @param bundle
 	 * @param tabName
-	 * @throws IOException
+	 * @throws Exception
 	 */
-	private String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws IOException {
-		String rtn = "";
+	private String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws Exception {
+		StringBuilder rtn = new StringBuilder();
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		String schema = db.getPrefix();
 		ResourceBundle renames = ResourceBundle.getBundle("rename");
 		String tableName = Utils.tabToStr(renames, tabName);
-		int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+		int expectedNumCols = Utils.getProp(bundle, tableName + ".testCols", 0);
 		int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
 		List<Integer> wantedColNums = s.strToCols(Utils.getProp(bundle, tableName + ".columns"));
 		List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
@@ -286,22 +286,25 @@ public class Sheets2DBTest {
 			ResultSet rs = stmt.executeQuery(query);
 			assertNotNull("Check ResultSet", rs);
 			ResultSetMetaData rm = rs.getMetaData();
-			int size = rm.getColumnCount();
-			int calcCols = wantedColNums.size() + 1;
-			if (userColNums.size() == 0)
-				calcCols++;
-			else
-				calcCols -= userColNums.size();
+			int columnCount = rm.getColumnCount();
+			int calcCols = 0;
+			if (expectedNumCols != columnCount) {
+				rtn.append("Checking expected columns in " + schema + tableName);
+				if (wantedColNums.size() > 0) {
+					calcCols = wantedColNums.size() + 1;
+					if (userColNums.size() == 0)
+						calcCols++;
+					else
+						calcCols -= userColNums.size();
 
-			if (stopOnError)
-				assertEquals(
-						"Checking expected columns in " + schema + tableName + " wantedColNums:" + wantedColNums.size()
-								+ " userColNums:" + userColNums.size() + " so probably should be " + calcCols,
-						columns, size);
-			else if (columns != size)
-				rtn += "Checking expected columns in " + schema + tableName + " wantedColNums:" + wantedColNums.size()
-						+ " userColNums:" + userColNums.size() + " so probably should be " + calcCols + " columns:"
-						+ columns + " size:" + size;
+					rtn.append(" wantedColNums:" + wantedColNums.size() + " userColNums:" + userColNums.size()
+							+ " so might be " + calcCols);
+				}
+				if (stopOnError)
+					assertEquals(rtn.toString(), expectedNumCols, columnCount);
+				else if (expectedNumCols != columnCount)
+					rtn.append(" expected:" + expectedNumCols + " found:" + columnCount);
+			}
 
 			query = "SELECT COUNT(*) FROM " + schema + tableName;
 			stmt = conn.createStatement();
@@ -309,11 +312,14 @@ public class Sheets2DBTest {
 			assertNotNull("Check ResultSet", rs);
 			if (!db.isSQLite())
 				rs.next();
-			if (stopOnError)
-				assertEquals("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-			else if (rows != rs.getInt(1))
-				rtn += "Checking expected rows in " + schema + tableName + " expected rows:" + rows + " got:"
-						+ rs.getInt(1);
+			int cnt = rs.getInt(1);
+			if (rows != cnt) {
+				rtn.append("Checking expected rows in " + schema + tableName);
+				if (stopOnError)
+					assertEquals(rtn.toString(), rows, cnt);
+				else
+					rtn.append(" expected rows:" + rows + " got:" + cnt);
+			}
 		} catch (SQLException e) {
 			log.error("Exception creating DB", e);
 			fail("Exception creating DB");
@@ -321,7 +327,7 @@ public class Sheets2DBTest {
 			db.close("Sheet2AppTest");
 		}
 
-		return rtn;
+		return rtn.toString();
 	}
 
 	private void genDB(String bundleName) throws Exception {

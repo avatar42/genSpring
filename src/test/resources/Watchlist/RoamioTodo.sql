@@ -6,4 +6,4 @@ ShowName	VARCHAR(48),
 Ep	VARCHAR(50),
 Userid	INTEGER,
 Duration	VARCHAR(4),
-EpisodeName	VARCHAR(46),    CONSTRAINT FK_RoamioTodo_Userid FOREIGN KEY (Userid)    REFERENCES Account(id));
+EpisodeName	VARCHAR(59),    CONSTRAINT FK_RoamioTodo_Userid FOREIGN KEY (Userid)    REFERENCES Account(id));

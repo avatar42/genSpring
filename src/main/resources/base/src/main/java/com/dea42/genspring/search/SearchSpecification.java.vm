@@ -13,6 +13,8 @@ import javax.persistence.criteria.Root;
 
 import org.springframework.data.jpa.domain.Specification;
 
+import lombok.ToString;
+
 /**
  * Title: SearchSpecification <br>
  * Description: Used to generate SearchCriteria list for queries. <br>
@@ -21,6 +23,7 @@ import org.springframework.data.jpa.domain.Specification;
  * @author Gened by GenSpring version ${genSpringVersion}<br>
  * @version ${appVersion}<br>
  */
+ @ToString
 public class SearchSpecification<T> implements Specification<T> {
 
 	private static final long serialVersionUID = 1L;

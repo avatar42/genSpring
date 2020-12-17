@@ -92,7 +92,7 @@ public class GenSpring extends CommonMethods {
 
 	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
 
-	public GenSpring(String bundleName) throws IOException {
+	public GenSpring(String bundleName) throws Exception {
 		initVars(bundleName);
 	}
 
@@ -141,18 +141,24 @@ public class GenSpring extends CommonMethods {
 	}
 
 	/**
-	 * Creates a top level page to ref the other pages.
+	 * Creates a top level index / site map page to ref the other pages.
 	 * 
+	 * @param statics list of static pages
 	 * @param list
 	 */
-	private void writeIndex(Set<String> set) {
+	private void writeIndex(Map<String, Map<String, ColInfo>> colsInfo, Map<String, String> statics) {
+		Set<String> set = colsInfo.keySet();
 		Path p = Utils.createFile(baseDir, "src/main/resources/templates/index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.home", null));
 				for (String className : set) {
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-					ps.println("    	<a th:href=\"@{/" + fieldName + "s}\">" + className + "</a><br>");
+					String sec = "";
+					if (classHasUserFields(className, colsInfo)) {
+						sec = " sec:authorize=\"hasRole('" + ADMIN_ROLE + "')\" ";
+					}
+					ps.println("    	<a " + sec + "th:href=\"@{/" + fieldName + "s}\">" + className + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/api/}\">/api/</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
@@ -165,14 +171,20 @@ public class GenSpring extends CommonMethods {
 		}
 	}
 
-	private void writeApiIndex(Set<String> set) {
+	private void writeApiIndex(Map<String, Map<String, ColInfo>> colsInfo) {
+		Set<String> set = colsInfo.keySet();
 		Path p = Utils.createFile(baseDir, "src/main/resources/templates/api_index.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println(htmlHeader("header.restApi", null));
 				for (String className : set) {
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-					ps.println("    	<a th:href=\"@{/api/" + fieldName + "s}\">" + className + "</a><br>");
+					String sec = "";
+					if (classHasUserFields(className, colsInfo)) {
+						sec = " sec:authorize=\"hasRole('" + ADMIN_ROLE + "')\" ";
+					}
+					ps.println(
+							"    	<a " + sec + "th:href=\"@{/api/" + fieldName + "s}\">" + className + "</a><br>");
 				}
 				ps.println("    	<a th:href=\"@{/}\">Home</a><br>");
 				ps.println("    	<a th:href=\"@{/login}\">Login</a><br>");
@@ -187,19 +199,19 @@ public class GenSpring extends CommonMethods {
 
 	/**
 	 * return true if class has user fields moved separate class/table or is
-	 * ACCOUNT_CLASS. TODO: currently keys off className + ".user". Should probably
-	 * get from DB.
+	 * ACCOUNT_CLASS.
 	 * 
 	 * @param className
+	 * @param colsInfo  Map<String, Map<String, ColInfo>> with column info on all
+	 *                  the classes
 	 * @return
 	 */
-	private boolean classHasUserFields(String className) {
-		String userColNums = Utils.getProp(bundle, className + ".user");
-
-		return ACCOUNT_CLASS.equals(className) || !StringUtils.isBlank(userColNums);
+	private boolean classHasUserFields(String className, Map<String, Map<String, ColInfo>> colsInfo) {
+		return ACCOUNT_CLASS.equals(className) || colsInfo.get(className).containsKey(idField);
 	}
 
-	private void writeNav(Set<String> set, Map<String, String> statics) {
+	private void writeNav(Map<String, Map<String, ColInfo>> colsInfo, Map<String, String> statics) {
+		Set<String> set = colsInfo.keySet();
 		Path p = Utils.createFile(baseDir, "src/main/resources/templates/fragments/nav.html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
@@ -213,7 +225,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("				th:text=\"#{header.gui}\"></span> <b class=\"caret\"></b> </a>");
 				ps.println("			<ul class=\"dropdown-menu bg-dark\">");
 				for (String className : set) {
-					String li = makeAdminOnly(ps, classHasUserFields(className), "li");
+					String li = makeAdminOnly(ps, classHasUserFields(className, colsInfo), "li");
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("								<" + li + " th:classappend=\"${module == '" + fieldName
 							+ "' ? 'active' : ''}\">");
@@ -227,7 +239,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("				th:text=\"#{header.restApi}\"></span> <b class=\"caret\"></b> </a>");
 				ps.println("			<ul class=\"dropdown-menu bg-dark\">");
 				for (String className : set) {
-					String li = makeAdminOnly(ps, classHasUserFields(className), "li");
+					String li = makeAdminOnly(ps, classHasUserFields(className, colsInfo), "li");
 					String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 					ps.println("								<" + li + " th:classappend=\"${module == '" + fieldName
 							+ "' ? 'active' : ''}\">");
@@ -403,9 +415,9 @@ public class GenSpring extends CommonMethods {
 
 		writeApiController(colsInfo.keySet());
 		writeApiControllerTest(colsInfo);
-		writeNav(colsInfo.keySet(), null);
-		writeIndex(colsInfo.keySet());
-		writeApiIndex(colsInfo.keySet());
+		writeNav(colsInfo, null);
+		writeIndex(colsInfo, null);
+		writeApiIndex(colsInfo);
 		updateMsgProps(colsInfo);
 		updateREADME(colsInfo);
 	}
@@ -474,6 +486,12 @@ public class GenSpring extends CommonMethods {
 			if (firstColumnName == null) {
 				firstColumnName = columnName;
 			}
+			String typeName = rs.getString(TYPE_NAME);
+			int stype = rs.getInt(DATA_TYPE);
+			int colSize = rs.getInt(COLUMN_SIZE);
+			if ("SortableDate".equals(columnName)) {
+				log.debug("SortableDate:" + colInfo + ":" + typeName + ":" + stype);
+			}
 			// process mod lists
 			colInfo.setPassword(caseIgnoreListContains(passwordCols, columnName, false));
 			colInfo.setEmail(caseIgnoreListContains(emailCols, columnName, false));
@@ -493,12 +511,14 @@ public class GenSpring extends CommonMethods {
 				}
 			}
 			colInfo.setRequired(rs.getInt(NULLABLE) == 0);
-			int stype = rs.getInt(DATA_TYPE);
 			if (isSQLite()) {
-				String typ = rs.getString(TYPE_NAME);
-				if ("DATETIME".equalsIgnoreCase(typ)) {
+				if ("DATETIME".equalsIgnoreCase(typeName)) {
 					stype = Types.TIMESTAMP;
+				} else if ("BIGINT".equalsIgnoreCase(typeName)) {
+					// this sometimes shows as Types.INTEGER
+					stype = Types.BIGINT;
 				}
+
 			}
 			colInfo.setStype(stype);
 			switch (stype) {
@@ -510,47 +530,47 @@ public class GenSpring extends CommonMethods {
 			case Types.CHAR:
 			case Types.SQLXML:
 				colInfo.setType("String");
-				String tmp = null;
 				if (isSQLite()) {
-					tmp = rs.getString(TYPE_NAME);
-					int s = tmp.indexOf('(');
+					int s = typeName.indexOf('(');
 					if (s > -1) {
-						tmp = tmp.substring(s + 1, tmp.length() - 1);
+						try {
+							colSize = Integer.parseInt(typeName.substring(s + 1, typeName.length() - 1));
+						} catch (NumberFormatException e) {
+							NumberFormatException e2 = new NumberFormatException(
+									"Failed to parse TYPE_NAME:" + typeName + " COLUMN_SIZE:" + colSize);
+							e2.initCause(e);
+							throw e2;
+						}
+						log.warn(columnName + " Using REMARKS: " + colSize);
 					} else {
-						tmp = null;
-						log.warn(columnName + " def has not len: " + tmp);
+						log.warn(columnName + " def has no len: " + typeName);
 					}
 					// MySQL seems to have issue the reporting varchar lens>100
 				} else if (db.isMySQL()) {
-					tmp = rs.getString(COLUMN_SIZE);
-					if ("100".equals(tmp)) {
-						tmp = rs.getString(REMARKS);
-						if (tmp != null && tmp.startsWith("len=")) {
-							tmp = tmp.substring(4);
-							log.warn(columnName + " Using REMARKS: " + tmp);
-						} else {
-							tmp = null;
+					if (100 == colSize) {
+						String rem = rs.getString(REMARKS);
+						if (rem != null && rem.startsWith("len=")) {
+							try {
+								colSize = Integer.parseInt(rem.substring(4));
+							} catch (NumberFormatException e) {
+								NumberFormatException e2 = new NumberFormatException("Failed to parse REMARKS:" + rem
+										+ " from TYPE_NAME:" + typeName + " COLUMN_SIZE:" + colSize);
+								e2.initCause(e);
+								throw e2;
+							}
+							log.warn(columnName + " Using REMARKS: " + colSize);
 						}
 					} else {
-						log.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+						log.warn(columnName + " Using COLUMN_SIZE: " + colSize);
 					}
 				} else { // most others
-					tmp = rs.getString(COLUMN_SIZE);
-					log.warn(columnName + " Using COLUMN_SIZE: " + tmp);
+					log.warn(columnName + " Using COLUMN_SIZE: " + colSize);
 				}
 				if (colInfo.isPassword()) {
 					// See PasswordConstraintValidator
 					colInfo.setLength(maxPassLen);
-				} else if (!StringUtils.isBlank(tmp)) {
-					try {
-						colInfo.setLength(Integer.parseInt(tmp));
-					} catch (NumberFormatException e) {
-						NumberFormatException e2 = new NumberFormatException(
-								"Failed to parse tmp:" + tmp + " from TYPE_NAME:" + rs.getString(TYPE_NAME)
-										+ " COLUMN_SIZE:" + rs.getString(COLUMN_SIZE));
-						e2.initCause(e);
-						throw e2;
-					}
+				} else if (colSize > 0) {
+					colInfo.setLength(colSize);
 				} else {
 					// SQLite
 					colInfo.setLength(255);
@@ -560,7 +580,7 @@ public class GenSpring extends CommonMethods {
 
 			case Types.REAL:
 				colInfo.setType("Float");
-				colInfo.setColPrecision(rs.getInt(COLUMN_SIZE));
+				colInfo.setColPrecision(colSize);
 				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
 				break;
 
@@ -573,7 +593,7 @@ public class GenSpring extends CommonMethods {
 				} else {
 					colInfo.setType("BigDecimal");
 				}
-				colInfo.setColPrecision(rs.getInt(COLUMN_SIZE));
+				colInfo.setColPrecision(colSize);
 				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
 				break;
 
@@ -772,17 +792,19 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
-				ps.println("import org.springframework.data.domain.Page;");
-				ps.println("import org.springframework.web.bind.annotation.GetMapping;");
-				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
-				ps.println("import org.springframework.web.bind.annotation.RestController;");
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
+				imports.add("import org.springframework.data.domain.Page;");
+				imports.add("import org.springframework.web.bind.annotation.GetMapping;");
+				imports.add("import org.springframework.web.bind.annotation.RequestMapping;");
+				imports.add("import org.springframework.web.bind.annotation.RestController;");
 				for (String className : set) {
-					ps.println("import " + basePkg + ".entity." + className + ";");
-					ps.println("import " + basePkg + ".service." + className + "Services;");
+					imports.add("import " + basePkg + ".entity." + className + ";");
+					imports.add("import " + basePkg + ".service." + className + "Services;");
 				}
+				imports.add("import java.util.List;");
+				addImports(ps, null, 0, imports);
 				ps.println("");
-				ps.println("import java.util.List;");
 				ps.println(getClassHeader("ApiController", "Api REST Controller.", null));
 				ps.println("@RestController");
 				ps.println("@RequestMapping(\"/api\")");
@@ -876,13 +898,16 @@ public class GenSpring extends CommonMethods {
 			if (!data.contains("### Admin screens" + System.lineSeparator())) {
 				data = data + System.lineSeparator() + "### Admin screens" + System.lineSeparator();
 				for (String className : set) {
-					if (classHasUserFields(className)) {
+					if (classHasUserFields(className, colsInfo)) {
 						dataChged = true;
 						data = data + "#### " + className + " screens" + System.lineSeparator();
+						data = data + className + " list screen" + System.lineSeparator();
 						data = data + "![" + className + " list screen](screenshots/" + className + ".list.png)"
 								+ System.lineSeparator();
+						data = data + className + " new screen" + System.lineSeparator();
 						data = data + "![" + className + " new screen](screenshots/" + className + ".new.png)"
 								+ System.lineSeparator();
+						data = data + className + " edit screen" + System.lineSeparator();
 						data = data + "![" + className + " edit screen](screenshots/" + className + ".edit.png)"
 								+ System.lineSeparator();
 						data = data + System.lineSeparator();
@@ -892,13 +917,16 @@ public class GenSpring extends CommonMethods {
 			if (!data.contains("### User screens" + System.lineSeparator())) {
 				data = data + System.lineSeparator() + "### User screens" + System.lineSeparator();
 				for (String className : set) {
-					if (!classHasUserFields(className)) {
+					if (!classHasUserFields(className, colsInfo)) {
 						dataChged = true;
 						data = data + "#### " + className + " screens" + System.lineSeparator();
+						data = data + className + " list screen" + System.lineSeparator();
 						data = data + "![" + className + " list screen](screenshots/" + className + ".list.png)"
 								+ System.lineSeparator();
+						data = data + className + " new screen" + System.lineSeparator();
 						data = data + "![" + className + " new screen](screenshots/" + className + ".new.png)"
 								+ System.lineSeparator();
+						data = data + className + " edit screen" + System.lineSeparator();
 						data = data + "![" + className + " edit screen](screenshots/" + className + ".edit.png)"
 								+ System.lineSeparator();
 						data = data + System.lineSeparator();
@@ -1069,7 +1097,8 @@ public class GenSpring extends CommonMethods {
 	private String htmlFooter() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("	</div>");
-		sb.append("	<div class=\"mt-auto\" th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>" + System.lineSeparator());
+		sb.append("	<div class=\"mt-auto\" th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>"
+				+ System.lineSeparator());
 		sb.append("</body>");
 		sb.append("</html>");
 
@@ -1737,11 +1766,11 @@ public class GenSpring extends CommonMethods {
 	}
 
 	/**
-	 * Write the base class used by tests the employ mock object. TODO: replace with
-	 * velocity template
+	 * sub all the class specific stuff in MockBase
 	 * 
-	 * @param j2m TODO
-	 * @param set
+	 * @param colsInfo Map<String, Map<String, ColInfo>> with column info on all the
+	 *                 classes
+	 * @param j2m      template converter
 	 */
 	private void addMockBaseVars(Map<String, Map<String, ColInfo>> colsInfo, Java2VM j2m) {
 		Set<String> set = colsInfo.keySet();
@@ -1777,7 +1806,7 @@ public class GenSpring extends CommonMethods {
 
 		sb = new StringBuilder();
 		for (String className : set) {
-			if (classHasUserFields(className)) {
+			if (classHasUserFields(className, colsInfo)) {
 				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
 				sb.append("			contentContainsKey(result, \"class." + className + "\", false);")
 						.append(System.lineSeparator());
@@ -1790,7 +1819,7 @@ public class GenSpring extends CommonMethods {
 		sb.append("		contentContainsKey(result, \"header.restApi\");").append(System.lineSeparator());
 		for (String className : set) {
 			String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
-			if (classHasUserFields(className)) {
+			if (classHasUserFields(className, colsInfo)) {
 				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
 				sb.append("			contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);")
 						.append(System.lineSeparator());
@@ -2267,58 +2296,60 @@ public class GenSpring extends CommonMethods {
 	 * @param colNameToInfoMap
 	 * @param clsType          IMPORT_TYPE_SERVICE= general IMPORT_TYPE_FORM=form
 	 *                         annotations IMPORT_TYPE_BEAN=bean annotations
+	 * @param imports          TODO
 	 * @return if ps = null returns String otherwise null
 	 */
-	private String addImports(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, int clsType) {
-		Set<String> imports = new TreeSet<String>();
-		for (String key : colNameToInfoMap.keySet()) {
-			if (PKEY_INFO.equals(key))
-				continue;
-			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-			if ("BigDecimal".equals(info.getType()))
-				imports.add("import java.math.BigDecimal;");
+	private String addImports(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, int clsType, Set<String> imports) {
+		if (colNameToInfoMap != null) {
+			for (String key : colNameToInfoMap.keySet()) {
+				if (PKEY_INFO.equals(key))
+					continue;
+				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+				if ("BigDecimal".equals(info.getType()))
+					imports.add("import java.math.BigDecimal;");
 
-			if ("Date".equals(info.getType())) {
-				imports.add("import java.util.Date;");
-				imports.add("import org.springframework.format.annotation.DateTimeFormat;");
+				if (info.isDate()) {
+					imports.add("import java.util.Date;");
+					imports.add("import org.springframework.format.annotation.DateTimeFormat;");
+				}
+				if (clsType == IMPORT_TYPE_FORM) {
+					if (info.isPassword()) {
+						imports.add("import " + basePkg + ".controller.FieldMatch;");
+						imports.add("import " + basePkg + ".controller.ValidatePassword;");
+					}
+					if (info.getLength() > 0)
+						imports.add("import org.hibernate.validator.constraints.Length;");
+					if (info.isRequired())
+						imports.add("import javax.validation.constraints.NotBlank;");
+
+					if (info.isUnique() && info.isEmail()) {
+						imports.add("import " + basePkg + ".controller.UniqueEmail;");
+					}
+					if (info.isJsonIgnore()) {
+						imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
+					}
+					if (info.isEmail()) {
+						imports.add("import javax.validation.constraints.Email;");
+					}
+					if (!StringUtils.isBlank(info.getForeignTable())) {
+						imports.add("import " + basePkg + ".entity." + info.getType() + ";");
+					}
+				}
+				if (clsType == IMPORT_TYPE_BEAN) {
+					if (info.isJsonIgnore()) {
+						imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
+					}
+					if (!StringUtils.isBlank(info.getForeignTable())) {
+						imports.add("import javax.persistence.JoinColumn;");
+						imports.add("import javax.persistence.ManyToOne;");
+					}
+					if (info.isCreated() || info.isLastMod()) {
+						imports.add("import lombok.EqualsAndHashCode;");
+					}
+
+				}
+
 			}
-			if (clsType == IMPORT_TYPE_FORM) {
-				if (info.isPassword()) {
-					imports.add("import " + basePkg + ".controller.FieldMatch;");
-					imports.add("import " + basePkg + ".controller.ValidatePassword;");
-				}
-				if (info.getLength() > 0)
-					imports.add("import org.hibernate.validator.constraints.Length;");
-				if (info.isRequired())
-					imports.add("import javax.validation.constraints.NotBlank;");
-
-				if (info.isUnique() && info.isEmail()) {
-					imports.add("import " + basePkg + ".controller.UniqueEmail;");
-				}
-				if (info.isJsonIgnore()) {
-					imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
-				}
-				if (info.isEmail()) {
-					imports.add("import javax.validation.constraints.Email;");
-				}
-				if (!StringUtils.isBlank(info.getForeignTable())) {
-					imports.add("import " + basePkg + ".entity." + info.getType() + ";");
-				}
-			}
-			if (clsType == IMPORT_TYPE_BEAN) {
-				if (info.isJsonIgnore()) {
-					imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
-				}
-				if (!StringUtils.isBlank(info.getForeignTable())) {
-					imports.add("import javax.persistence.JoinColumn;");
-					imports.add("import javax.persistence.ManyToOne;");
-				}
-				if (info.isCreated() || info.isLastMod()) {
-					imports.add("import lombok.EqualsAndHashCode;");
-				}
-
-			}
-
 		}
 		StringBuilder sb = null;
 		if (ps == null)
@@ -2362,36 +2393,33 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import java.math.BigDecimal;");
-				ps.println("import java.util.List;");
-				ps.println("");
-				ps.println("import org.apache.commons.lang3.StringUtils;");
-				ps.println("import org.springframework.beans.factory.annotation.Autowired;");
-				ps.println("import org.springframework.data.domain.Page;");
-				ps.println("import org.springframework.data.domain.PageRequest;");
-				ps.println("import org.springframework.data.domain.Pageable;");
-				ps.println("import org.springframework.data.domain.Sort;");
-				ps.println("import org.springframework.stereotype.Service;");
-//				ps.println("import org.springframework.transaction.annotation.Transactional;");
-				ps.println("");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_SERVICE);
-				ps.println("import " + basePkg + ".entity." + className + ";");
-				ps.println("import " + basePkg + ".repo." + className + "Repository;");
-				ps.println("import " + basePkg + ".search.SearchCriteria;");
-				ps.println("import " + basePkg + ".search.SearchOperation;");
-				ps.println("import " + basePkg + ".search.SearchSpecification;");
-				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
-				ps.println("import " + basePkg + ".utils.Utils;");
-				ps.println("");
-				ps.println("import lombok.extern.slf4j.Slf4j;");
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import java.math.BigDecimal;");
+				imports.add("import java.util.List;");
+				imports.add("import org.apache.commons.lang3.StringUtils;");
+				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
+				imports.add("import org.springframework.data.domain.Page;");
+				imports.add("import org.springframework.data.domain.PageRequest;");
+				imports.add("import org.springframework.data.domain.Pageable;");
+//				imports.add("import org.springframework.data.domain.Sort;");
+				imports.add("import org.springframework.stereotype.Service;");
+//				imports.add("import org.springframework.transaction.annotation.Transactional;");
+				imports.add("import " + basePkg + ".entity." + className + ";");
+				imports.add("import " + basePkg + ".repo." + className + "Repository;");
+				imports.add("import " + basePkg + ".search.SearchCriteria;");
+				imports.add("import " + basePkg + ".search.SearchOperation;");
+				imports.add("import " + basePkg + ".search.SearchSpecification;");
+				imports.add("import " + basePkg + ".search." + className + "SearchForm;");
+				imports.add("import " + basePkg + ".utils.Utils;");
+				imports.add("import lombok.extern.slf4j.Slf4j;");
 				if (ACCOUNT_CLASS.equals(className)) {
-					ps.println("import java.util.List;");
-					ps.println("import java.util.Optional;");
-					ps.println("import java.util.ResourceBundle;");
-					ps.println("");
-					ps.println("import javax.annotation.PostConstruct;");
-					ps.println("import org.apache.commons.lang3.StringUtils;");
+					imports.add("import java.util.List;");
+					imports.add("import java.util.Optional;");
+					imports.add("import java.util.ResourceBundle;");
+					imports.add("import javax.annotation.PostConstruct;");
+					imports.add("import org.apache.commons.lang3.StringUtils;");
 				}
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_SERVICE, imports);
 				ps.println("");
 				ps.println(getClassHeader(className + "Services", className + "Services.", null));
 				ps.println("@Slf4j");
@@ -2455,44 +2483,63 @@ public class GenSpring extends CommonMethods {
 				ps.println("		if (form != null) {");
 				ps.println("			log.debug(form.toString());");
 				for (ColInfo c : colNameToInfoMap.values()) {
-					if (c.isDate()) {
+					if (c.getForeignTable() != null) {
+						// TODO: skip for now
+					} else if (c.isDate()) {
 						ps.println("");
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
-								+ "\", form.get" + c.getGsName() + "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("// need to subtract a millsec here to get >= same to work reliably.");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\", new Date(form.get" + c.getGsName()
+								+ "Min().getTime() - 1), SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
-								+ "\", form.get" + c.getGsName() + "Max(), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("// need to add a millsec here to get <= same to work reliably.");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\", new Date(form.get" + c.getGsName()
+								+ "Max().getTime() + 1), SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					} else if ("BigDecimal".equals(c.getType())) {
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
 						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Min();");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName() + "\",");
-						ps.println("						form.get" + c.getGsName()
-								+ "Min().setScale(bd.scale() - 1, BigDecimal.ROUND_DOWN),");
-						ps.println("						SearchOperation.GREATER_THAN_EQUAL));");
+						if (db.isSQLite()) {
+							ps.println(
+									"// SQLite rounds scales > 10 in select where compare though returns all decimals");
+							ps.println("				if (bd.scale() > 10) {");
+							ps.println("					bd = bd.setScale(10, BigDecimal.ROUND_DOWN);");
+							ps.println("				}");
+						}
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\",bd, SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
-						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Min();");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName() + "\",");
-						ps.println("						form.get" + c.getGsName()
-								+ "Min().setScale(bd.scale() - 1, BigDecimal.ROUND_UP),");
-						ps.println("						SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Max();");
+						if (db.isSQLite()) {
+							ps.println(
+									"// SQLite rounds scales > 10 in select where compare though returns all decimals");
+							ps.println("				if (bd.scale() > 10) {");
+							ps.println("					bd = bd.setScale(10, BigDecimal.ROUND_UP);");
+							ps.println("				}");
+						}
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\",bd, SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					} else if ("String".equals(c.getType())) {
 						ps.println("			if (!StringUtils.isBlank(form.get" + c.getGsName() + "())) {");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
-								+ "\", form.get" + c.getGsName() + "().toLowerCase(), SearchOperation.LIKE));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\", form.get" + c.getGsName()
+								+ "().toLowerCase(), SearchOperation.LIKE));");
 						ps.println("			}");
 					} else { // must be a number
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
-								+ "\", form.get" + c.getGsName() + "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\", form.get" + c.getGsName()
+								+ "Min(), SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria(\"" + c.getVName()
-								+ "\", form.get" + c.getGsName() + "Max(), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+								+ c.getVName() + "\", form.get" + c.getGsName()
+								+ "Max(), SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					}
 				}
@@ -2502,14 +2549,17 @@ public class GenSpring extends CommonMethods {
 				ps.println("		}");
 				ps.println("		Pageable pageable = PageRequest.of(form.getPage() - 1, form.getPageSize(),");
 				ps.println("				form.getSort());");
+				ps.println("		if (log.isInfoEnabled())");
+				ps.println("			log.info(\"searchSpec:\" + searchSpec);");
 				ps.println("		return " + fieldName + "Repository.findAll(searchSpec, pageable);");
 				ps.println("	}");
-				ps.println("	");
+				ps.println("");
 				ps.println("	public " + className + " save(" + className + " " + fieldName + ") {");
 				if (hasPasswordField) {
 					ps.println("		Optional<" + className + "> o = null;");
-					ps.println("		if (" + fieldName + ".getId() > 0) {");
-					ps.println("			o = " + fieldName + "Repository.findById(" + fieldName + ".getId());");
+					ps.println("		if (" + fieldName + ".get" + pkinfo.getGsName() + "() > 0) {");
+					ps.println("			o = " + fieldName + "Repository.findById(" + fieldName + ".get"
+							+ pkinfo.getGsName() + "());");
 					ps.println("		}");
 					ps.println("");
 					for (ColInfo c : colNameToInfoMap.values()) {
@@ -2622,13 +2672,12 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import java.io.Serializable;");
-				ps.println("import lombok.Data;");
-				ps.println("");
-				ps.println("import " + basePkg + ".utils.MessageHelper;");
-				ps.println("import " + basePkg + ".entity." + className + ";");
-				ps.println("");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import java.io.Serializable;");
+				imports.add("import lombok.Data;");
+				imports.add("import " + basePkg + ".utils.MessageHelper;");
+				imports.add("import " + basePkg + ".entity." + className + ";");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
 				ps.println(getClassHeader(tableName + " Form",
 						"Class for holding data from the " + tableName + " table for editing.", ""));
 
@@ -2667,7 +2716,7 @@ public class GenSpring extends CommonMethods {
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
-					if (info.isDate())
+					else if (info.isDate())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-MM-dd\")");
 
 					if (info.isJsonIgnore())
@@ -2733,6 +2782,253 @@ public class GenSpring extends CommonMethods {
 		}
 	}
 
+	private void writeSearchTest(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+
+		String pkgNam = basePkg + ".search";
+		String relPath = pkgNam.replace('.', '/');
+		Path p = Utils.createFile(baseDir, "src/test/java", relPath, className + "SearchTest.java");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println("package " + pkgNam + ';');
+				ps.println("");
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import org.junit.Test;");
+				imports.add("import org.junit.runner.RunWith;");
+				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
+				imports.add("import org.springframework.boot.test.context.SpringBootTest;");
+				imports.add("import org.springframework.data.domain.Page;");
+				imports.add("import org.springframework.test.context.junit4.SpringRunner;");
+				imports.add("");
+				imports.add("import " + basePkg + ".UnitBase;");
+				imports.add("import " + basePkg + ".entity." + className + ";");
+				imports.add("import " + basePkg + ".search." + className + "SearchForm;");
+				imports.add("import " + basePkg + ".service." + className + "Services;");
+				imports.add("import lombok.extern.slf4j.Slf4j;");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
+
+				ps.println("");
+				ps.println(getClassHeader(tableName + "Search Test",
+						"Does regression tests of " + tableName + " search from service to DB", ""));
+
+				ps.println("@Slf4j");
+				ps.println("@RunWith(SpringRunner.class)");
+				ps.println("@SpringBootTest");
+				ps.println("public class " + className + "SearchTest extends UnitBase {");
+				ps.println("");
+				ps.println("	@Autowired");
+				ps.println("	private " + className + "Services " + fieldName + "Services;");
+				ps.println("");
+				ColInfo pkinfo = (ColInfo) colNameToInfoMap.get(PKEY_INFO);
+				ps.println("	private Page<" + className + "> confirmGotResult(" + className + "SearchForm form, "
+						+ pkinfo.getType() + " expectedID) {");
+				ps.println("		log.info(\"form:\"+form);");
+				ps.println("		Page<" + className + "> list = " + fieldName + "Services.listAll(form);");
+				ps.println("		assertNotNull(\"Checking return not null\", list);");
+				ps.println("		assertTrue(\"Checking at least 1 return\", list.toList().size() > 0);");
+				ps.println("		if (expectedID > 0) {");
+				ps.println("			boolean found = false;");
+				ps.println("			for (" + className + " s2 : list) {");
+				ps.println("				if (s2.get" + pkinfo.getGsName() + "().equals(expectedID))");
+				ps.println("					found = true;");
+				ps.println("				log.info(s2.toString());");
+				ps.println("			}");
+				ps.println("");
+				ps.println("			assertTrue(\"Looking for record ID \" + expectedID + \" in results\", found);");
+				ps.println("		}");
+				ps.println("		return list;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("	private " + className + " getMidRecord(" + className + "SearchForm form, "
+						+ pkinfo.getType() + " expectedID) {");
+				ps.println("		Page<" + className + "> list = confirmGotResult(form, expectedID);");
+				ps.println("		assertNotNull(\"Checking return not null\", list);");
+				ps.println("		int size = list.toList().size();");
+				ps.println("		assertTrue(\"Checking at least 1 return\", size > 0);");
+				ps.println("		int record = 0;");
+				ps.println("		if (size > 2)");
+				ps.println("			record = size / 2;");
+				ps.println("		return list.toList().get(record);");
+				ps.println("");
+				ps.println("");
+				ps.println("	}");
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (!info.isPk()) {
+						ps.println("");
+						ps.println("	@Test");
+						ps.println("	public void test" + info.getGsName() + "() {");
+						ps.println("		// " + info.getVName() + " " + info.getType() + " " + info.getStype());
+						ps.println("		" + className + " rec = null;");
+						ps.println("		" + className + "SearchForm form = new " + className + "SearchForm();");
+						ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
+						if (info.getForeignTable() != null) {
+							ps.println("// TODO: skip further tests now");
+							// TODO: skip for now
+						} else if (info.isDate()) {
+							ps.println("		form.set" + info.getGsName() + "Min(new Date(0));");
+							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
+							ps.println("		log.info(\"Searching for records with " + info.getVName()
+									+ " of \" + rec.get" + info.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		form.set" + info.getGsName() + "Max(new Date(rec.get" + info.getGsName()
+									+ "().getTime() + DAY));");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println("		form.set" + info.getGsName() + "Min(new Date(rec.get" + info.getGsName()
+									+ "().getTime() - DAY));");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+						} else if ("BigDecimal".equals(info.getType())) {
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(new BigDecimal(Integer.MIN_VALUE));");
+							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
+							ps.println("		log.info(\"Searching for records with " + info.getVName()
+									+ " of \" + rec.get" + info.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName()
+									+ "().add(new BigDecimal(100)));");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println("		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName()
+									+ "().subtract(new BigDecimal(100)));");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+						} else if ("String".equals(info.getType())) {
+							ps.println("		form.set" + info.getGsName() + "(\"%\");");
+							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
+							ps.println("		log.info(\"Searching for records with " + info.getVName()
+									+ " of \" + rec.get" + info.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println("		String text = rec.get" + info.getGsName() + "();");
+							ps.println("		if (text.length() < 2) {");
+							ps.println("			form.set" + info.getGsName() + "(text + \"%\");");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("			form.set" + info.getGsName() + "(\"%\" + text);");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("			form.set" + info.getGsName() + "(\"%\" + text + \"%\");");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("		} else {");
+							ps.println("			int mid = text.length() / 2;");
+							ps.println("			form.set" + info.getGsName() + "(text.substring(0, mid) + \"%\");");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("			form.set" + info.getGsName()
+									+ "(\"%\" + text.substring(mid - 1, mid) + \"%\");");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("			form.set" + info.getGsName()
+									+ "(\"%\" + text.substring(mid, text.length()));");
+							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("		}");
+						} else {
+							// Long.MIN_VALUE seems to trip up Hibernate on SQLite
+							if ("Long".equals(info.getType()))
+								ps.println("		form.set" + info.getGsName() + "Min(0l);");
+							else
+								ps.println("		form.set" + info.getGsName() + "Min(" + info.getType()
+										+ ".MIN_VALUE);");
+
+							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
+							ps.println("		log.info(\"Searching for records with " + info.getVName()
+									+ " of \" + rec.get" + info.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName()
+									+ "() + 1" + info.getMod() + ");");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println("		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName()
+									+ "() - 1" + info.getMod() + ");");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+							ps.println("");
+							ps.println("		form = new " + className + "SearchForm();");
+							ps.println(
+									"		form.set" + info.getGsName() + "Min(rec.get" + info.getGsName() + "());");
+							ps.println(
+									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
+							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
+						}
+						ps.println("	}");
+					}
+				}
+				ps.println("}");
+				log.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				log.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+
+			log.debug("Created search test" + p);
+		}
+
+	}
+
 	private void writeSearchForm(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
 		String className = Utils.tabToStr(renames, tableName);
 		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
@@ -2744,18 +3040,17 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import java.io.Serializable;");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM);
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import java.io.Serializable;");
+				imports.add("import org.springframework.data.domain.Sort;");
+				imports.add("import org.springframework.format.annotation.DateTimeFormat;");
+				imports.add("import " + basePkg + ".utils.MessageHelper;");
+				imports.add("import " + basePkg + ".entity." + className + ";");
+				imports.add("import lombok.Data;");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
 				ps.println("");
-				ps.println("import org.springframework.data.domain.Sort;");
-				ps.println("import org.springframework.format.annotation.DateTimeFormat;");
-				ps.println("import " + basePkg + ".utils.MessageHelper;");
-				ps.println("import " + basePkg + ".entity." + className + ";");
-				ps.println("");
-				ps.println("import lombok.Data;");
-				ps.println("");
-				ps.println(getClassHeader(tableName + " Form",
-						"Class for holding data from the " + tableName + " table for editing.", ""));
+				ps.println(getClassHeader(tableName + "SearchForm",
+						"Class for holding data from the " + tableName + " table for searching.", ""));
 
 				ps.println("@Data");
 				ps.println("public class " + className + "SearchForm implements Serializable {");
@@ -2794,7 +3089,9 @@ public class GenSpring extends CommonMethods {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-					if ("String".equals(info.getType())) {
+					if (info.getForeignTable() != null) {
+						// TODO: skip for now
+					} else if ("String".equals(info.getType())) {
 						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 					} else {
 						ps.println("		form.set" + info.getGsName() + "Min(obj.get" + info.getGsName() + "());");
@@ -2839,8 +3136,10 @@ public class GenSpring extends CommonMethods {
 				p.toFile().delete();
 			}
 
-			log.debug("Created bean" + p);
+			log.debug("Created search form" + p);
 		}
+
+		writeSearchTest(tableName, colsInfo);
 	}
 
 	/**
@@ -2865,16 +3164,16 @@ public class GenSpring extends CommonMethods {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
-				ps.println("import java.io.Serializable;");
-				ps.println("");
-				ps.println("import javax.persistence.Column;");
-				ps.println("import javax.persistence.Entity;");
-				ps.println("import javax.persistence.GeneratedValue;");
-				ps.println("import javax.persistence.GenerationType;");
-				ps.println("import javax.persistence.Id;");
-				ps.println("import javax.persistence.Table;");
-				ps.println("import lombok.Data;");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_BEAN);
+				Set<String> imports = new TreeSet<String>();
+				imports.add("import java.io.Serializable;");
+				imports.add("import javax.persistence.Column;");
+				imports.add("import javax.persistence.Entity;");
+				imports.add("import javax.persistence.GeneratedValue;");
+				imports.add("import javax.persistence.GenerationType;");
+				imports.add("import javax.persistence.Id;");
+				imports.add("import javax.persistence.Table;");
+				imports.add("import lombok.Data;");
+				addImports(ps, colNameToInfoMap, IMPORT_TYPE_BEAN, imports);
 				StringBuilder comment = new StringBuilder();
 				for (String key : colNameToInfoMap.keySet()) {
 					if (PKEY_INFO.equals(key))
@@ -2911,7 +3210,7 @@ public class GenSpring extends CommonMethods {
 						ps.println("    @EqualsAndHashCode.Exclude");
 					if (info.isTimestamp())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
-					if (info.isDate())
+					else if (info.isDate())
 						ps.println("    @DateTimeFormat(pattern = \"yyyy-MM-dd\")");
 
 					if (info.isJsonIgnore())

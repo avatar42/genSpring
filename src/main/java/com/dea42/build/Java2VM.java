@@ -38,14 +38,14 @@ public class Java2VM extends CommonMethods {
 
 	private VelocityContext context;
 
-	public Java2VM(String bundleName) throws IOException {
+	public Java2VM(String bundleName) throws Exception {
 		initVars(bundleName);
 	}
 
 	/**
 	 * Read config from property files and init needed classes and vars.
 	 */
-	protected void initVars(String bundleName) throws IOException {
+	protected void initVars(String bundleName) throws Exception {
 		super.initVars(bundleName);
 
 		Properties p = new Properties();
@@ -237,7 +237,7 @@ public class Java2VM extends CommonMethods {
 		try {
 			Java2VM j = new Java2VM("genSpringTest");
 			j.genTemplates();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}

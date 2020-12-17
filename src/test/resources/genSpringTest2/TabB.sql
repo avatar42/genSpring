@@ -4,4 +4,5 @@ Fkey	INTEGER,
 MoneyVal	REAL,
 Skip	VARCHAR(1),
 MidText	VARCHAR(21),
-Datetime	DATETIME,    CONSTRAINT FK_TabB_Fkey FOREIGN KEY (Fkey)    REFERENCES TabA(Number));
+Userid	INTEGER,
+Datetime	DATETIME,    CONSTRAINT FK_TabB_Fkey FOREIGN KEY (Fkey)    REFERENCES TabA(Number),    CONSTRAINT FK_TabB_Userid FOREIGN KEY (Userid)    REFERENCES Account(id));

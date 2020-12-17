@@ -1,5 +1,4 @@
 CREATE TABLE Ota(id INTEGER NOT NULL primary key autoincrement,
-ShelfAnt	VARCHAR(20),
 Rez	VARCHAR(5),
 AtticAnt	INTEGER,
 TvFoolEstSignal	VARCHAR(5),

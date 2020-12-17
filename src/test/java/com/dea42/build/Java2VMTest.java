@@ -116,7 +116,7 @@ public class Java2VMTest {
 	}
 
 	@Test
-	public void testgetResourcePathString() throws IOException {
+	public void testgetResourcePathString() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		String expected = "base/src/test/java/com/dea42/genspring/UnitBase.java.vm";
@@ -137,10 +137,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase() throws IOException {
+	public void testVm2JavaUnitBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package com.dea42.genspring;", "protected static int ADMIN_USER_ID",
@@ -152,10 +152,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase2() throws IOException {
+	public void testVm2JavaUnitBase2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package dea.example.regression;", "protected static int ADMIN_USER_ID",
@@ -167,10 +167,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase4() throws IOException {
+	public void testVm2JavaUnitBase4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package com.dea42.genspring;", "protected static long ADMIN_USER_ID",
@@ -182,10 +182,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaPom() throws IOException {
+	public void testVm2JavaPom() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
@@ -198,10 +198,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaPom2() throws IOException {
+	public void testVm2JavaPom2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
@@ -214,10 +214,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaREADME() throws IOException {
+	public void testVm2JavaREADME() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/README.md.vm", "## Screen shots",
 				"![French home screen](screenshots/home.fr.png)", "# " + j.getAppName(), j.getAppDescription());
@@ -229,10 +229,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * Quick test
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase() throws IOException {
+	public void testJava2vmUnitBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
@@ -244,10 +244,10 @@ public class Java2VMTest {
 	/**
 	 * Not really a test as much as quick convert of new POC files into templates.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmNewStuff() throws IOException {
+	public void testJava2vmNewStuff() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 //		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchCriteria.java", "package ${basePkg}.search;");
@@ -261,10 +261,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with int IDs
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmAppControllerTest() throws IOException {
+	public void testJava2vmAppControllerTest() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
@@ -276,10 +276,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with long IDs
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmAppControllerTest4() throws IOException {
+	public void testJava2vmAppControllerTest4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
@@ -290,10 +290,10 @@ public class Java2VMTest {
 	 * Test method for
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmSeleniumBase() throws IOException {
+	public void testJava2vmSeleniumBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/selenium/SeleniumBase.java", "package ${basePkg}.selenium;",
@@ -305,10 +305,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with pom.xml file and alt options
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmPom2() throws IOException {
+	public void testJava2vmPom2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
 		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
@@ -321,10 +321,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with pom.xml file
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmPom() throws IOException {
+	public void testJava2vmPom() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
@@ -337,10 +337,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with alt options
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase2() throws IOException {
+	public void testJava2vmUnitBase2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
@@ -354,10 +354,10 @@ public class Java2VMTest {
 	 * {@link com.dea42.build.Java2VM#java2vm(java.lang.String, java.lang.String)}.
 	 * with longs
 	 * 
-	 * @throws IOException
+	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase4() throws IOException {
+	public void testJava2vmUnitBase4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",

@@ -27,7 +27,7 @@ public class PomTest {
 	 * @throws IOException
 	 */
 	@Test
-	public void test() throws IOException {
+	public void test() throws Exception {
 		Path file = Utils.getPath("pom.xml");
 		String data = new String(Files.readAllBytes(file));
 		Java2VM cm = new Java2VM("genSpringTest");

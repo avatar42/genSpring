@@ -41,6 +41,8 @@ public class Sheet2AppTest {
 	private static final boolean clearDBFirst = true;
 	private static final boolean clearSrcFirst = true;
 	private static final boolean stopOnError = false;
+	// to speed up GenSpring testing set this to false
+	private static final boolean doDbCreate = true;
 	private ResourceBundle renames = ResourceBundle.getBundle("rename");
 
 	/**
@@ -261,66 +263,68 @@ public class Sheet2AppTest {
 	public void doEndToEnd(String bundleName, boolean purgeFirst) throws Exception {
 		// remove all files form projects
 		if (purgeFirst)
-			purgeProject(bundleName, clearDBFirst, clearSrcFirst);
-
-		// Note set to fail if any errors encountered.
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
-		s.getSheet();
+			purgeProject(bundleName, doDbCreate && clearDBFirst, clearSrcFirst);
 
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String outdir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", ".");
 		Db db = new Db("Sheet2AppTest", bundleName);
-		String schema = db.getPrefix();
+		if (doDbCreate) {
+			// Note set to fail if any errors encountered.
+			Sheets2DB s = new Sheets2DB(bundleName, true, true);
+			s.getSheet();
 
-		Connection conn = db.getConnection("Sheet2AppTest");
-		List<String> tabs = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
-		for (String tabName : tabs) {
-			String tableName = Utils.tabToStr(renames, tabName);
-			int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-			int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
-			try {
-				String query = "SELECT * FROM " + schema + tableName;
-				Statement stmt = conn.createStatement();
-				stmt.setMaxRows(1);
-				log.debug("query=" + query);
-				ResultSet rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
-				ResultSetMetaData rm = rs.getMetaData();
-				int size = rm.getColumnCount();
-				chkErr("Checking expected columns in " + schema + tableName, columns, size);
+			String schema = db.getPrefix();
 
-				query = "SELECT COUNT(*) FROM " + schema + tableName;
-				stmt = conn.createStatement();
-				rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
-				if (!db.isSQLite())
-					rs.next();
-				chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-				List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
-				if (!userColNums.isEmpty()) {
-					tableName = tableName + "User";
-					columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-					rows = Utils.getProp(bundle, tableName + ".testRows", 0);
-					query = "SELECT * FROM " + schema + tableName;
-					stmt = conn.createStatement();
+			Connection conn = db.getConnection("Sheet2AppTest");
+			List<String> tabs = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
+			for (String tabName : tabs) {
+				String tableName = Utils.tabToStr(renames, tabName);
+				int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+				int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+				try {
+					String query = "SELECT * FROM " + schema + tableName;
+					Statement stmt = conn.createStatement();
+					stmt.setMaxRows(1);
 					log.debug("query=" + query);
-					rs = stmt.executeQuery(query);
+					ResultSet rs = stmt.executeQuery(query);
 					assertNotNull("Check ResultSet", rs);
-					rm = rs.getMetaData();
-					size = rm.getColumnCount();
+					ResultSetMetaData rm = rs.getMetaData();
+					int size = rm.getColumnCount();
 					chkErr("Checking expected columns in " + schema + tableName, columns, size);
 
 					query = "SELECT COUNT(*) FROM " + schema + tableName;
 					stmt = conn.createStatement();
 					rs = stmt.executeQuery(query);
 					assertNotNull("Check ResultSet", rs);
-					if (db.isMySQL())
+					if (!db.isSQLite())
 						rs.next();
 					chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+					List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
+					if (!userColNums.isEmpty()) {
+						tableName = tableName + "User";
+						columns = Utils.getProp(bundle, tableName + ".testCols", 0);
+						rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+						query = "SELECT * FROM " + schema + tableName;
+						stmt = conn.createStatement();
+						log.debug("query=" + query);
+						rs = stmt.executeQuery(query);
+						assertNotNull("Check ResultSet", rs);
+						rm = rs.getMetaData();
+						size = rm.getColumnCount();
+						chkErr("Checking expected columns in " + schema + tableName, columns, size);
+
+						query = "SELECT COUNT(*) FROM " + schema + tableName;
+						stmt = conn.createStatement();
+						rs = stmt.executeQuery(query);
+						assertNotNull("Check ResultSet", rs);
+						if (db.isMySQL())
+							rs.next();
+						chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
+					}
+				} catch (SQLException e) {
+					log.error("Exception creating DB", e);
+					fail("Exception creating DB");
 				}
-			} catch (SQLException e) {
-				log.error("Exception creating DB", e);
-				fail("Exception creating DB");
 			}
 		}
 

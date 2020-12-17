@@ -86,6 +86,8 @@ public class CommonMethods {
 	protected String idparse = "parseLong";
 	protected String idPrim = "long";
 	protected String idMod = "l";
+	protected String idField = USERID_COLUMN;
+	
 
 	private void getPomValues() throws IOException {
 		MavenXpp3Reader reader = new MavenXpp3Reader();
@@ -106,7 +108,7 @@ public class CommonMethods {
 
 	}
 
-	protected void initVars(String bundleName) throws IOException {
+	protected void initVars(String bundleName) throws Exception {
 		GregorianCalendar gc = new GregorianCalendar();
 		year = gc.get(Calendar.YEAR);
 		getPomValues();
@@ -137,6 +139,7 @@ public class CommonMethods {
 		appDescription = Utils.getProp(bundle, "app.description", "");
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
 		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
+		idField = Utils.getProp(bundle, PROPKEY + ".idField", USERID_COLUMN);
 		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
 		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
 

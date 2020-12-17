@@ -2,12 +2,14 @@ package com.dea42.common;
 
 import static org.junit.Assert.assertEquals;
 
+import java.sql.SQLException;
+
 import org.junit.Test;
 
 public class DbTest {
 
 	@Test
-	public void testDbStringStringString() {
+	public void testDbStringStringString() throws SQLException {
 		String bundleName = "genSpringTest";
 		Db db = new Db("Sheet2AppTest", bundleName);
 		String cwd = System.getProperty("user.dir").toString().replace('\\', '/');

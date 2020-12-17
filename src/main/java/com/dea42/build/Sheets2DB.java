@@ -111,7 +111,7 @@ public class Sheets2DB extends CommonMethods {
 	 * 
 	 * @throws IOException
 	 */
-	public Sheets2DB() throws IOException {
+	public Sheets2DB() throws Exception {
 		this(PROPKEY, false, false);
 	}
 
@@ -123,7 +123,7 @@ public class Sheets2DB extends CommonMethods {
 	 * @param failOnAnyError
 	 * @throws IOException
 	 */
-	public Sheets2DB(String bundelName, boolean cleanFirst, boolean failOnAnyError) throws IOException {
+	public Sheets2DB(String bundelName, boolean cleanFirst, boolean failOnAnyError) throws Exception {
 		this.failOnAnyError = failOnAnyError;
 		super.initVars(bundelName);
 	}
@@ -540,6 +540,9 @@ public class Sheets2DB extends CommonMethods {
 				val = val.toString();
 			}
 		}
+		if (!cellCls.isAssignableFrom(val.getClass())) {
+			log.debug("Changed:" + val + ":" + cellCls + " to " + val.getClass() + " with expected:" + fieldCls);
+		}
 
 		return val;
 	}
@@ -681,17 +684,13 @@ public class Sheets2DB extends CommonMethods {
 									}
 								}
 
-								if (i == 0 && cells[i] != null) {
-									log.debug("Before:" + i + ":" + cells[i] + ":" + cells[i].getClass() + ":"
-											+ fieldCls);
-								}
 								Object val = getTypedVal(cells[i], fieldCls);
-								if (i == 0 && cells[i] != null) {
-									log.debug("After:" + i + ":" + val + ":" + cells[i].getClass() + ":" + fieldCls);
-								}
 								if (val != null) {
 									ft.put(ha[i], val.getClass());
 									if (val instanceof String) {
+//										if ("Premiere date".equals(ha[i])) {
+//											log.debug("break point:" + cells[i] + ":" + val);
+//										}
 										int len = mfl.get(ha[i]);
 										int vlen = ((String) val).length();
 										if (len < vlen)
@@ -787,7 +786,7 @@ public class Sheets2DB extends CommonMethods {
 				foreignKeys.put(fnam, foreignColNums.get(fnam));
 			}
 		}
-		if (userTables.contains(tableName)) {
+		if (userTables.contains(tableName) || userTabs.contains(tableName)) {
 			foreignKeys.put(USERID_COLUMN, ACCOUNT_TABLE + ".id");
 			fieldTypes.put(USERID_COLUMN, db.getIdTypeCls());
 		}

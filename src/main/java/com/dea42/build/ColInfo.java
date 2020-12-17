@@ -90,7 +90,7 @@ public class ColInfo implements Serializable {
 	}
 
 	public boolean isDate() {
-		return stype == Types.DATE;
+		return stype == Types.DATE || isTimestamp();
 	}
 
 	/**

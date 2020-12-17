@@ -49,14 +49,14 @@ public class UtilsTest {
 	@Test
 	public void testGetPropClsGetPropResourceBundleStringClass() {
 		ResourceBundle bundle = ResourceBundle.getBundle("Watchlist");
-		Class<?> val = Utils.getPropCls(bundle, "Roamio_npl.L.type", null);
-		assertNotNull("Checking Roamio_npl.L.type is not null", val);
-		assertTrue("Checking Roamio_npl.L.type is String", val.isAssignableFrom(String.class));
+		Class<?> val = Utils.getPropCls(bundle, "RoamioNpl.L.type", null);
+		assertNotNull("Checking RoamioNpl.L.type is not null", val);
+		assertTrue("Checking RoamioNpl.L.type is String", val.isAssignableFrom(String.class));
 
 		// shows.24.type=java.util.Date
-		val = Utils.getPropCls(bundle, "shows.BG.type", null);
-		assertNotNull("Checking shows.BG.type is not null", val);
-		assertTrue("Checking shows.BG.type is Date", val.isAssignableFrom(java.util.Date.class));
+		val = Utils.getPropCls(bundle, "Shows.BG.type", null);
+		assertNotNull("Checking Shows.BG.type is not null", val);
+		assertTrue("Checking Shows.BG.type is Date", val.isAssignableFrom(java.util.Date.class));
 
 		val = Utils.getPropCls(bundle, "shows.B.type", null);
 		assertNull("Checking shows.B.type is null", val);

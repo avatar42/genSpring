@@ -93,7 +93,7 @@ public class Db {
 
 	private String config = "db";
 
-	public Db(String calledBy, String config) {
+	public Db(String calledBy, String config) throws SQLException {
 		this.config = config;
 		init(config);
 		if (calledBy != null) {
@@ -229,8 +229,9 @@ public class Db {
 	 * 
 	 * @param calledBy
 	 * @return Connection
+	 * @throws SQLException 
 	 */
-	public Connection getConnection(String calledBy) {
+	public Connection getConnection(String calledBy) throws SQLException {
 		try {
 			if (connection == null || connection.isClosed()) {
 				if (connection != null) {
@@ -259,7 +260,7 @@ public class Db {
 			log.error("getConnection() error: ", e);
 			log.error("Open connections=" + openCount);
 			log.error("Total connections=" + totalCount);
-
+			throw e;
 		}
 		return connection;
 	}

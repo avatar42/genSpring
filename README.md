@@ -10,7 +10,7 @@ db.password= <br>
 db.name= <br>
 
 ## keyed on Entity Class name
-### note column / field in list names are now compared case insensitive to avoid mismatches 
+### className.key note list values are the field names but are compared case insensitive to avoid mismatches 
 ### columns not to return in REST interface
 Account.JsonIgnore=password
 ### columns that need unique values
@@ -18,7 +18,7 @@ Account.unique=email
 ## restrict columns on list page to just these
 Account.list=id,email,role,created
 
-### normal test values See Sheets2DBTest and Sheet2AppTest for examples of use (Note these use table names instead of tab names)
+### tableName.key normal test values See Sheets2DBTest and Sheet2AppTest for examples of use
 Sheet1.testCols=5<br>
 Sheet2.testCols=5<br>
 Sheet1.testRows=8<br>
@@ -38,25 +38,25 @@ Basically set your options in /genSpring/src/main/resources/genSpring.properties
 genSpring.outdir=../genSpringTest
 ## Google sheet to read from
 genSpring.id=1-xYv1AVkUC5J3Tqpy2_3alZ5ZpBPnnO2vUGUCUeLVVE 
-## tabs to export
+## tabs to export (values can be tab or table names) 
 genSpring.tabs=Networks,shows,Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard 
  
-## tab adjustments
-### columns to export. If missing exports all existing
+### [optional] Tabs each row should be prefixed / linked to a user ID. ID 1 is used for the import.
+genSpring.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
+
+## tab adjustments (note table names used since tab names can have spaces in the,
+### tableName.columns to export. If missing exports all existing
 Sheet1.columns=A-C,F
 Sheet2.columns=A,C-E
 
-### required (not null) columns. Rows with null in the field will not be imported. Note ignored if not in exported columns
+### tableName.required (not null) columns. Rows with null in these columns will not be imported. Note ignored if not in exported columns
 Sheet1.required=A
 Sheet2.required=A,C-D
 
-### set this if you need to ignore extra rows at bottom of sheet
+### [optional] tableName.lastRow set this if you need to ignore extra rows at bottom of sheet
 Sheet1.lastRow=251 <br>
 
-### [optional] Tables each row should be prefixed / linked to a user ID. ID 1 is used for the import.
-genSpring.userTabs=Roamio_npl,Roamio_sp,Roamio_Todo,OTA,CableCard<br>
-
-### [optional] Columns to be placed in separate table linked to source table and account. 
+### [optional] tableName.Columns to be placed in separate table linked to source table and account. 
 Sheet1.user=E<br>
 
 # genSpring
@@ -66,7 +66,6 @@ Note for safety reasons it will not overwrite existing files so just delete the 
 
 # Setup
 Basically set your options in /genSpring/src/main/resources/genSpring.properties 
- 
  
 ## top folder for output / new project root 
 genSpring.outdir=../genSpringTest 
@@ -112,7 +111,7 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate [th
 ## Basic pom file
 ./pom.xml <br>
 ## DB Dialect if needed.
-./src/main/java/com/dea42/genSpring/db/SQLiteDialect.java  **(Only if using SQLite)**<br>
+./src/main/java/{pkg.module}/db/SQLiteDialect.java  **(Only if using SQLite)**<br>
 ## Language files. Note currently just these 3 UTF-8 ones and only common text is translated. To translate your table and field names use https://www.google.com/search?q=translate+java+properties+file with untranslated properties from ./src/main/resources/messages.properties<br> 
 ./src/main/resources/messages.properties<br>
 ./src/main/resources/messages_de.properties<br>
@@ -143,20 +142,21 @@ For example with a DB containing the tables Sheet1 and Sheet2 would generate [th
 ./src/main/webapp/WEB-INF/web.xml<br>
 <br>
 ## Unit test files<br>
-./src/test/java/com/dea42/genspring/WebAppApplicationTest.java<br>
-./src/test/java/com/dea42/genspring/controller/*ControllerTest.java<br>
+./src/test/java/{pkg.module}/WebAppApplicationTest.java<br>
+./src/test/java/{pkg.module}/controller/*ControllerTest.java<br>
+./src/test/java/{pkg.module}/search/*SearchTest.java<br>
 ### Common test methods
-./src/test/java/com/dea42/genspring/UnitBase.java<br>
+./src/test/java/{pkg.module}/UnitBase.java<br>
 ### Methods for mock testing
-./src/test/java/com/dea42/genspring/MockBase.java<br>
+./src/test/java/{pkg.module}/MockBase.java<br>
 
 ## Regression tests
 ### Methods for Selenium regression tests
-./src/test/java/com/dea42/genspring/selenium/SeleniumBase.java<br>
+./src/test/java/{pkg.module}/selenium/SeleniumBase.java<br>
 ### Runs regression tests against deployed war
-./src/test/java/com/dea42/genspring/selenium/SmokeIT.java<br>
+./src/test/java/{pkg.module}/selenium/SmokeIT.java<br>
 ### Runs regression tests against Sprint Boot standalone config
-./src/test/java/com/dea42/genspring/selenium/SmokeTest.java<br>
+./src/test/java/{pkg.module}/selenium/SmokeTest.java<br>
 ### Properties files used for testing.
 ./src/test/resources/rename.properties<br>
 ./src/test/resources/test.properties<br>

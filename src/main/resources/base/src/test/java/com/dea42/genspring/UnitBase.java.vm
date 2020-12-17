@@ -31,6 +31,7 @@ import junit.framework.TestCase;
 public abstract class UnitBase extends TestCase {
 	private static final String strVal = "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890abcdefghijklmnopqrstuvwzyz";
 	protected static final Logger LOGGER = LoggerFactory.getLogger(UnitBase.class.getName());
+	public static long DAY = 1000 * 60 * 60 * 24; 
 
 	public static final String SEND_GET = "GET";
 	public static final String SEND_POST = "POST";

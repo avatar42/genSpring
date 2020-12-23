@@ -180,6 +180,9 @@ public class SeleniumBase extends UnitBase {
 	protected void sourceContains(String expected, boolean doesNotContain) {
 		String src = getSrc();
 		assertNotNull("checking page source not null", src);
+		if (src.contains("??")) {
+			fail("'??' was found in page source:" + src);
+		}
 		if (doesNotContain) {
 			if (src.contains(expected)) {
 				fail("'" + expected + "' was found in page source:" + src);

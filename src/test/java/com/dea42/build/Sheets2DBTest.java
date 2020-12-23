@@ -353,6 +353,18 @@ public class Sheets2DBTest {
 		assertTrue(errors, StringUtils.isBlank(errors));
 	}
 
+	/**
+	 * quick and dirty convert so text compares work on Windows and Linux
+	 * @param str
+	 * @return
+	 */
+	public String dos2Unix(String str) {
+		if (str == null)
+			return str;
+		
+		return str.replace("\r\n", "\n");
+	}
+	
 	public void chkSQL(String bundleName, ResourceBundle bundle) throws IOException {
 		Path staticPath = Utils.getPath(RESOURCE_FOLDER, bundleName);
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
@@ -372,7 +384,7 @@ public class Sheets2DBTest {
 					String baseDir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "target");
 					Path p = Utils.getPath(baseDir, Sheets2DB.SCRIPTS_FOLDER, file.getFileName().toString());
 					String actual = new String(Files.readAllBytes(p));
-					assertEquals("Comparing generated and stored " + file.getFileName().toString(), expected, actual);
+					assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected), dos2Unix(actual));
 				}
 
 				return FileVisitResult.CONTINUE;

@@ -30,6 +30,10 @@ public class Utils {
 
 	private static final List<String> reservedWords = new ArrayList<String>();
 
+	/**
+	 * A list of Java and SQL key words that might cause issues if used as field
+	 * names
+	 */
 	public static synchronized void initReservedWords() {
 		if (reservedWords.isEmpty()) {
 			reservedWords.add("abstract");
@@ -42,7 +46,11 @@ public class Utils {
 			reservedWords.add("char");
 			reservedWords.add("class");
 			reservedWords.add("const");
+			reservedWords.add("constraint");
 			reservedWords.add("continue");
+			reservedWords.add("date");
+			reservedWords.add("datetime");
+			reservedWords.add("decimal");
 			reservedWords.add("default");
 			reservedWords.add("double");
 			reservedWords.add("do");
@@ -60,15 +68,20 @@ public class Utils {
 			reservedWords.add("import");
 			reservedWords.add("instanceof");
 			reservedWords.add("int");
+			reservedWords.add("integer");
 			reservedWords.add("interface");
 			reservedWords.add("long");
 			reservedWords.add("native");
 			reservedWords.add("new");
+			reservedWords.add("not");
+			reservedWords.add("number");
 			reservedWords.add("null");
 			reservedWords.add("package");
+			reservedWords.add("primary");
 			reservedWords.add("private");
 			reservedWords.add("protected");
 			reservedWords.add("public");
+			reservedWords.add("real");
 			reservedWords.add("return");
 			reservedWords.add("short");
 			reservedWords.add("static");
@@ -82,6 +95,8 @@ public class Utils {
 			reservedWords.add("transient");
 			reservedWords.add("true");
 			reservedWords.add("try");
+			reservedWords.add("unique");
+			reservedWords.add("varchar");
 			reservedWords.add("void");
 			reservedWords.add("volatile");
 			reservedWords.add("while");
@@ -303,8 +318,8 @@ public class Utils {
 	}
 
 	/**
-	 * checks to see if Java reserved word so we do not end up with class or var
-	 * names that will not compile
+	 * checks to see if Java or SQL reserved word so we do not end up with class or
+	 * var names that will not compile or SQL that will not run.
 	 * 
 	 * @param s
 	 * @return

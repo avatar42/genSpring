@@ -207,7 +207,7 @@ public class GenSpring extends CommonMethods {
 	 * @return
 	 */
 	private boolean classHasUserFields(String className, Map<String, Map<String, ColInfo>> colsInfo) {
-		return ACCOUNT_CLASS.equals(className) || colsInfo.get(className).containsKey(idField);
+		return ACCOUNT_CLASS.equals(className) || colsInfo.get(className).containsKey(userIdField);
 	}
 
 	private void writeNav(Map<String, Map<String, ColInfo>> colsInfo, Map<String, String> statics) {
@@ -682,7 +682,11 @@ public class GenSpring extends CommonMethods {
 			pkinfo.setComment(comment.toString());
 		}
 		if (colNameToInfoMap.get(PKEY_INFO) == null) {
-			pkCol = firstColumnName;
+			if (colNameToInfoMap.get(ID_COLUMN) == null)
+				pkCol = firstColumnName;
+			else
+				pkCol = ID_COLUMN;
+
 			log.error(tableName + " does not have a primary key. Using " + pkCol);
 			ColInfo pkinfo = colNameToInfoMap.get(pkCol.toLowerCase());
 			if (pkinfo == null) {
@@ -1807,7 +1811,7 @@ public class GenSpring extends CommonMethods {
 		sb = new StringBuilder();
 		for (String className : set) {
 			if (classHasUserFields(className, colsInfo)) {
-				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
+				sb.append("		if (\"" + ADMIN_EMAIL + "\".equals(user)) ").append(System.lineSeparator());
 				sb.append("			contentContainsKey(result, \"class." + className + "\", false);")
 						.append(System.lineSeparator());
 			} else {
@@ -1820,7 +1824,7 @@ public class GenSpring extends CommonMethods {
 		for (String className : set) {
 			String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 			if (classHasUserFields(className, colsInfo)) {
-				sb.append("		if (\"" + ADMIN_USER + "\".equals(user)) ").append(System.lineSeparator());
+				sb.append("		if (\"" + ADMIN_EMAIL + "\".equals(user)) ").append(System.lineSeparator());
 				sb.append("			contentContainsMarkup(result, \"/api/" + fieldName + "s\", false);")
 						.append(System.lineSeparator());
 			} else {
@@ -1878,7 +1882,7 @@ public class GenSpring extends CommonMethods {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-					if (info.isList()) {
+					if (info.isList() || info.isRequired()) {
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
@@ -1985,7 +1989,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("		" + className + " o = get" + className + "(1" + pkinfo.getMod() + ");");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
-						+ "\", o, ImmutableMap.of(\"action\", \"cancel\"), ADMIN_USER,");
+						+ "\", o, ImmutableMap.of(\"action\", \"cancel\"), ADMIN_EMAIL,");
 				ps.println("				\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
@@ -2012,7 +2016,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("		log.debug(form.toString());");
 				ps.println("");
 				ps.println("		send(SEND_POST, \"/" + fieldName + "s/save\", \"" + fieldName
-						+ "Form\", form, ImmutableMap.of(\"action\", \"save\"), ADMIN_USER,");
+						+ "Form\", form, ImmutableMap.of(\"action\", \"save\"), ADMIN_EMAIL,");
 				ps.println("				\"/" + fieldName + "s\");");
 				ps.println("	}");
 				ps.println("");
@@ -2444,6 +2448,7 @@ public class GenSpring extends CommonMethods {
 					ps.println("		boolean doinit = Utils.getProp(bundle, \"init.default.users\", true);");
 					ps.println("		if (doinit) {");
 					ps.println("			log.warn(\"Resetting default users\");");
+					ps.println("			String email = Utils.getProp(bundle, \"default.email\", null);");
 					ps.println("			String user = Utils.getProp(bundle, \"default.user\", null);");
 					ps.println("			if (!StringUtils.isBlank(user)) {");
 					ps.println("				" + pkinfo.getType()
@@ -2452,13 +2457,15 @@ public class GenSpring extends CommonMethods {
 					ps.println(
 							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.userrole\", null);");
 					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS + "();");
-					ps.println("				a.setEmail(user);");
+					ps.println("				a.setEmail(email);");
+					ps.println("				a.setName(user);");
 					ps.println("				a.setPassword(userpass);");
-					ps.println("				a.setRole(userrole);");
+					ps.println("				a.setUserrole(userrole);");
 					ps.println("				a.setId(id);");
 					ps.println("				save(a);");
 					ps.println("			}");
 					ps.println("");
+					ps.println("			email = Utils.getProp(bundle, \"default.adminEmail\", null);");
 					ps.println("			user = Utils.getProp(bundle, \"default.admin\", null);");
 					ps.println("			if (!StringUtils.isBlank(user)) {");
 					ps.println("				" + pkinfo.getType()
@@ -2467,9 +2474,10 @@ public class GenSpring extends CommonMethods {
 					ps.println(
 							"				String userrole = ROLE_PREFIX + Utils.getProp(bundle, \"default.adminrole\", null);");
 					ps.println("				" + ACCOUNT_CLASS + " a = new " + ACCOUNT_CLASS + "();");
-					ps.println("				a.setEmail(user);");
+					ps.println("				a.setEmail(email);");
+					ps.println("				a.setName(user);");
 					ps.println("				a.setPassword(userpass);");
-					ps.println("				a.setRole(userrole);");
+					ps.println("				a.setUserrole(userrole);");
 					ps.println("				a.setId(id);");
 					ps.println("				save(a);");
 					ps.println("			}");

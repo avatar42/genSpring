@@ -124,8 +124,12 @@ public class Java2VMTest {
 				rel + "src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm");
 		assertEquals("Checking relative:", expected, actual);
 
-		actual = j.getResourcePathString(
-				"D:\\SpringTools4.6.1\\workspace\\genSpring\\src\\main\\resources\\base\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java.vm");
+		String fullPath = "D:\\SpringTools4.6.1\\workspace\\genSpring\\src\\main\\resources\\base\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java.vm";
+		// Linux
+		if (File.separatorChar == '/') {
+			fullPath = "/home/deabigt/SpringTools4.6.1/workspace/genSpring/src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm";
+		}
+		actual = j.getResourcePathString(fullPath);
 		assertEquals("Checking relative:", expected, actual);
 
 		actual = j.getResourcePathString(

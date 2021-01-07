@@ -272,8 +272,8 @@ public class Sheets2DBTest {
 		String schema = db.getPrefix();
 		ResourceBundle renames = ResourceBundle.getBundle("rename");
 		String tableName = Utils.tabToStr(renames, tabName);
-		int expectedNumCols = Utils.getProp(bundle, tableName + ".testCols", 0);
-		int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+		int expectedNumCols = Utils.getProp(bundle, tableName + ".testCols", -1);
+		int rows = Utils.getProp(bundle, tableName + ".testRows", -1);
 		List<Integer> wantedColNums = s.strToCols(Utils.getProp(bundle, tableName + ".columns"));
 		List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 
@@ -288,7 +288,7 @@ public class Sheets2DBTest {
 			ResultSetMetaData rm = rs.getMetaData();
 			int columnCount = rm.getColumnCount();
 			int calcCols = 0;
-			if (expectedNumCols != columnCount) {
+			if (expectedNumCols > -1 && expectedNumCols != columnCount) {
 				rtn.append("Checking expected columns in " + schema + tableName);
 				if (wantedColNums.size() > 0) {
 					calcCols = wantedColNums.size() + 1;
@@ -313,7 +313,7 @@ public class Sheets2DBTest {
 			if (!db.isSQLite())
 				rs.next();
 			int cnt = rs.getInt(1);
-			if (rows != cnt) {
+			if (rows > -1 && rows != cnt) {
 				rtn.append("Checking expected rows in " + schema + tableName);
 				if (stopOnError)
 					assertEquals(rtn.toString(), rows, cnt);
@@ -355,16 +355,17 @@ public class Sheets2DBTest {
 
 	/**
 	 * quick and dirty convert so text compares work on Windows and Linux
+	 * 
 	 * @param str
 	 * @return
 	 */
 	public String dos2Unix(String str) {
 		if (str == null)
 			return str;
-		
+
 		return str.replace("\r\n", "\n");
 	}
-	
+
 	public void chkSQL(String bundleName, ResourceBundle bundle) throws IOException {
 		Path staticPath = Utils.getPath(RESOURCE_FOLDER, bundleName);
 		Files.walkFileTree(staticPath, new FileVisitor<Path>() {
@@ -384,7 +385,8 @@ public class Sheets2DBTest {
 					String baseDir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "target");
 					Path p = Utils.getPath(baseDir, Sheets2DB.SCRIPTS_FOLDER, file.getFileName().toString());
 					String actual = new String(Files.readAllBytes(p));
-					assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected), dos2Unix(actual));
+					assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected),
+							dos2Unix(actual));
 				}
 
 				return FileVisitResult.CONTINUE;

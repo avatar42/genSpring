@@ -62,11 +62,11 @@ public class Sheet2SearchTest extends TestCase {
 		Sheet2 sheet2c = list.toList().get(id - 1);
 		id = sheet2c.getId();
 		text = sheet2c.getText();
-		
-		decimalMin = sheet2c.getDecimal();
-		decimalMax = sheet2c.getDecimal().add(new BigDecimal(100));
-		integerMin = sheet2c.getInteger();
-		integerMax = sheet2c.getInteger() + 10;
+
+		decimalMin = sheet2c.getDecimalfield();
+		decimalMax = sheet2c.getDecimalfield().add(new BigDecimal(100));
+		integerMin = sheet2c.getIntegerfield();
+		integerMax = sheet2c.getIntegerfield() + 10;
 
 		form = new Sheet2SearchForm();
 		list = confirmGotResult(form, id);
@@ -79,12 +79,12 @@ public class Sheet2SearchTest extends TestCase {
 
 		form.setText("Text%");
 
-		form.setDecimalMin(decimalMin);
-		form.setDecimalMax(decimalMax);
+		form.setDecimalfieldMin(decimalMin);
+		form.setDecimalfieldMax(decimalMax);
 		list = confirmGotResult(form, id);
 
-		form.setIntegerMin(integerMin);
-		form.setIntegerMax(integerMax);
+		form.setIntegerfieldMin(integerMin);
+		form.setIntegerfieldMax(integerMax);
 		list = confirmGotResult(form, id);
 
 		log.debug("done - breakpoint");

@@ -1,4 +1,8 @@
-CREATE TABLE genSpringMySQLTest.Account(id BIGINT NOT NULL primary key auto_increment, Created TIMESTAMP NOT NULL, Lastmod TIMESTAMP NOT NULL,
+CREATE TABLE genSpringMySQLTest.Account(id BIGINT NOT NULL primary key auto_increment,
+Created TIMESTAMP NOT NULL,
+Lastmod TIMESTAMP NOT NULL,
+`Email`	VARCHAR(254) COMMENT 'len=254' NOT NULL,
+`Name`	VARCHAR(254) COMMENT 'len=254' NOT NULL,
 `Password`	VARCHAR(254) COMMENT 'len=254' NOT NULL,
-`Role`	VARCHAR(25) COMMENT 'len=25' NOT NULL,
-`Email`	VARCHAR(254) COMMENT 'len=254' NOT NULL, CONSTRAINT UC_email UNIQUE (email));
+`Userrole`	VARCHAR(25) COMMENT 'len=25' NOT NULL,
+CONSTRAINT UC_email UNIQUE (email));

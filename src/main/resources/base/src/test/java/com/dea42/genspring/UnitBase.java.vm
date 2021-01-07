@@ -46,11 +46,13 @@ public abstract class UnitBase extends TestCase {
 	protected Set<String> headless = new HashSet<String>();
 
 	protected static ${idPrim} TEST_USER_ID;
+	protected static String TEST_EMAIL;
 	protected static String TEST_USER;
 	protected static String TEST_PASS;
 	protected static String TEST_ROLE;
 
 	protected static ${idPrim} ADMIN_USER_ID;
+	protected static String ADMIN_EMAIL;
 	protected static String ADMIN_USER;
 	protected static String ADMIN_PASS;
 	protected static String ADMIN_ROLE;
@@ -59,15 +61,17 @@ public abstract class UnitBase extends TestCase {
 		appBundle = ResourceBundle.getBundle("app");
 		msgEnBundle = ResourceBundle.getBundle("messages");
 
-		if (TEST_USER == null) {
+		if (TEST_EMAIL == null) {
 			TEST_USER_ID = Utils.getProp(appBundle, "default.userid", 1${idMod});
-			TEST_USER = Utils.getProp(appBundle, "default.user", null);
+			TEST_EMAIL = Utils.getProp(appBundle, "default.email", null);
+			TEST_USER = Utils.getProp(appBundle, "default.user", "user");
 			TEST_PASS = Utils.getProp(appBundle, "default.userpass", null);
 			TEST_ROLE = Utils.getProp(appBundle, "default.userrole", null);
 		}
-		if (ADMIN_USER == null) {
+		if (ADMIN_EMAIL == null) {
 			ADMIN_USER_ID = Utils.getProp(appBundle, "default.adminid", 2${idMod});
-			ADMIN_USER = Utils.getProp(appBundle, "default.admin", null);
+			ADMIN_EMAIL = Utils.getProp(appBundle, "default.adminEmail", null);
+			ADMIN_USER = Utils.getProp(appBundle, "default.admin", "admin");
 			ADMIN_PASS = Utils.getProp(appBundle, "default.adminpass", null);
 			ADMIN_ROLE = Utils.getProp(appBundle, "default.adminrole", null);
 		}
@@ -84,19 +88,21 @@ public abstract class UnitBase extends TestCase {
 
 	protected Account getDefaultAdminAccount() {
 		Account a = new Account();
-		a.setEmail(ADMIN_USER);
+		a.setEmail(ADMIN_EMAIL);
+		a.setName(ADMIN_USER);
 		a.setId(ADMIN_USER_ID);
 		a.setPassword(ADMIN_PASS);
-		a.setRole(ADMIN_ROLE);
+		a.setUserrole(ADMIN_ROLE);
 		return a;
 	}
 
 	protected Account getDefaultUserAccount() {
 		Account a = new Account();
-		a.setEmail(TEST_USER);
+		a.setEmail(TEST_EMAIL);
+		a.setName(TEST_USER);
 		a.setId(TEST_USER_ID);
 		a.setPassword(TEST_PASS);
-		a.setRole(TEST_ROLE);
+		a.setUserrole(TEST_ROLE);
 		return a;
 	}
 

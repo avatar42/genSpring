@@ -362,7 +362,7 @@ public class SeleniumBase extends UnitBase {
 		WebElement form = waitForElement(By.id("signinForm"));
 		screenshotRule.docShot("login");
 		ResourceBundle bundle = ResourceBundle.getBundle("app");
-		String user = Utils.getProp(bundle, "default.admin", null);
+		String user = Utils.getProp(bundle, "default.adminEmail", null);
 		String userpass = Utils.getProp(bundle, "default.adminpass", null);
 		sourceContains("<legend>" + getMsg("signin.title") + "</legend>", false);
 		type(By.id("email"), user, true, form);

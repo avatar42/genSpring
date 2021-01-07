@@ -108,7 +108,7 @@ public abstract class UserServices<T> implements UserDetailsService {
 
 	private GrantedAuthority createAuthority(Account account) {
 		log.debug("logged in:" + account);
-		return new SimpleGrantedAuthority(account.getRole());
+		return new SimpleGrantedAuthority(account.getUserrole());
 	}
 
 	public abstract T save(T obj);

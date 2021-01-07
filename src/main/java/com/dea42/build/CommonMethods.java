@@ -36,15 +36,24 @@ public class CommonMethods {
 	public static String ACCOUNT_CLASS = "Account";
 	public static String ACCOUNT_TABLE = "Account";
 	public static String USERID_COLUMN = "userId";
+	// TODO: make configurable?
+	public static String ID_COLUMN = "id";
+	public static String EMAIL_COLUMN = "email";
+	public static String DISPLAY_NAME_COLUMN = "name";
+	public static String PASSWORD_COLUMN = "password";
+	public static String ROLE_COLUMN = "userrole";
+
 	public static final String ROLE_PREFIX = "ROLE_";
 	public static long ONE_DAY_MILS = 86400000l;
 
 	protected long TEST_USER_ID;
+	protected String TEST_EMAIL;
 	protected String TEST_USER;
 	protected String TEST_PASS;
 	protected String TEST_ROLE;
 
 	protected long ADMIN_USER_ID;
+	protected String ADMIN_EMAIL;
 	protected String ADMIN_USER;
 	protected String ADMIN_PASS;
 	protected String ADMIN_ROLE;
@@ -86,8 +95,7 @@ public class CommonMethods {
 	protected String idparse = "parseLong";
 	protected String idPrim = "long";
 	protected String idMod = "l";
-	protected String idField = USERID_COLUMN;
-	
+	protected String userIdField = USERID_COLUMN;
 
 	private void getPomValues() throws IOException {
 		MavenXpp3Reader reader = new MavenXpp3Reader();
@@ -139,7 +147,7 @@ public class CommonMethods {
 		appDescription = Utils.getProp(bundle, "app.description", "");
 		beanToString = Utils.getProp(bundle, PROPKEY + ".beanToString", beanToString);
 		useDouble = Utils.getProp(bundle, PROPKEY + ".useDouble", useDouble);
-		idField = Utils.getProp(bundle, PROPKEY + ".idField", USERID_COLUMN);
+		userIdField = Utils.getProp(bundle, PROPKEY + ".idField", USERID_COLUMN);
 		colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
 		colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
 
@@ -156,11 +164,13 @@ public class CommonMethods {
 		}
 
 		TEST_USER_ID = Utils.getProp(bundle, "default.userid", 1l);
-		TEST_USER = Utils.getProp(bundle, "default.user", "user@dea42.com");
+		TEST_EMAIL = Utils.getProp(bundle, "default.email", "user@dea42.com");
+		TEST_USER = Utils.getProp(bundle, "default.user", "user");
 		TEST_PASS = Utils.getProp(bundle, "default.userpass", "ChangeMe");
 		TEST_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.userrole", "USER");
 		ADMIN_USER_ID = Utils.getProp(bundle, "default.adminid", 2l);
-		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin@dea42.com");
+		ADMIN_EMAIL = Utils.getProp(bundle, "default.adminEmail", "admin@dea42.com");
+		ADMIN_USER = Utils.getProp(bundle, "default.admin", "admin");
 		ADMIN_PASS = Utils.getProp(bundle, "default.adminpass", "ChangeMe");
 		ADMIN_ROLE = Sheets2DB.ROLE_PREFIX + Utils.getProp(bundle, "default.adminrole", "ADMIN");
 

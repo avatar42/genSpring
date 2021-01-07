@@ -103,7 +103,7 @@ public class MockBase extends UnitBase {
 		}
 		if (!StringUtils.isAllBlank(login)) {
 			UserRequestPostProcessor urpp = user(login);
-			if (ADMIN_USER.equals(login)) {
+			if (ADMIN_EMAIL.equals(login)) {
 				urpp = urpp.roles(ADMIN_ROLE);
 			} else {
 				urpp = urpp.roles(TEST_ROLE);
@@ -166,7 +166,7 @@ ${mockNav}
 	 * @throws Exception
 	 */
 	protected ResultActions getAsAdmin(String relURL) throws Exception {
-		return send(SEND_GET, relURL, null, null, null, ADMIN_USER, null);
+		return send(SEND_GET, relURL, null, null, null, ADMIN_EMAIL, null);
 	}
 
 	/**
@@ -176,7 +176,7 @@ ${mockNav}
 	 * @throws Exception
 	 */
 	protected void getAsAdminRedirectExpected(String relURL, String redirectedUrl) throws Exception {
-		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);
+		send(SEND_GET, relURL, null, null, null, ADMIN_EMAIL, redirectedUrl);
 	}
 
 	/**
@@ -186,7 +186,7 @@ ${mockNav}
 	 * @throws Exception
 	 */
 	protected void getAsNoOneRedirectExpected(String relURL, String redirectedUrl) throws Exception {
-		send(SEND_GET, relURL, null, null, null, ADMIN_USER, redirectedUrl);
+		send(SEND_GET, relURL, null, null, null, ADMIN_EMAIL, redirectedUrl);
 	}
 
 	/**
@@ -281,8 +281,8 @@ ${mockNav}
 	 * @return
 	 */
 	protected RequestPostProcessor getMockTestUser() {
-		log.debug("Using the user:" + TEST_USER + " with role:ROLE_" + TEST_ROLE);
-		UserRequestPostProcessor rtn = user(TEST_USER).roles(TEST_ROLE);
+		log.debug("Using the user:" + TEST_EMAIL + " with role:ROLE_" + TEST_ROLE);
+		UserRequestPostProcessor rtn = user(TEST_EMAIL).roles(TEST_ROLE);
 		log.debug("Returning:" + rtn);
 		return rtn;
 	}
@@ -292,8 +292,8 @@ ${mockNav}
 	 * @return
 	 */
 	protected RequestPostProcessor getMockTestAdmin() {
-		log.debug("Using the user:" + ADMIN_USER + " with role:ROLE_" + ADMIN_ROLE);
-		UserRequestPostProcessor rtn = user(ADMIN_USER).roles(ADMIN_ROLE);
+		log.debug("Using the user:" + ADMIN_EMAIL + " with role:ROLE_" + ADMIN_ROLE);
+		UserRequestPostProcessor rtn = user(ADMIN_EMAIL).roles(ADMIN_ROLE);
 		log.debug("Returning:" + rtn);
 		return rtn;
 	}

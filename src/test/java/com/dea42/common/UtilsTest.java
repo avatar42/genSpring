@@ -8,6 +8,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.util.List;
 import java.util.ResourceBundle;
 
@@ -181,10 +182,19 @@ public class UtilsTest {
 	 */
 	@Test
 	public void testGetRelPath() {
-		String relPathStr = Utils.getRelPath("D:\\SpringTools4.6.1\\workspace\\genSpring",
-				"D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java");
-		assertEquals("..\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java",
-				relPathStr);
+		// Windows
+		String rootPath = "D:\\SpringTools4.6.1\\workspace\\genSpring";
+		String fullPath = "D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java";
+		String expectedPath = "..\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java";
+
+		// Linux
+		if (File.separatorChar == '/') {
+			rootPath = "/home/deabigt/SpringTools4.6.1/workspace/genSpring";
+			fullPath = "/home/deabigt/SpringTools4.6.1/workspace/genSpringTest/target/v2j/src/test/java/com/dea42/genspring/UnitBase.java";
+			expectedPath = "../genSpringTest/target/v2j/src/test/java/com/dea42/genspring/UnitBase.java";
+		}
+		String relPathStr = Utils.getRelPath(rootPath, fullPath);
+		assertEquals(expectedPath, relPathStr);
 	}
 
 }

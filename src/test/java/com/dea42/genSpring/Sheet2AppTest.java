@@ -245,11 +245,12 @@ public class Sheet2AppTest {
 	}
 
 	private void chkErr(String lable, int expected, int found) {
-		if (stopOnError)
-			assertEquals(lable, expected, found);
-		else
-			log.error(lable + " expected:" + expected + " :" + found);
-
+		if (expected > -1) {
+			if (stopOnError)
+				assertEquals(lable, expected, found);
+			else if (expected != found)
+				log.error(lable + " expected:" + expected + " :" + found);
+		}
 	}
 
 	/**
@@ -279,8 +280,8 @@ public class Sheet2AppTest {
 			List<String> tabs = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
 			for (String tabName : tabs) {
 				String tableName = Utils.tabToStr(renames, tabName);
-				int columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-				int rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+				int columns = Utils.getProp(bundle, tableName + ".testCols", -1);
+				int rows = Utils.getProp(bundle, tableName + ".testRows", -1);
 				try {
 					String query = "SELECT * FROM " + schema + tableName;
 					Statement stmt = conn.createStatement();
@@ -302,8 +303,8 @@ public class Sheet2AppTest {
 					List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 					if (!userColNums.isEmpty()) {
 						tableName = tableName + "User";
-						columns = Utils.getProp(bundle, tableName + ".testCols", 0);
-						rows = Utils.getProp(bundle, tableName + ".testRows", 0);
+						columns = Utils.getProp(bundle, tableName + ".testCols", -1);
+						rows = Utils.getProp(bundle, tableName + ".testRows", -1);
 						query = "SELECT * FROM " + schema + tableName;
 						stmt = conn.createStatement();
 						log.debug("query=" + query);

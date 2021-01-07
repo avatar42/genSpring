@@ -64,7 +64,7 @@ public class ValidatorTestForm implements Serializable {
 		form.setId(obj.getId());
 //		form.setPassword(obj.getPassword());
 //		form.setPasswordConfirm(obj.getPassword());
-		form.setRole(obj.getRole());
+		form.setUserrole(obj.getUserrole());
 		return form;
 	}
 
@@ -153,7 +153,7 @@ public class ValidatorTestForm implements Serializable {
 	 *
 	 * @return value of this column in this row
 	 */
-	public String getRole() {
+	public String getUserrole() {
 		return role;
 	}
 
@@ -161,7 +161,7 @@ public class ValidatorTestForm implements Serializable {
 	 * sets value of the Role column of this row of data default value for this
 	 * field set by the DB is null This field has a max length of 25
 	 */
-	public void setRole(String newVal) {
+	public void setUserrole(String newVal) {
 		role = newVal;
 	}
 
@@ -229,10 +229,10 @@ public class ValidatorTestForm implements Serializable {
 		} else if (!getPassword().equals(other.getPassword()))
 			return false;
 
-		if (getRole() == null) {
-			if (other.getRole() != null)
+		if (getUserrole() == null) {
+			if (other.getUserrole() != null)
 				return false;
-		} else if (!getRole().equals(other.getRole()))
+		} else if (!getUserrole().equals(other.getUserrole()))
 			return false;
 
 		return true;

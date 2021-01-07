@@ -100,15 +100,15 @@ public class AppControllerTest extends MockBase {
 
 		given(accountServices.save(account)).willReturn(account);
 		given(accountServices.login(account.getEmail(), account.getPassword())).willReturn(true);
-		given(accountServices.isEmailAlreadyInUse(ADMIN_USER)).willReturn(true);
-		given(accountServices.isEmailAlreadyInUse(TEST_USER)).willReturn(false);
+		given(accountServices.isEmailAlreadyInUse(ADMIN_EMAIL)).willReturn(true);
+		given(accountServices.isEmailAlreadyInUse(TEST_EMAIL)).willReturn(false);
 
 		AccountForm accountForm = getInstance(account);
 		ResultActions result = send(SEND_POST, "/signup", "accountForm", accountForm, ImmutableMap.of("action", "save"),
 				null, "/home");
-		expectSuccessMsg(result, MessageHelper.signup_success,TEST_USER);
+		expectSuccessMsg(result, MessageHelper.signup_success,TEST_EMAIL);
 
-//		send(SEND_GET, "/home", null, null, null, ADMIN_USER, null);
+//		send(SEND_GET, "/home", null, null, null, ADMIN_EMAIL, null);
 //		result.andDo(MockMvcResultHandlers.print());
 //		contentContainsKey(result, MessageHelper.app_name);
 //		contentContainsKey(result, MessageHelper.app_description);
@@ -122,7 +122,7 @@ public class AppControllerTest extends MockBase {
 		contentContainsKey(result, MessageHelper.notBlank_message);
 
 		accountForm = getInstance(account);
-		accountForm.setEmail(ADMIN_USER);
+		accountForm.setEmail(ADMIN_EMAIL);
 		result = send(SEND_POST, "/signup", "accountForm", accountForm, null, null, null);
 		contentContainsKey(result, MessageHelper.email_unique);
 
@@ -195,17 +195,17 @@ public class AppControllerTest extends MockBase {
 		given(accountServices.login(account.getEmail(), account.getPassword())).willReturn(true);
 
 		// happy path test
-		LoginForm loginForm = getLoginInstance(ADMIN_USER, ADMIN_PASS);
+		LoginForm loginForm = getLoginInstance(ADMIN_EMAIL, ADMIN_PASS);
 		ResultActions result = send(SEND_POST, "/authenticate", "loginForm", loginForm, null, null, "/home");
-		expectSuccessMsg(result, MessageHelper.signin_success,ADMIN_USER);
+		expectSuccessMsg(result, MessageHelper.signin_success,ADMIN_EMAIL);
 		contentNotContainsKey(result, MessageHelper.form_errors);
 
 		// failure tests
-		loginForm = getLoginInstance(ADMIN_USER, "bad pass");
+		loginForm = getLoginInstance(ADMIN_EMAIL, "bad pass");
 		result = send(SEND_POST, "/authenticate", "loginForm", loginForm, null, null, null);
 		contentContainsKey(result, MessageHelper.signin_failed);
 
-		loginForm = getLoginInstance(ADMIN_USER, "");
+		loginForm = getLoginInstance(ADMIN_EMAIL, "");
 		result = send(SEND_POST, "/authenticate", "loginForm", loginForm, null, null, null);
 		contentContainsKey(result, MessageHelper.notBlank_message);
 
@@ -213,7 +213,7 @@ public class AppControllerTest extends MockBase {
 		result = send(SEND_POST, "/authenticate", "loginForm", loginForm, null, null, null);
 		contentContainsKey(result, MessageHelper.notBlank_message);
 
-		loginForm = getLoginInstance(ADMIN_USER, " ");
+		loginForm = getLoginInstance(ADMIN_EMAIL, " ");
 		result = send(SEND_POST, "/authenticate", "loginForm", loginForm, null, null, null);
 		contentContainsKey(result, MessageHelper.notBlank_message);
 

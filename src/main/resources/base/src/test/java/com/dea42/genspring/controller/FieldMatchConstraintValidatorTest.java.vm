@@ -45,10 +45,10 @@ public class FieldMatchConstraintValidatorTest extends UnitBase {
 	 */
 	private ValidatorTestForm getInstance() {
 		ValidatorTestForm accountForm = new ValidatorTestForm();
-		accountForm.setEmail(TEST_USER);
+		accountForm.setEmail(TEST_EMAIL);
 		accountForm.setPassword(TEST_PASS);
 		accountForm.setPasswordConfirm(TEST_PASS);
-		accountForm.setRole(TEST_ROLE);
+		accountForm.setUserrole(TEST_ROLE);
 		return accountForm;
 	}
 

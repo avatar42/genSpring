@@ -1,0 +1,22 @@
+package ${basePkg}.paging;
+
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * Search paging support class
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
+ *
+ */
+@Data
+@NoArgsConstructor
+public class Column {
+
+	private String data;
+	private String name;
+	private Boolean searchable;
+	private Boolean orderable;
+	private Search search;
+}

@@ -1,0 +1,21 @@
+package ${basePkg}.paging;
+
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+/**
+ * Search paging support class
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
+ *
+ */
+@Setter
+@Getter
+@NoArgsConstructor
+public class Search {
+
+	private String value;
+	private String regexp;
+}

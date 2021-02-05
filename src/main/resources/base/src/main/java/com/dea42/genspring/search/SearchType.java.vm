@@ -1,0 +1,13 @@
+package ${basePkg}.search;
+
+/**
+ * Supported search type, how to link the passed parms in query.
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
+ *
+ */
+public enum SearchType {
+    ADD,
+    OR
+}

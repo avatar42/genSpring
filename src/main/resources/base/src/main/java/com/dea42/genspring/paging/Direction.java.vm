@@ -1,0 +1,13 @@
+package ${basePkg}.paging;
+
+/**
+ * Search paging support class
+ * 
+ * @author Gened by ${baseGroupId}.build.GenSpring version ${genSpringVersion}<br>
+ * @version ${appVersion}<br>
+ *
+ */
+public enum Direction {
+
+	asc, desc;
+}

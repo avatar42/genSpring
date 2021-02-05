@@ -26,3 +26,49 @@ footer {
 	-moz-box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
 	box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
 }
+/*
+table, tr, td, th {
+	border: 2px solid #e5e5e5;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	border-radius: 5px;
+	-webkit-box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+	-moz-box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+*/
+/* bootstrap seems to only assume low to medium rez phones (min-width:hrez-10 = max-width:hrez-30)*/
+/* add control for 8K screens */
+@media ( min-width : 7670px) {
+	.container {
+		max-width: 7650px;
+	}
+}
+
+/* add control for 5K screens */
+@media ( min-width : 5110px) {
+	.container {
+		max-width: 5090px;
+	}
+}
+
+/* add control for 4K screens */
+@media ( min-width : 3830px) {
+	.container {
+		max-width: 3810px;
+	}
+}
+
+/* add control for 2K screens */
+@media ( min-width : 2550px) {
+	.container {
+		max-width: 2530px;
+	}
+}
+
+/* add control for 1080p screens 
+@media ( min-width : 1900px) {
+	.container {
+		max-width: 1880px;
+	}
+} */

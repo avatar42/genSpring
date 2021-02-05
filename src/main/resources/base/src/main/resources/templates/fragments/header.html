@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-<!-- import with <head th:replace="fragments/header :: common_header(~{::title},~{::link},~{::script})"> -->
+<!-- import with <head th:replace="fragments/header :: common_header(~{::title},~{::links},~{::scripts})"> -->
 <!-- or <head th:replace="fragments/header :: common_header(~{::title},~{},~{})"> for no links or scripts-->
 <head th:fragment="common_header(title,links,scripts)">
 
@@ -8,16 +8,16 @@
 
 <!-- Common styles and scripts -->
 <link rel="shortcut icon" th:href="@{/favicon.ico}">
-<script type="text/javascript" th:src="@{/sh/scripts/codebase.js}"></script>
-
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <link th:rel="stylesheet"
-	th:href="@{/webjars/bootstrap/4.0.0-2/css/bootstrap.min.css} " />
+	th:href="@{/webjars/bootstrap/css/bootstrap.min.css} " />
 <link rel="stylesheet" th:href="@{/resources/css/site.css}" />
 <link th:rel="stylesheet"
-	th:href="@{/webjars/font-awesome/5.11.2/css/all.css} " />
+	th:href="@{/webjars/font-awesome/css/all.css} " />
 <link th:rel="stylesheet"
 	th:href="@{/webjars/tempusdominus-bootstrap-4/css/tempusdominus-bootstrap-4.min.css}" />
+<!-- Per-page placeholder for additional links -->
+<th:block th:replace="${links}" />
 
 <script th:src="@{/webjars/jquery/jquery.min.js}"></script>
 <script th:src="@{/webjars/popper.js/umd/popper.min.js}"></script>
@@ -44,8 +44,6 @@
 			});
 </script>
 
-<!-- Per-page placeholder for additional links -->
-<th:block th:replace="${links}" />
 <!-- Per-page placeholder for additional scripts -->
 <th:block th:replace="${scripts}" />
 </head>

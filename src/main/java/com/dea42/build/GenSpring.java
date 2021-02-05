@@ -92,6 +92,12 @@ public class GenSpring extends CommonMethods {
 
 	public static final String PKEY_INFO = "PRIMARY_KEY_INFO";
 
+	public static final String PAGE_TYPE_LIST = "edit.listView";
+	public static final String PAGE_TYPE_SEARCH = "search.advanced";
+	public static final String PAGE_TYPE_EDIT = "edit.edit";
+
+	public static final boolean USE_DATATABLES = true;
+
 	public GenSpring(String bundleName) throws Exception {
 		initVars(bundleName);
 	}
@@ -143,8 +149,8 @@ public class GenSpring extends CommonMethods {
 	/**
 	 * Creates a top level index / site map page to ref the other pages.
 	 * 
-	 * @param statics list of static pages
-	 * @param list
+	 * @param colsInfo
+	 * @param statics  list of static pages
 	 */
 	private void writeIndex(Map<String, Map<String, ColInfo>> colsInfo, Map<String, String> statics) {
 		Set<String> set = colsInfo.keySet();
@@ -230,7 +236,7 @@ public class GenSpring extends CommonMethods {
 					ps.println("								<" + li + " th:classappend=\"${module == '" + fieldName
 							+ "' ? 'active' : ''}\">");
 					ps.println("    								<a id=\"guiItem" + className + "\" th:href=\"@{/"
-							+ fieldName + "s}\" th:text=\"#{class." + className + "}\"></a></li>");
+							+ fieldName + "s/list}\" th:text=\"#{class." + className + "}\"></a></li>");
 				}
 				ps.println("			</ul></li>");
 				ps.println("		<li th:fragment=\"restMenu\" id=\"restMenu\" class=\"nav-item dropdown\"><a");
@@ -748,7 +754,10 @@ public class GenSpring extends CommonMethods {
 			writeSearchForm(tableName, colsInfo);
 			writeRepo(tableName, colsInfo);
 			writeService(tableName, colsInfo);
-			writeListPage(tableName, colsInfo);
+			if (USE_DATATABLES)
+				writeListPageJQ(tableName, colsInfo);
+			else
+				writeListPage(tableName, colsInfo);
 			writeObjController(tableName, colsInfo);
 			writeObjControllerTest(tableName, colsInfo);
 			writeEditPage(tableName, colsInfo);
@@ -777,6 +786,7 @@ public class GenSpring extends CommonMethods {
 		if (!StringUtils.isBlank(tmp)) {
 			sb.append(" * Company: " + tmp + "<br>").append(System.lineSeparator());
 		}
+		sb.append(" *").append(System.lineSeparator());
 		sb.append(" * @author Gened by " + this.getClass().getCanonicalName() + " version " + genSpringVersion + "<br>")
 				.append(System.lineSeparator());
 		sb.append(" * @version " + appVersion + "<br>").append(System.lineSeparator());
@@ -800,14 +810,22 @@ public class GenSpring extends CommonMethods {
 				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
 				imports.add("import org.springframework.data.domain.Page;");
 				imports.add("import org.springframework.web.bind.annotation.GetMapping;");
+				imports.add("import org.springframework.web.bind.annotation.PostMapping;");
+				imports.add("import org.springframework.web.bind.annotation.RequestBody;");
 				imports.add("import org.springframework.web.bind.annotation.RequestMapping;");
 				imports.add("import org.springframework.web.bind.annotation.RestController;");
 				for (String className : set) {
 					imports.add("import " + basePkg + ".entity." + className + ";");
+				}
+				imports.add("import " + basePkg + ".paging.PageInfo;");
+				imports.add("import " + basePkg + ".paging.PagingRequest;");
+				for (String className : set) {
+					imports.add("import " + basePkg + ".search." + className + "SearchForm;");
 					imports.add("import " + basePkg + ".service." + className + "Services;");
 				}
 				imports.add("import java.util.List;");
-				addImports(ps, null, 0, imports);
+				imports.add("import javax.servlet.http.HttpServletRequest;");
+				addImports(ps, null, null, 0, imports);
 				ps.println("");
 				ps.println(getClassHeader("ApiController", "Api REST Controller.", null));
 				ps.println("@RestController");
@@ -829,6 +847,20 @@ public class GenSpring extends CommonMethods {
 					ps.println("    public List<" + className + "> getAll" + className + "s(){");
 					ps.println("        return this." + fieldName + "Services.listAll(null).toList();");
 					ps.println("    }");
+					ps.println("");
+					ps.println("	@PostMapping(value = \"/" + fieldName + "s/list\")");
+					ps.println("	public PageInfo<" + className + "> list" + className
+							+ "(HttpServletRequest request,@RequestBody PagingRequest pagingRequest) {");
+//					ps.println("		" + className + "SearchForm form =  (" + className
+//							+ "SearchForm) request.getSession().getAttribute(\"" + fieldName + "SearchForm\");");
+//					ps.println("		if (form == null) {");
+//					ps.println("			form = new " + className + "SearchForm();");
+//					ps.println("		}");
+//					ps.println("		request.getSession().setAttribute(\"" + fieldName + "SearchForm\", form);");
+					ps.println("");
+					ps.println(
+							"		return " + fieldName + "Services.get" + className + "s(request, pagingRequest);");
+					ps.println("	}");
 				}
 				ps.println("}");
 				log.warn("Wrote:" + p.toString());
@@ -971,16 +1003,16 @@ public class GenSpring extends CommonMethods {
 				ps.println("import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;");
 				ps.println("");
 				ps.println("import java.util.ArrayList;");
-				ps.println("import java.util.Iterator;");
+//				ps.println("import java.util.Iterator;");
 				ps.println("import java.util.List;");
-				ps.println("import java.util.function.Function;");
+//				ps.println("import java.util.function.Function;");
 				ps.println("");
 				ps.println("import org.junit.Test;");
 				ps.println("import org.junit.runner.RunWith;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
 				ps.println("import org.springframework.data.domain.Page;");
-				ps.println("import org.springframework.data.domain.Pageable;");
-				ps.println("import org.springframework.data.domain.Sort;");
+//				ps.println("import org.springframework.data.domain.Pageable;");
+//				ps.println("import org.springframework.data.domain.Sort;");
 				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
@@ -1071,7 +1103,7 @@ public class GenSpring extends CommonMethods {
 	 * gen HTML header for page
 	 * 
 	 * @param className or key to be used for the title
-	 * @param pageType  it null className is assumed to be a message key. Should
+	 * @param pageType  if null className is assumed to be a message key. Should
 	 *                  match property in messages.properties as in listView for
 	 *                  edit.listView
 	 * @return
@@ -1081,13 +1113,28 @@ public class GenSpring extends CommonMethods {
 
 		sb.append("<!DOCTYPE html>" + System.lineSeparator());
 		sb.append("<html xmlns:th=\"http://www.thymeleaf.org\">" + System.lineSeparator());
-		sb.append(
-				"<head th:replace=\"fragments/header :: common_header(~{::title},~{},~{})\">" + System.lineSeparator());
-		if (pageType == null)
-			sb.append("<title th:text=\"#{" + className + "}\"></title>" + System.lineSeparator());
-		else
-			sb.append("<title th:text=\"#{edit." + pageType + "} + ' ' + #{class." + className + "}\"></title>"
+		if (pageType == null) {
+			sb.append("<head th:replace=\"fragments/header :: common_header(~{::title},~{},~{})\">"
 					+ System.lineSeparator());
+			sb.append("<title th:text=\"#{" + className + "}\"></title>" + System.lineSeparator());
+		} else if (pageType.equals(PAGE_TYPE_LIST)) {
+			sb.append("<head th:replace=\"fragments/header :: common_header(~{::title},~{::links},~{::scripts})\">"
+					+ System.lineSeparator());
+			sb.append("<title th:text=\"#{" + pageType + "} + ' ' + #{class." + className + "}\"></title>"
+					+ System.lineSeparator());
+			sb.append("<links>" + System.lineSeparator());
+			sb.append("<link th:rel=\"stylesheet\"" + System.lineSeparator());
+			sb.append("	th:href=\"@{/webjars/datatables/css/jquery.dataTables.min.css} \" />" + System.lineSeparator());
+			sb.append("</links>" + System.lineSeparator());
+			sb.append("<scripts> <script" + System.lineSeparator());
+			sb.append("	th:src=\"@{/webjars/datatables/js/jquery.dataTables.min.js}\"></script> </scripts>"
+					+ System.lineSeparator());
+		} else {
+			sb.append("<head th:replace=\"fragments/header :: common_header(~{::title},~{},~{})\">"
+					+ System.lineSeparator());
+			sb.append("<title th:text=\"#{" + pageType + "} + ' ' + #{class." + className + "}\"></title>"
+					+ System.lineSeparator());
+		}
 		sb.append("</head>" + System.lineSeparator());
 		sb.append("<body class=\"d-flex flex-column min-vh-100\">" + System.lineSeparator());
 
@@ -1098,12 +1145,18 @@ public class GenSpring extends CommonMethods {
 		return sb.toString();
 	}
 
+	/**
+	 * Gen import of common footer
+	 * 
+	 * @return
+	 */
 	private String htmlFooter() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("	</div>");
-		sb.append("	<div class=\"mt-auto\" th:insert=\"fragments/footer :: footer\">&copy; 2020 default</div>"
-				+ System.lineSeparator());
-		sb.append("</body>");
+		sb.append("	</div>").append(System.lineSeparator());
+		sb.append("	<div class=\"mt-auto\" th:insert=\"fragments/footer :: footer\">&copy;")
+				.append(System.lineSeparator());
+		sb.append("		2020 default</div>").append(System.lineSeparator());
+		sb.append("</body>").append(System.lineSeparator());
 		sb.append("</html>");
 
 		return sb.toString();
@@ -1234,7 +1287,7 @@ public class GenSpring extends CommonMethods {
 		Path p = Utils.createFile(baseDir, "src/main/resources/templates/edit_" + fieldName + ".html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader(className, "edit"));
+				ps.println(htmlHeader(className, PAGE_TYPE_EDIT));
 				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
 				ps.println(
 						"			th:action=\"@{/" + fieldName + "s/save}\" th:object=\"${" + fieldName + "Form}\"");
@@ -1350,61 +1403,118 @@ public class GenSpring extends CommonMethods {
 	 */
 	private void writeSearchSubObjects(PrintStream ps, String parentStr, String className,
 			Map<String, Map<String, ColInfo>> colsInfo, String form) throws Exception {
-//		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
-//
-//		String field = className.substring(0, 1).toLowerCase() + className.substring(1);
-//		String fieldName = parentStr + field;
-//		// guard against null objects and sub objects in list
-//		String div = "div th:if=\"${" + form + fieldName + " != null}\"";
-//
-//		for (String key : colNameToInfoMap.keySet()) {
-//			if (PKEY_INFO.equals(key))
-//				continue;
-//			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-//			if (info.isPk()) {
-//				ps.println("				<input type=\"hidden\" class=\"form-control\" id=\"" + field + "."
-//						+ info.getVName() + "\" th:field=\"*{" + field + "." + info.getVName() + "}\" />");
-//			} else if (info.getForeignTable() != null) {
-//				writeEditSubObjects(ps, fieldName + ".", info.getForeignTable(), colsInfo, form);
-//			} else if (info.isList()) {
-//				String unless = "				<div" + " th:unless=\"${" + form + fieldName
-//						+ " != null}\" th:text=\"${" + form + fieldName + "}\"></div>";
-//				String divs = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "div");
-//				ps.println("				<" + divs + " class=\"form-group\">");
-//				ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
-//						+ "\" class=\"col-lg-2 control-label\"");
-//				ps.println("						th:text=\"#{" + info.getMsgKey() + "} + ':'\"></label>");
-//
-//				ps.println("					<" + div + " class=\"col-lg-10\" id=\"" + form + fieldName + "."
-//						+ info.getVName() + "\"");
-//				ps.println(
-//						"	                        th:text=\"${" + form + fieldName + "." + info.getVName() + "}\">");
-//				ps.println("					</div>");
-//				ps.println(unless);
-//				ps.println("				</div>");
-//			}
-//
-//		}
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
 
+		String field = className.substring(0, 1).toLowerCase() + className.substring(1);
+		String fieldName = parentStr + field;
+		// guard against null objects and sub objects in list
+		String div = "div th:if=\"${" + form + fieldName + " != null}\"";
+
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
+				continue;
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			if (info.isPk()) {
+				ps.println("				<input type=\"hidden\" class=\"form-control\" id=\"" + field + "."
+						+ info.getVName() + "\" />");
+			} else if (info.getForeignTable() != null) {
+				writeEditSubObjects(ps, fieldName + ".", info.getForeignTable(), colsInfo, form);
+			} else {
+				String divs = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "div");
+				String unless = "				<div" + " th:unless=\"${" + form + fieldName
+						+ " != null}\" th:text=\"${" + form + fieldName + "}\"></div>";
+
+				if (info.isString()) {
+					ps.println("				<" + divs + " class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey() + "} + ':'\"></label>");
+
+					ps.println("					<" + div + " class=\"col-lg-10\" id=\"" + form + fieldName + "."
+							+ info.getVName() + "\"");
+					ps.println("	                        th:text=\"${" + form + fieldName + "." + info.getVName()
+							+ "}\">");
+					ps.println("					</div>");
+					ps.println(unless);
+					ps.println("				</div>");
+				} else if (info.isDate()) {
+					ps.println("				<" + divs + " class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "Min\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey()
+							+ "} + ' ' + #{search.after}\"></label>");
+					ps.println("					<" + div + " class=\"col-lg-10\">");
+					ps.println("						<input type=\"text\" class=\"form-control\" id=\"" + form
+							+ fieldName + "." + info.getVName() + "Min\"");
+					ps.println("							th:field=\"*{" + fieldName + "." + info.getVName()
+							+ "Min}\" />");
+					ps.println("					</div>");
+					ps.println("				</div>");
+					ps.println("");
+					ps.println("				<" + divs + " class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "Max\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey()
+							+ "} + ' ' + #{search.before}\"></label>");
+					ps.println("					<" + div + " class=\"col-lg-10\">");
+					ps.println("						<input type=\"text\" class=\"form-control\" id=\"" + form
+							+ fieldName + "." + info.getVName() + "Max\"");
+					ps.println("							th:field=\"*{" + fieldName + "." + info.getVName()
+							+ "Max}\" />");
+					ps.println("					</div>");
+					ps.println("				</div>");
+					ps.println("");
+				} else { // number assumed
+					ps.println("				<" + divs + " class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "Min\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey()
+							+ "} + ' ' + #{search.gte}\"></label>");
+					ps.println("					<" + div + " class=\"col-lg-10\">");
+					ps.println("						<input type=\"text\" class=\"form-control\" id=\"" + form
+							+ fieldName + "." + info.getVName() + "Min\"");
+					ps.println("							th:field=\"*{" + fieldName + "." + info.getVName()
+							+ "Min}\" />");
+					ps.println("					</div>");
+					ps.println("				</div>");
+					ps.println("");
+					ps.println("				<" + divs + " class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "Max\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey()
+							+ "} + ' ' + #{search.lte}\"></label>");
+					ps.println("					<div class=\"col-lg-10\">");
+					ps.println("						<input type=\"text\" class=\"form-control\" id=\"" + form
+							+ fieldName + "." + info.getVName() + "Max\"");
+					ps.println("							th:field=\"*{" + fieldName + "." + info.getVName()
+							+ "Max}\" />");
+					ps.println("					</div>");
+					ps.println("				</div>");
+					ps.println("");
+
+				}
+
+			}
+		}
 	}
 
 	private void writeSearchPage(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
 		String className = Utils.tabToStr(renames, tableName);
 		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
 
-//		ColInfo pkinfo = colNameToInfoMap.get(PKEY_INFO);
 		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
 		Path p = Utils.createFile(baseDir, "src/main/resources/templates/search_" + fieldName + ".html");
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
-				ps.println(htmlHeader(className, "edit"));
+				ps.println(htmlHeader(className, PAGE_TYPE_SEARCH));
 				ps.println("		<form class=\"form-narrow form-horizontal\" method=\"post\"");
-				ps.println("			th:action=\"@{/" + fieldName + "s/search}\" th:object=\"${" + fieldName
-						+ "SearchForm}\"");
+				ps.println("			th:action=\"@{/" + fieldName + "s/search}\" ");
+				ps.println("			th:object=\"${" + fieldName + "SearchForm}\"");
 				ps.println("			th:fragment=\"" + fieldName + "SearchForm\">");
 				ps.println("			<!--/* Show general error messages when form contains errors */-->");
 				ps.println("			<th:block th:if=\"${#fields.hasErrors('${" + fieldName + "SearchForm.*}')}\">");
-				ps.println("				<div th:each=\"fieldErrors : ${#fields.errors('${" + fieldName
+				ps.println("				<div ");
+				ps.println("					th:each=\"fieldErrors : ${#fields.errors('${" + fieldName
 						+ "SearchForm.*}')}\">");
 				ps.println("					<div th:each=\"message : ${fieldErrors.split(';')}\">");
 				ps.println("						<div");
@@ -1414,8 +1524,21 @@ public class GenSpring extends CommonMethods {
 				ps.println("				</div>");
 				ps.println("			</th:block>");
 				ps.println("			<fieldset>");
-				ps.println("				<legend th:text=\"#{search.search} + ' ' + #{class." + className
+				ps.println("				<legend th:text=\"#{search.advanced} + ' ' + #{class." + className
 						+ "}\"></legend>");
+				ps.println("");
+				ps.println("				<div class=\"form-group\">");
+				ps.println("					<label for=\"" + fieldName + "SearchForm.doOr\"");
+				ps.println("						th:text=\"#{search.doOr} + ' ' + #{search.like}\">Select");
+				ps.println(
+						"						type</label> <select class=\"form-control selectpicker\" th:field=\"*{doOr}\"");
+				ps.println("						id=\"" + fieldName + "SearchForm.doOr\">");
+				ps.println("						<option");
+				ps.println("							th:each=\"doOr : ${T(" + basePkg
+						+ ".search.SearchType).values()}\"");
+				ps.println("							th:value=\"${doOr}\" th:text=\"${doOr}\"></option>");
+				ps.println("					</select>");
+				ps.println("				</div>");
 				ps.println("");
 				for (String key : colNameToInfoMap.keySet()) {
 					if (PKEY_INFO.equals(key))
@@ -1428,9 +1551,9 @@ public class GenSpring extends CommonMethods {
 					} else if (info.getForeignTable() != null) {
 						writeSearchSubObjects(ps, "", info.getType(), colsInfo, fieldName + "SearchForm.");
 					} else if (info.isString()) {
-						ps.println("				<div class=\"form-group\"");
-						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
-								+ "')}? 'has-error'\">");
+						ps.println("				<div class=\"form-group\">");
+//						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+//								+ "')}? 'has-error'\">");
 						ps.println("					<label for=\"" + info.getVName()
 								+ "\" class=\"col-lg-2 control-label\"");
 						ps.println("						th:text=\"#{" + info.getMsgKey()
@@ -1439,21 +1562,22 @@ public class GenSpring extends CommonMethods {
 						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
 								+ info.getVName() + "\"");
 						ps.println("							th:field=\"*{" + info.getVName() + "}\" />");
-						ps.println("						<ul class=\"help-block\"");
-						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
-								+ "')}\">");
-						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
-						ps.println(
-								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
-						ps.println("							</li>");
-						ps.println("						</ul>");
+//						ps.println("						<ul class=\"help-block\"");
+//						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+//								+ "')}\">");
+//						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+//						ps.println(
+//								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+//						ps.println("							</li>");
+//						ps.println("						</ul>");
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
 					} else if (info.isDate()) {
-						ps.println("				<div class=\"form-group\"");
-						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
-								+ "Min')}? 'has-error'\">");
+						// TODO: add date pickers
+						ps.println("				<div class=\"form-group\">");
+//						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+//								+ "')}? 'has-error'\">");
 						ps.println("					<label for=\"" + info.getVName()
 								+ "Min\" class=\"col-lg-2 control-label\"");
 						ps.println("						th:text=\"#{" + info.getMsgKey()
@@ -1462,20 +1586,20 @@ public class GenSpring extends CommonMethods {
 						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
 								+ info.getVName() + "Min\"");
 						ps.println("							th:field=\"*{" + info.getVName() + "Min}\" />");
-						ps.println("						<ul class=\"help-block\"");
-						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
-								+ "Min')}\">");
-						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
-						ps.println(
-								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
-						ps.println("							</li>");
-						ps.println("						</ul>");
+//						ps.println("						<ul class=\"help-block\"");
+//						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+//								+ "Min')}\">");
+//						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+//						ps.println(
+//								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+//						ps.println("							</li>");
+//						ps.println("						</ul>");
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
-						ps.println("				<div class=\"form-group\"");
-						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
-								+ "Max')}? 'has-error'\">");
+						ps.println("				<div class=\"form-group\">");
+//						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+//								+ "')}? 'has-error'\">");
 						ps.println("					<label for=\"" + info.getVName()
 								+ "Max\" class=\"col-lg-2 control-label\"");
 						ps.println("						th:text=\"#{" + info.getMsgKey()
@@ -1484,21 +1608,21 @@ public class GenSpring extends CommonMethods {
 						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
 								+ info.getVName() + "Max\"");
 						ps.println("							th:field=\"*{" + info.getVName() + "Max}\" />");
-						ps.println("						<ul class=\"help-block\"");
-						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
-								+ "Max')}\">");
-						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
-						ps.println(
-								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
-						ps.println("							</li>");
-						ps.println("						</ul>");
+//						ps.println("						<ul class=\"help-block\"");
+//						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+//								+ "Max')}\">");
+//						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+//						ps.println(
+//								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+//						ps.println("							</li>");
+//						ps.println("						</ul>");
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
 					} else { // number assumed
-						ps.println("				<div class=\"form-group\"");
-						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
-								+ "Min')}? 'has-error'\">");
+						ps.println("				<div class=\"form-group\">");
+//						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+//								+ "')}? 'has-error'\">");
 						ps.println("					<label for=\"" + info.getVName()
 								+ "Min\" class=\"col-lg-2 control-label\"");
 						ps.println("						th:text=\"#{" + info.getMsgKey()
@@ -1507,20 +1631,20 @@ public class GenSpring extends CommonMethods {
 						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
 								+ info.getVName() + "Min\"");
 						ps.println("							th:field=\"*{" + info.getVName() + "Min}\" />");
-						ps.println("						<ul class=\"help-block\"");
-						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
-								+ "Min')}\">");
-						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
-						ps.println(
-								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
-						ps.println("							</li>");
-						ps.println("						</ul>");
+//						ps.println("						<ul class=\"help-block\"");
+//						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+//								+ "Min')}\">");
+//						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+//						ps.println(
+//								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+//						ps.println("							</li>");
+//						ps.println("						</ul>");
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
-						ps.println("				<div class=\"form-group\"");
-						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
-								+ "Max')}? 'has-error'\">");
+						ps.println("				<div class=\"form-group\">");
+//						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
+//								+ "')}? 'has-error'\">");
 						ps.println("					<label for=\"" + info.getVName()
 								+ "Max\" class=\"col-lg-2 control-label\"");
 						ps.println("						th:text=\"#{" + info.getMsgKey()
@@ -1529,14 +1653,14 @@ public class GenSpring extends CommonMethods {
 						ps.println("						<input type=\"text\" class=\"form-control\" id=\""
 								+ info.getVName() + "Max\"");
 						ps.println("							th:field=\"*{" + info.getVName() + "Max}\" />");
-						ps.println("						<ul class=\"help-block\"");
-						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
-								+ "Max')}\">");
-						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
-						ps.println(
-								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
-						ps.println("							</li>");
-						ps.println("						</ul>");
+//						ps.println("						<ul class=\"help-block\"");
+//						ps.println("							th:each=\"error: ${#fields.errors('" + info.getVName()
+//								+ "Max')}\">");
+//						ps.println("							<li th:each=\"message : ${error.split(';')}\">");
+//						ps.println(
+//								"								<p class=\"error-message\" th:text=\"${message}\"></p>");
+//						ps.println("							</li>");
+//						ps.println("						</ul>");
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
@@ -1549,6 +1673,9 @@ public class GenSpring extends CommonMethods {
 				ps.println("						<button type=\"submit\" name=\"action\" value=\"search\"");
 				ps.println(
 						"							class=\"btn btn-default\" th:text=\"#{search.search}\"></button>");
+				ps.println("						<button type=\"submit\" name=\"action\" value=\"reset\"");
+				ps.println(
+						"							class=\"btn btn-default\" th:text=\"#{search.reset}\"></button>");
 				ps.println("					</div>");
 				ps.println("				</div>");
 				ps.println("			</fieldset>");
@@ -1627,7 +1754,7 @@ public class GenSpring extends CommonMethods {
 	 * @param processed
 	 * @param tableName
 	 * @param colsInfo
-	 * @param topField  TODO
+	 * @param topField
 	 * @throws Exception
 	 */
 	private void writeListHeaders(PrintStream ps, Set<String> processed, String tableName,
@@ -1675,12 +1802,186 @@ public class GenSpring extends CommonMethods {
 		}
 	}
 
+	private void writeDatatableLoop(PrintStream ps, Set<String> processed, String parentStr, String tableName,
+			Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		if (!StringUtils.isAllBlank(parentStr))
+			parentStr = parentStr + '.';
+		// guard against null objects and sub objects in list
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
+				continue;
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			if (info.isPk())
+				continue;
+			if (!processed.contains(key) && info.isList()) {
+				if (info.getForeignTable() != null) {
+					String subCls = Utils.tabToStr(renames, info.getForeignTable());
+					String fieldName = subCls.substring(0, 1).toLowerCase() + subCls.substring(1);
+					writeDatatableLoop(ps, processed, parentStr + fieldName, info.getForeignTable(), colsInfo);
+				} else {
+					if (colNameToInfoMap.containsKey(key + "link")) {
+						processed.add(key);
+						processed.add(key + "link");
+					} else if (key.endsWith("link")
+							&& colNameToInfoMap.containsKey(key.substring(0, key.length() - 4))) {
+						key = key.substring(0, key.length() - 4);
+						processed.add(key);
+						processed.add(key + "link");
+					} else {
+						processed.add(key);
+					}
+					ps.println("						\"name\" : \"" + key + "\",");
+					ps.println("						\"data\" : \"" + parentStr + key + "\",");
+//					ps.println("//						\"width\" : \"10%\"");
+					ps.println("					}, {");
+				}
+			}
+		}
+	}
+
+	/**
+	 * Write the headers for the list table
+	 * 
+	 * @param ps
+	 * @param processed
+	 * @param tableName
+	 * @param colsInfo
+	 * @param topField
+	 * @throws Exception
+	 */
+	private void writeListHeadersJQ(PrintStream ps, Set<String> processed, String tableName,
+			Map<String, Map<String, ColInfo>> colsInfo, String topField) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		if (topField == null)
+			topField = className.substring(0, 1).toLowerCase() + className.substring(1);
+
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+		// write table header
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
+				continue;
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			if (info.isPk())
+				continue;
+			if (!processed.contains(key) && info.isList()) {
+				if (info.getForeignTable() != null) {
+					writeListHeadersJQ(ps, processed, info.getForeignTable(), colsInfo, topField);
+				} else {
+					if (key.endsWith("link")) {
+						key = key.substring(0, key.length() - 4);
+					}
+
+					String th = makeAdminOnly(ps, ACCOUNT_CLASS.equals(className) || info.isAdminOnly(), "th");
+					ps.println("						<" + th + " th:text=\"#{" + info.getMsgKey() + "}\"></th>");
+					processed.add(key);
+					processed.add(key + "link");
+				}
+			}
+		}
+	}
+
 	/**
 	 * Write the list page
 	 * 
 	 * @param tableName
 	 * @param colsInfo
 	 * @throws Exception
+	 */
+	private void writeListPageJQ(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+		Path p = Utils.createFile(baseDir, "src/main/resources/templates/" + fieldName + "s.html");
+		if (p != null) {
+			try (PrintStream ps = new PrintStream(p.toFile())) {
+				ps.println(htmlHeader(className, PAGE_TYPE_LIST));
+				ps.println("		<div class=\"container-fluid\" th:with=\"SearchForm=${session." + fieldName
+						+ "SearchForm}\">");
+				ps.println("			<h1 th:text=\"#{class." + className + "} + ' ' + #{edit.list}\"></h1>");
+				ps.println("			<a th:href=\"@{/" + fieldName + "s/search}\"");
+				ps.println("				th:text=\"#{search.advanced} + ' ' + #{class." + className
+						+ "}\"></a> <br /> <a");
+				ps.println("				th:href=\"@{/" + fieldName + "s/new}\"");
+				ps.println(
+						"				th:text=\"#{edit.new} + ' ' + #{class." + className + "}\"></a> <br /> <br />");
+				ps.println("			<div style=\"float: right;\" th:text=\"#{search.like}\"></div>");
+				ps.println("");
+				ps.println(
+						"			<table id=\"resultsTable\" class=\"table table-bordered table-striped table-condensed\"");
+				ps.println("				style=\"width: 100%\">");
+				ps.println("				<thead>");
+				ps.println("					<tr>");
+				writeListHeadersJQ(ps, new HashSet<String>(), tableName, colsInfo, null);
+				ps.println("						<th th:text=\"#{edit.actions}\"></th>");
+				ps.println("					</tr>");
+				ps.println("				</thead>");
+				ps.println("			</table>");
+				ps.println("			<script th:inline=\"javascript\">");
+				ps.println("				var editLab = /*[[#{edit.edit}]]*/'[msg not found]';");
+				ps.println("				var deleteLab = /*[[#{edit.delete}]]*/'[msg not found]';");
+				ps.println("				var datatablesUrl = /*[[#{datatables.url}]]*/'[msg not found]';");
+				ps.println("				var link = /*[[@{/api/" + fieldName + "s/list}]]*/ '/api/" + fieldName
+						+ "s/list';");
+				ps.println("				var ctx = /*[[@{/}]]*/ '/';");
+				ps.println("			</script>");
+				ps.println("			<script>");
+				ps.println("				$('#resultsTable').DataTable({");
+				ps.println("					\"processing\" : true,");
+				ps.println("					\"serverSide\" : true,");
+				ps.println("				    \"language\" : {");
+				ps.println("				        \"url\" : datatablesUrl");
+				ps.println("					    },");
+				ps.println("					\"ajax\" : {");
+				ps.println("						\"url\" : link,");
+				ps.println("						\"type\" : \"POST\",");
+				ps.println("						\"dataType\" : \"json\",");
+				ps.println("						\"contentType\" : \"application/json\",");
+				ps.println("						\"data\" : function(d) {");
+				ps.println("							return JSON.stringify(d);");
+				ps.println("						}");
+				ps.println("					},");
+				ps.println("					\"columns\" : [ {");
+				writeDatatableLoop(ps, new HashSet<String>(), "", tableName, colsInfo);
+				ps.println("						\"data\" : \"id\",");
+				ps.println("						\"render\" : make_edit_links,");
+				ps.println("						\"width\" : \"10%\"");
+				ps.println("					} ]");
+				ps.println("				});");
+				ps.println("");
+//				ps.println("				$(document).ready(function() {");
+//				ps.println("					$('#resultsTable').DataTable();");
+//				ps.println("				});");
+				ps.println("");
+				ps.println("				function make_edit_links(id) {");
+				ps.println("					return \"<a href=\\\"\"+ctx+\"" + fieldName
+						+ "s/edit/\" + id +\"\\\" id=\\\"edit_\"+id + \"\\\">\"");
+				ps.println("							+ editLab");
+				ps.println("							+ \"</a> &nbsp;&nbsp;&nbsp;\"");
+				ps.println("							+ \"<a href=\\\"\"+ctx+\"" + fieldName
+						+ "s/delete/\" + id +\"\\\" id=\\\"delete_\"+id + \"\\\">\"");
+				ps.println("							+ deleteLab + \"</a>\";");
+				ps.println("				}");
+				ps.println("			</script>");
+				ps.println("		</div>");
+				ps.println("");
+				ps.println(htmlFooter());
+				log.warn("Wrote:" + p.toString());
+			} catch (Exception e) {
+				log.error("failed to create " + p, e);
+				p.toFile().delete();
+			}
+		}
+	}
+
+	/**
+	 * Write the previous list page without jQuery Datatables
+	 * 
+	 * @param tableName
+	 * @param colsInfo
+	 * @throws Exception
+	 * 
+	 * @Deprecated
 	 */
 	private void writeListPage(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
 		String className = Utils.tabToStr(renames, tableName);
@@ -1692,9 +1993,9 @@ public class GenSpring extends CommonMethods {
 		if (p != null) {
 			try (PrintStream ps = new PrintStream(p.toFile())) {
 				Set<String> processed = new HashSet<String>();
-				ps.println(htmlHeader(className, "listView"));
-				ps.println(
-						"	<div class=\"container\" th:with=\"SearchForm=${session." + fieldName + "SearchForm}\">");
+				ps.println(htmlHeader(className, PAGE_TYPE_LIST));
+				ps.println("	<div class=\"container-fluid\" th:with=\"SearchForm=${session." + fieldName
+						+ "SearchForm}\">");
 				ps.println("		<h1 th:text=\"#{class." + className + "} + ' ' + #{edit.list}\"></h1>");
 				ps.println("		<a th:href=\"@{/" + fieldName
 						+ "s/search}\" th:text=\"#{search.search} + ' ' + #{class." + className + "}\"></a> <br />");
@@ -1718,45 +2019,61 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("	        </tr>");
 				ps.println("	    </table>");
-				ps.println("		<div th:if=\"${" + "SearchForm.page > 1}\">");
 				ps.println("			<div class=\"row col-sm-10\">");
-				ps.println("				<div class=\"col-sm-2\">Total Rows:");
-				ps.println("					[[${" + "SearchForm.totalItems}]]</div>");
-				ps.println("				<div class=\"col-sm-1\">");
-				ps.println("					<span");
+				ps.println("				<div class=\"col-sm-3\"");
 				ps.println(
-						"						th:each=\"i: ${#numbers.sequence(1, " + "SearchForm.totalPages)}\">");
-				ps.println("						<a th:if=\"${" + "SearchForm.page != i}\"");
+						"					th:text=\"#{search.totalRows}+ ': ' + ${SearchForm.totalItems}\"></div>");
+				ps.println("				<div class=\"col-sm-3\"");
 				ps.println(
-						"						th:href=\"@{'/" + fieldName + "s/search/' + ${i}+ '?sortField=' + ${"
-								+ "SearchForm.sortField} + '&sortDir=' + ${" + "SearchForm.sortDir}}\">[[${i}]]</a>");
-				ps.println("						<span th:unless=\"${" + "SearchForm.page != i}\">[[${i}]]</span>");
-				ps.println("						&nbsp; &nbsp;");
-				ps.println("					</span>");
-				ps.println("				</div>");
-				ps.println("				<div class=\"col-sm-1\">");
+						"					th:text=\"#{search.pageOf(${SearchForm.page},${SearchForm.totalPages})}\"></div>");
+				ps.println("				<div");
+				ps.println("					th:if=\"${SearchForm.totalPages > 0 && SearchForm.totalPages < 10}\"");
+				ps.println("					class=\"pagination\"");
+				ps.println("					th:each=\"i: ${#numbers.sequence(1, SearchForm.totalPages)}\">");
 				ps.println("					<a");
-				ps.println("						th:if=\"${" + "SearchForm.page < SearchForm.totalPages}\"");
-				ps.println("						th:href=\"@{'/" + fieldName + "s/search/' + ${"
-						+ "SearchForm.page + 1}+ '?sortField=' + ${" + "SearchForm.sortField} + '&sortDir=' + ${"
-						+ "SearchForm.sortDir}}\">Next</a>");
-				ps.println("					<span");
-				ps.println("						th:unless=\"${"
-						+ "SearchForm.page < SearchForm.totalPages}\">Next</span>");
+				ps.println(
+						"						th:if=\"${i <= SearchForm.totalPages && i > 0 && i != SearchForm.page}\"");
+				ps.println("						th:href=\"@{'/" + fieldName
+						+ "s/search/' + ${i}+ '?sortField=' + ${SearchForm.sortField} + '&sortDir=' + ${SearchForm.sortDir}}\"");
+				ps.println("						th:text=\"${i}\"></a> <a");
+				ps.println(
+						"						th:if=\"${i < SearchForm.totalPages && i > 0 && i == SearchForm.page}\"");
+				ps.println("						th:text=\"${i}\"></a>&nbsp;");
 				ps.println("				</div>");
-				ps.println("");
-				ps.println("				<div class=\"col-sm-1\">");
-				ps.println("					<a");
-				ps.println("						th:if=\"${" + "SearchForm.page < SearchForm.totalPages}\"");
-				ps.println("						th:href=\"@{'/" + fieldName + "s/search/' + ${"
-						+ "SearchForm.totalPages}+ '?sortField=' + ${" + "SearchForm.sortField} + '&sortDir=' + ${"
-						+ "SearchForm.sortDir}}\">Last</a>");
-				ps.println("					<span");
-				ps.println("						th:unless=\"${"
-						+ "SearchForm.page < SearchForm.totalPages}\">Last</span>");
+				ps.println("				<div");
+				ps.println("					th:if=\"${SearchForm.totalPages > 0 && SearchForm.totalPages > 9}\"");
+				ps.println("					class=\"pagination\">");
+				ps.println("					<div>");
+				ps.println("						<a th:if=\"${SearchForm.page > 5}\"");
+				ps.println("							th:href=\"@{'/" + fieldName
+						+ "s/search/1?sortField=' + ${SearchForm.sortField} + '&sortDir=' + ${SearchForm.sortDir}}\"");
+				ps.println("							th:text=\"1...\"></a>");
+				ps.println("					</div>");
+				ps.println("					&nbsp;");
+				ps.println("					<div");
+				ps.println(
+						"						th:each=\"i: ${#numbers.sequence(SearchForm.page - 4, SearchForm.page + 4)}\">");
+				ps.println("						<a");
+				ps.println(
+						"							th:if=\"${i <= SearchForm.totalPages && i > 0 && i != SearchForm.page}\"");
+				ps.println("							th:href=\"@{'/" + fieldName
+						+ "s/search/' + ${i}+ '?sortField=' + ${SearchForm.sortField} + '&sortDir=' + ${SearchForm.sortDir}}\"");
+				ps.println("							th:text=\"${i}\"></a> <a");
+				ps.println(
+						"							th:if=\"${i <= SearchForm.totalPages && i > 0 && i == SearchForm.page}\"");
+				ps.println("							th:text=\"${i}\"></a>&nbsp;");
+				ps.println("					</div>");
+				ps.println("					&nbsp;");
+				ps.println("					<div>");
+				ps.println("						<a th:if=\"${SearchForm.page < SearchForm.totalPages - 4}\"");
+				ps.println("							th:href=\"@{'/" + fieldName
+						+ "s/search/' + ${SearchForm.totalPages}+ '?sortField=' + ${SearchForm.sortField} + '&sortDir=' + ${SearchForm.sortDir}}\"");
+				ps.println("							th:text=\"'...' + ${SearchForm.totalPages}\"></a>");
+				ps.println("					</div>");
 				ps.println("				</div>");
 				ps.println("			</div>");
 				ps.println("		</div>");
+				ps.println("");
 				ps.println("");
 				ps.println("    </div>");
 				ps.println("");
@@ -1899,7 +2216,7 @@ public class GenSpring extends CommonMethods {
 							}
 						}
 					} else {
-						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
 					}
 				}
 				ps.println("		return o;");
@@ -1930,6 +2247,8 @@ public class GenSpring extends CommonMethods {
 					if (info.isPk())
 						continue;
 					if (info.isList()) {
+						// Note with jQuery Datatables not data is loaded till the page renders so
+						// testing needs to be done with Selenium
 						if (info.isString()) {
 							int endIndex = info.getLength();
 							if (endIndex > 0) {
@@ -1937,17 +2256,17 @@ public class GenSpring extends CommonMethods {
 									ps.println("//        contentContainsMarkup(ra,getTestPasswordString(" + endIndex
 											+ "));");
 								} else if (info.isEmail()) {
-									ps.println(
-											"        contentContainsMarkup(ra,getTestEmailString(" + endIndex + "));");
+									ps.println("//        contentContainsMarkup(ra,getTestEmailString(" + endIndex
+											+ "));");
 								} else {
-									ps.println("		contentContainsMarkup(ra,getTestString(" + endIndex + "));");
+									ps.println("//		contentContainsMarkup(ra,getTestString(" + endIndex + "));");
 								}
 							}
 						}
 						if (!info.getVName().endsWith("link"))
-							ps.println("		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
+							ps.println("//		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
 					} else {
-						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
 					}
 
 				}
@@ -1971,11 +2290,10 @@ public class GenSpring extends CommonMethods {
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.isHidden() || info.isLastMod() || info.isPk()) {
-						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
 						continue;
 					}
-					ps.println("		contentContainsMarkup(ra,\"" + info.getGsName() + "\");");
-
+					ps.println("		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
 				}
 				ps.println("	}");
 				ps.println("");
@@ -2039,7 +2357,7 @@ public class GenSpring extends CommonMethods {
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.isHidden() || info.isLastMod() || info.isPk()) {
-						ps.println("		// TODO: confirm ignoring " + className + "." + key);
+						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
 						continue;
 					}
 					if (info.isString()) {
@@ -2101,6 +2419,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				ps.println("import java.util.Date;");
+				ps.println("import java.security.Principal;");
 				ps.println("import java.util.List;");
 				ps.println("");
 				ps.println("import javax.servlet.http.HttpServletRequest;");
@@ -2114,6 +2433,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("import org.springframework.web.bind.annotation.ModelAttribute;");
 				ps.println("import org.springframework.web.bind.annotation.PathVariable;");
 				ps.println("import org.springframework.web.bind.annotation.PostMapping;");
+				ps.println("import org.springframework.web.bind.annotation.RequestBody;");
 				ps.println("import org.springframework.web.bind.annotation.RequestHeader;");
 				ps.println("import org.springframework.web.bind.annotation.RequestMapping;");
 				ps.println("import org.springframework.web.bind.annotation.RequestParam;");
@@ -2122,6 +2442,8 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("import " + basePkg + ".entity." + className + ";");
 				ps.println("import " + basePkg + ".form." + className + "Form;");
+				ps.println("import " + basePkg + ".paging.PageInfo;");
+				ps.println("import " + basePkg + ".paging.PagingRequest;");
 				ps.println("import " + basePkg + ".search." + className + "SearchForm;");
 				ps.println("import " + basePkg + ".service." + className + "Services;");
 				ps.println("import " + basePkg + ".utils.Message;");
@@ -2168,17 +2490,41 @@ public class GenSpring extends CommonMethods {
 				ps.println("");
 				ps.println("	@PostMapping(value = \"/search\")");
 				ps.println("	public ModelAndView search(HttpServletRequest request, @ModelAttribute " + className
-						+ "SearchForm form, RedirectAttributes ra,");
-				ps.println("			@RequestParam(value = \"action\", required = true) String action) {");
-				ps.println("		setForm(request, form);");
-				ps.println("		ModelAndView mav = findPaginated(request, 1, \"id\", \"asc\");");
-				ps.println("		@SuppressWarnings(\"unchecked\")");
-				ps.println("		List<" + className + "> list = (List<" + className
+						+ "SearchForm form, ");
+				ps.println(
+						"			RedirectAttributes ra, @RequestParam(value = \"action\", required = true) String action) {");
+//				ps.println("		form.setDoOr(false);");
+//				ps.println("		setForm(request, form);");
+//				ps.println("		ModelAndView mav = findPaginated(request, 1, \"id\", \"asc\");");
+//				ps.println("		@SuppressWarnings(\"unchecked\")");
+//				ps.println("		List<" + className + "> list = (List<" + className
+//						+ ">) mav.getModelMap().getAttribute(\"" + fieldName + "s\");");
+//				ps.println("		if (list == null || list.isEmpty()) {");
+//				ps.println("			mav.setViewName(\"search_" + fieldName + "\");");
+//				ps.println("			mav.getModelMap().addAttribute(Message.MESSAGE_ATTRIBUTE,");
+//				ps.println("					new Message(\"search.noResult\", Message.Type.WARNING));");
+//				ps.println("		}");
+				ps.println("		ModelAndView mav;");
+				ps.println("		if (action.equals(\"search\")) {");
+				ps.println("			setForm(request, form);");
+				ps.println("			form.setAdvanced(true);");
+				ps.println("			mav = new ModelAndView(\"" + fieldName + "s\");");
+				ps.println("//			mav = findPaginated(request, 1, \"id\", \"asc\");");
+				ps.println("//			@SuppressWarnings(\"unchecked\")");
+				ps.println("//			List<" + className + "> list = (List<" + className
 						+ ">) mav.getModelMap().getAttribute(\"" + fieldName + "s\");");
-				ps.println("		if (list == null || list.isEmpty()) {");
-				ps.println("			mav.setViewName(\"search_" + fieldName + "\");");
+				ps.println("//			if (list == null || list.isEmpty()) {");
+				ps.println("//				mav.setViewName(\"search_" + fieldName + "\");");
+				ps.println("//				mav.getModelMap().addAttribute(Message.MESSAGE_ATTRIBUTE,");
+				ps.println("//						new Message(\"search.noResult\", Message.Type.WARNING));");
+				ps.println("//			}");
+				ps.println("		} else {");
+				ps.println("			form = new " + className + "SearchForm();");
+				ps.println("			setForm(request, form);");
+				ps.println("			mav = new ModelAndView(\"search_" + fieldName + "\");");
+				ps.println("			mav.addObject(\"" + fieldName + "SearchForm\", form);");
 				ps.println("			mav.getModelMap().addAttribute(Message.MESSAGE_ATTRIBUTE,");
-				ps.println("					new Message(\"search.noResult\", Message.Type.WARNING));");
+				ps.println("					new Message(\"search.formReset\", Message.Type.WARNING));");
 				ps.println("		}");
 				ps.println("");
 				ps.println("		return mav;");
@@ -2283,8 +2629,12 @@ public class GenSpring extends CommonMethods {
 				ps.println("		" + fieldName + "Service.delete(id);");
 				ps.println("		return \"redirect:/" + fieldName + "s\";");
 				ps.println("	}");
-				ps.println("}");
 				ps.println("");
+				ps.println("	@GetMapping(\"/list\")");
+				ps.println("	String home(Principal principal) {");
+				ps.println("		return \"" + fieldName + "s\";");
+				ps.println("	}");
+				ps.println("}");
 				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				log.error("failed to create " + p, e);
@@ -2296,15 +2646,18 @@ public class GenSpring extends CommonMethods {
 	/**
 	 * Add any imports needed for fields
 	 * 
-	 * @param ps               PrintStream to write to. If null ignores
-	 * @param colNameToInfoMap
-	 * @param clsType          IMPORT_TYPE_SERVICE= general IMPORT_TYPE_FORM=form
-	 *                         annotations IMPORT_TYPE_BEAN=bean annotations
-	 * @param imports          TODO
+	 * @param ps        PrintStream to write to. If null ignores
+	 * @param className Class to add imports for its fields
+	 * @param colsInfo  master column info list
+	 * @param clsType   IMPORT_TYPE_SERVICE= general IMPORT_TYPE_FORM=form
+	 *                  annotations IMPORT_TYPE_BEAN=bean annotations
+	 * @param imports   Set so far to add to
 	 * @return if ps = null returns String otherwise null
 	 */
-	private String addImports(PrintStream ps, Map<String, ColInfo> colNameToInfoMap, int clsType, Set<String> imports) {
-		if (colNameToInfoMap != null) {
+	private String addImports(PrintStream ps, String className, Map<String, Map<String, ColInfo>> colsInfo, int clsType,
+			Set<String> imports) {
+		if (className != null) {
+			Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
 			for (String key : colNameToInfoMap.keySet()) {
 				if (PKEY_INFO.equals(key))
 					continue;
@@ -2338,8 +2691,7 @@ public class GenSpring extends CommonMethods {
 					if (!StringUtils.isBlank(info.getForeignTable())) {
 						imports.add("import " + basePkg + ".entity." + info.getType() + ";");
 					}
-				}
-				if (clsType == IMPORT_TYPE_BEAN) {
+				} else if (clsType == IMPORT_TYPE_BEAN) {
 					if (info.isJsonIgnore()) {
 						imports.add("import com.fasterxml.jackson.annotation.JsonIgnore;");
 					}
@@ -2351,8 +2703,11 @@ public class GenSpring extends CommonMethods {
 						imports.add("import lombok.EqualsAndHashCode;");
 					}
 
+				} else if (clsType == IMPORT_TYPE_SERVICE) {
+					if (info.getForeignTable() != null) {
+						addImports(ps, info.getType(), colsInfo, clsType, imports);
+					}
 				}
-
 			}
 		}
 		StringBuilder sb = null;
@@ -2376,7 +2731,119 @@ public class GenSpring extends CommonMethods {
 	/**
 	 * Write service for tableName
 	 * 
-	 * @param className
+	 * @param tableName
+	 * @param parent           ColInfo for subclass to add
+	 * @param colNameToInfoMap
+	 */
+	private void writeServiceSearchSpecAdd(PrintStream ps, String tableName, Map<String, Map<String, ColInfo>> colsInfo,
+			ColInfo parent) throws Exception {
+		String className = Utils.tabToStr(renames, tableName);
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+		ps.println("		if (form.get" + parent.getGsName() + "() != null) {");
+		for (ColInfo c : colNameToInfoMap.values()) {
+			if (c.isPk())
+				continue;
+
+			if (c.getForeignTable() != null) {
+				// TODO: skip for now
+			} else if (c.isDate()) {
+				ps.println("");
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Min() != null) {");
+				ps.println("// need to subtract a millsec here to get >= same to work reliably.");
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", new Date(form.get" + parent.getGsName()
+						+ "().get" + c.getGsName() + "Min().getTime() - 1), SearchOperation.GREATER_THAN_EQUAL));");
+				ps.println("				}");
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Max() != null) {");
+				ps.println("// need to add a millsec here to get <= same to work reliably.");
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", new Date(form.get" + parent.getGsName()
+						+ "().get" + c.getGsName() + "Max().getTime() + 1), SearchOperation.LESS_THAN_EQUAL));");
+				ps.println("				}");
+			} else if ("BigDecimal".equals(c.getType())) {
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Min() != null) {");
+				ps.println("					BigDecimal bd = form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "Min();");
+				if (db.isSQLite()) {
+					ps.println("// SQLite rounds scales > 10 in select where compare though returns all decimals");
+					ps.println("					if (bd.scale() > 10) {");
+					ps.println("						bd = bd.setScale(10, BigDecimal.ROUND_DOWN);");
+					ps.println("					}");
+				}
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\",bd, SearchOperation.GREATER_THAN_EQUAL));");
+				ps.println("				}");
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Max() != null) {");
+				ps.println("					BigDecimal bd = form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "Max();");
+				if (db.isSQLite()) {
+					ps.println("// SQLite rounds scales > 10 in select where compare though returns all decimals");
+					ps.println("				if (bd.scale() > 10) {");
+					ps.println("					bd = bd.setScale(10, BigDecimal.ROUND_UP);");
+					ps.println("				}");
+				}
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\",bd, SearchOperation.LESS_THAN_EQUAL));");
+				ps.println("				}");
+			} else if ("String".equals(c.getType())) {
+				ps.println("				if (!StringUtils.isBlank(form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "())) {");
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "().toLowerCase(), SearchOperation.LIKE));");
+				ps.println("				}");
+			} else { // must be a number
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Min() != null) {");
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+				ps.println("				}");
+				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
+						+ "Max() != null) {");
+				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "Max(), SearchOperation.LESS_THAN_EQUAL));");
+				ps.println("				}");
+			}
+		}
+
+		ps.println("		}");
+		ps.println("");
+	}
+
+	private String writeServiceAddTextFieldsToOr(PrintStream ps, String className,
+			Map<String, Map<String, ColInfo>> colsInfo) {
+		String fieldName = className.substring(0, 1).toLowerCase() + className.substring(1);
+
+		ps.println("		" + className + "SearchForm " + fieldName + "Form =  form.get" + className + "();");
+		ps.println("		if (" + fieldName + "Form == null) {");
+		ps.println("			" + fieldName + "Form = new " + className + "SearchForm();");
+		ps.println("		}");
+		Map<String, ColInfo> colNameToInfoMap = colsInfo.get(className);
+		// setup for OR search of all text fields in list table
+		for (String key : colNameToInfoMap.keySet()) {
+			if (PKEY_INFO.equals(key))
+				continue;
+			ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+			if (info.isPk())
+				continue;
+			if (info.isList() && info.isString()) {
+				ps.println("			" + fieldName + "Form.set" + info.getGsName() + "(value);");
+			}
+		}
+
+		return fieldName + "Form";
+	}
+
+	/**
+	 * Write service for tableName
+	 * 
+	 * @param tableName
 	 * @param colNameToInfoMap
 	 */
 	private void writeService(String tableName, Map<String, Map<String, ColInfo>> colsInfo) throws Exception {
@@ -2409,12 +2876,25 @@ public class GenSpring extends CommonMethods {
 				imports.add("import org.springframework.stereotype.Service;");
 //				imports.add("import org.springframework.transaction.annotation.Transactional;");
 				imports.add("import " + basePkg + ".entity." + className + ";");
+				imports.add("import " + basePkg + ".paging.Column;");
+				imports.add("import " + basePkg + ".paging.Direction;");
+				imports.add("import " + basePkg + ".paging.Order;");
+				imports.add("import " + basePkg + ".paging.PageInfo;");
+				imports.add("import " + basePkg + ".paging.PagingRequest;");
 				imports.add("import " + basePkg + ".repo." + className + "Repository;");
 				imports.add("import " + basePkg + ".search.SearchCriteria;");
 				imports.add("import " + basePkg + ".search.SearchOperation;");
 				imports.add("import " + basePkg + ".search.SearchSpecification;");
+				imports.add("import " + basePkg + ".search.SearchType;");
 				imports.add("import " + basePkg + ".search." + className + "SearchForm;");
+				imports.add("import javax.servlet.http.HttpServletRequest;");
+				for (ColInfo c : colNameToInfoMap.values()) {
+					if (c.getForeignTable() != null) {
+						imports.add("import " + basePkg + ".search." + c.getType() + "SearchForm;");
+					}
+				}
 				imports.add("import " + basePkg + ".utils.Utils;");
+				ps.println("");
 				imports.add("import lombok.extern.slf4j.Slf4j;");
 				if (ACCOUNT_CLASS.equals(className)) {
 					imports.add("import java.util.List;");
@@ -2423,8 +2903,7 @@ public class GenSpring extends CommonMethods {
 					imports.add("import javax.annotation.PostConstruct;");
 					imports.add("import org.apache.commons.lang3.StringUtils;");
 				}
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_SERVICE, imports);
-				ps.println("");
+				ps.println(addImports(null, className, colsInfo, IMPORT_TYPE_SERVICE, imports));
 				ps.println(getClassHeader(className + "Services", className + "Services.", null));
 				ps.println("@Slf4j");
 				ps.println("@Service");
@@ -2490,22 +2969,28 @@ public class GenSpring extends CommonMethods {
 						+ className + ">();");
 				ps.println("		if (form != null) {");
 				ps.println("			log.debug(form.toString());");
+				ps.println("			searchSpec.setDoOr(form.getDoOr());");
 				for (ColInfo c : colNameToInfoMap.values()) {
+					if (c.isPk())
+						continue;
+
 					if (c.getForeignTable() != null) {
-						// TODO: skip for now
+						writeServiceSearchSpecAdd(ps, c.getForeignTable(), colsInfo, c);
 					} else if (c.isDate()) {
 						ps.println("");
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
 						ps.println("// need to subtract a millsec here to get >= same to work reliably.");
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\", new Date(form.get" + c.getGsName()
-								+ "Min().getTime() - 1), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\",");
+						ps.println("					new Date(form.get" + c.getGsName() + "Min().getTime() - 1),");
+						ps.println("					SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
 						ps.println("// need to add a millsec here to get <= same to work reliably.");
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\", new Date(form.get" + c.getGsName()
-								+ "Max().getTime() + 1), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\",");
+						ps.println("					new Date(form.get" + c.getGsName() + "Max().getTime() + 1),");
+						ps.println("					SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					} else if ("BigDecimal".equals(c.getType())) {
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
@@ -2517,8 +3002,9 @@ public class GenSpring extends CommonMethods {
 							ps.println("					bd = bd.setScale(10, BigDecimal.ROUND_DOWN);");
 							ps.println("				}");
 						}
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\",bd, SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\",bd,");
+						ps.println("					SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
 						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Max();");
@@ -2529,34 +3015,42 @@ public class GenSpring extends CommonMethods {
 							ps.println("					bd = bd.setScale(10, BigDecimal.ROUND_UP);");
 							ps.println("				}");
 						}
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\",bd, SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\",bd,");
+						ps.println("					SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					} else if ("String".equals(c.getType())) {
 						ps.println("			if (!StringUtils.isBlank(form.get" + c.getGsName() + "())) {");
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\", form.get" + c.getGsName()
-								+ "().toLowerCase(), SearchOperation.LIKE));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\", form.get" + c.getGsName() + "().toLowerCase(),");
+						ps.println("					SearchOperation.LIKE));");
 						ps.println("			}");
 					} else { // must be a number
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\", form.get" + c.getGsName()
-								+ "Min(), SearchOperation.GREATER_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\", form.get" + c.getGsName() + "Min(),");
+						ps.println("					SearchOperation.GREATER_THAN_EQUAL));");
 						ps.println("			}");
 						ps.println("			if (form.get" + c.getGsName() + "Max() != null) {");
-						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
-								+ c.getVName() + "\", form.get" + c.getGsName()
-								+ "Max(), SearchOperation.LESS_THAN_EQUAL));");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\", form.get" + c.getGsName() + "Max(),");
+						ps.println("					SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
 					}
 				}
 				ps.println("");
+
 				ps.println("		} else {");
 				ps.println("			form = new " + className + "SearchForm();");
 				ps.println("		}");
-				ps.println("		Pageable pageable = PageRequest.of(form.getPage() - 1, form.getPageSize(),");
-				ps.println("				form.getSort());");
+				ps.println("");
+				ps.println("		// OR queries assume at least one SearchCriteria or return nothing");
+				ps.println("		if (searchSpec.getList().isEmpty()) {");
+				ps.println("			searchSpec.setDoOr(SearchType.ADD);");
+				ps.println("		}");
+				ps.println(
+						"		Pageable pageable = PageRequest.of(form.getPage() - 1, form.getPageSize(), form.getSort());");
+				ps.println("");
 				ps.println("		if (log.isInfoEnabled())");
 				ps.println("			log.info(\"searchSpec:\" + searchSpec);");
 				ps.println("		return " + fieldName + "Repository.findAll(searchSpec, pageable);");
@@ -2605,8 +3099,63 @@ public class GenSpring extends CommonMethods {
 				ps.println("		" + fieldName + "Repository.deleteById(id);");
 				ps.println("	}");
 				ps.println("");
-				ps.println("}");
+				ps.println("	public PageInfo<" + className + "> get" + className
+						+ "s(HttpServletRequest request, PagingRequest pagingRequest) {");
 				ps.println("");
+				ps.println("		" + className + "SearchForm form =  (" + className
+						+ "SearchForm) request.getSession().getAttribute(\"" + fieldName + "SearchForm\");");
+				ps.println("");
+				ps.println("		if (form == null ) {");
+				ps.println("			form = new " + className + "SearchForm();");
+				ps.println("		} else if (StringUtils.isNotBlank(pagingRequest.getSearch().getValue())) {");
+				ps.println("");
+				ps.println("			String value = pagingRequest.getSearch().getValue();");
+				ps.println("			log.info(\"Searching for:\" + value);");
+				// setup for OR search of all text fields in list table
+				for (String key : colNameToInfoMap.keySet()) {
+					if (PKEY_INFO.equals(key))
+						continue;
+					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
+					if (info.isPk())
+						continue;
+					if (info.isList() && info.isString()) {
+						ps.println("			form.set" + info.getGsName() + "(value);");
+					} else if (info.getForeignTable() != null) {
+						ps.println("			form.set" + info.getGsName() + "("
+								+ writeServiceAddTextFieldsToOr(ps, info.getType(), colsInfo) + ");");
+					}
+				}
+				ps.println("			form.setDoOr(SearchType.OR);");
+				ps.println("			form.setAdvanced(false);");
+				ps.println(
+						"		} else if (!form.isAdvanced() && StringUtils.isBlank(pagingRequest.getSearch().getValue())) {");
+				ps.println("			form = new " + className + "SearchForm();");
+				ps.println("");
+				ps.println("		}");
+				ps.println("		form.setPage(pagingRequest.getStart() + 1);");
+				ps.println("		form.setPageSize(pagingRequest.getLength());");
+				ps.println("		Order order = pagingRequest.getOrder().get(0);");
+				ps.println("		int columnIndex = order.getColumn();");
+				ps.println("		Column column = pagingRequest.getColumns().get(columnIndex);");
+				ps.println("		form.setSortField(column.getData());");
+				ps.println("		form.setSortAsc(order.getDir().equals(Direction.asc));");
+				ps.println("");
+				ps.println("		Page<" + className + "> filtered = listAll(form);");
+				ps.println("		int count = (int) filtered.getTotalElements();");
+				ps.println("");
+				ps.println("		PageInfo<" + className + "> pageInfo = new PageInfo<" + className + ">(filtered);");
+				ps.println("		pageInfo.setRecordsFiltered(count);");
+				ps.println("		pageInfo.setRecordsTotal(count);");
+				ps.println("		pageInfo.setDraw(pagingRequest.getDraw());");
+				ps.println("");
+				ps.println("		request.getSession().setAttribute(\"" + fieldName + "SearchForm\", form);");
+				ps.println("");
+				ps.println("");
+				ps.println("		return pageInfo;");
+				ps.println("	}");
+				ps.println("");
+				ps.println("");
+				ps.println("}");
 				log.warn("Wrote:" + p.toString());
 			} catch (Exception e) {
 				log.error("failed to create " + p, e);
@@ -2685,7 +3234,7 @@ public class GenSpring extends CommonMethods {
 				imports.add("import lombok.Data;");
 				imports.add("import " + basePkg + ".utils.MessageHelper;");
 				imports.add("import " + basePkg + ".entity." + className + ";");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
+				addImports(ps, className, colsInfo, IMPORT_TYPE_FORM, imports);
 				ps.println(getClassHeader(tableName + " Form",
 						"Class for holding data from the " + tableName + " table for editing.", ""));
 
@@ -2815,7 +3364,7 @@ public class GenSpring extends CommonMethods {
 				imports.add("import " + basePkg + ".search." + className + "SearchForm;");
 				imports.add("import " + basePkg + ".service." + className + "Services;");
 				imports.add("import lombok.extern.slf4j.Slf4j;");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
+				addImports(ps, className, colsInfo, IMPORT_TYPE_FORM, imports);
 
 				ps.println("");
 				ps.println(getClassHeader(tableName + "Search Test",
@@ -3055,7 +3604,7 @@ public class GenSpring extends CommonMethods {
 				imports.add("import " + basePkg + ".utils.MessageHelper;");
 				imports.add("import " + basePkg + ".entity." + className + ";");
 				imports.add("import lombok.Data;");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_FORM, imports);
+				addImports(ps, className, colsInfo, IMPORT_TYPE_FORM, imports);
 				ps.println("");
 				ps.println(getClassHeader(tableName + "SearchForm",
 						"Class for holding data from the " + tableName + " table for searching.", ""));
@@ -3071,11 +3620,16 @@ public class GenSpring extends CommonMethods {
 					if (info.isDate()) {
 						ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
 					}
-					if ("String".equals(info.getType())) {
+					if (info.getForeignTable() != null) {
+						ps.println("	private " + info.getType() + "SearchForm " + info.getVName() + ";");
+					} else if ("String".equals(info.getType())) {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
 								+ info.getDefaultVal() + ";");
 					} else {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Min;");
+						if (info.isDate()) {
+							ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
+						}
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Max;");
 					}
 				}
@@ -3086,6 +3640,8 @@ public class GenSpring extends CommonMethods {
 				ps.println("	private boolean sortAsc = true;");
 				ps.println("	private int totalPages = 0;");
 				ps.println("	private long totalItems = 0;");
+				ps.println("	private SearchType doOr = SearchType.ADD;");
+				ps.println("	private boolean advanced = true;");
 				ps.println("	/**");
 				ps.println("	 * Clones " + className + " obj into form");
 				ps.println("	 *");
@@ -3098,7 +3654,8 @@ public class GenSpring extends CommonMethods {
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
 					if (info.getForeignTable() != null) {
-						// TODO: skip for now
+						ps.println("		form.set" + info.getGsName() + "(" + info.getGsName()
+								+ "SearchForm.getInstance(obj.get" + info.getGsName() + "()));");
 					} else if ("String".equals(info.getType())) {
 						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 					} else {
@@ -3181,7 +3738,7 @@ public class GenSpring extends CommonMethods {
 				imports.add("import javax.persistence.Id;");
 				imports.add("import javax.persistence.Table;");
 				imports.add("import lombok.Data;");
-				addImports(ps, colNameToInfoMap, IMPORT_TYPE_BEAN, imports);
+				addImports(ps, className, colsInfo, IMPORT_TYPE_BEAN, imports);
 				StringBuilder comment = new StringBuilder();
 				for (String key : colNameToInfoMap.keySet()) {
 					if (PKEY_INFO.equals(key))

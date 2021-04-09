@@ -30,6 +30,7 @@ import java.util.ResourceBundle;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
+import org.junit.ComparisonFailure;
 import org.junit.Test;
 
 import com.dea42.common.Db;
@@ -385,8 +386,13 @@ public class Sheets2DBTest {
 					String baseDir = Utils.getProp(bundle, CommonMethods.PROPKEY + ".outdir", "target");
 					Path p = Utils.getPath(baseDir, Sheets2DB.SCRIPTS_FOLDER, file.getFileName().toString());
 					String actual = new String(Files.readAllBytes(p));
-					assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected),
-							dos2Unix(actual));
+					try {
+						assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected),
+								dos2Unix(actual));
+					} catch (Throwable e) {
+						// debug break point.
+						throw e;
+					}
 				}
 
 				return FileVisitResult.CONTINUE;

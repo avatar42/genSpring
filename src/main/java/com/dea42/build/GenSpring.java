@@ -1941,6 +1941,10 @@ public class GenSpring extends CommonMethods {
 				ps.println("							return JSON.stringify(d);");
 				ps.println("						}");
 				ps.println("					},");
+				ps.println("    				\"columnDefs\": [{");
+				ps.println("        				\"targets\": '_all',");
+				ps.println("        				\"defaultContent\": \"\"");
+				ps.println("    				}],");
 				ps.println("					\"columns\" : [ {");
 				writeDatatableLoop(ps, new HashSet<String>(), "", tableName, colsInfo);
 				ps.println("						\"data\" : \"id\",");
@@ -1949,9 +1953,6 @@ public class GenSpring extends CommonMethods {
 				ps.println("					} ]");
 				ps.println("				});");
 				ps.println("");
-//				ps.println("				$(document).ready(function() {");
-//				ps.println("					$('#resultsTable').DataTable();");
-//				ps.println("				});");
 				ps.println("");
 				ps.println("				function make_edit_links(id) {");
 				ps.println("					return \"<a href=\\\"\"+ctx+\"" + fieldName
@@ -3289,7 +3290,7 @@ public class GenSpring extends CommonMethods {
 //						}
 					if (info.getLength() > 0 && info.isString())
 						ps.println("    @Length(max=" + info.getLength() + ")");
-					if (info.isRequired() && info.isString())
+					if (info.isRequired() && info.isString() && !info.isPassword())
 						ps.println("    @NotBlank(message = \"{\"+MessageHelper.notBlank_message+\"}\")");
 					if (info.isLastMod()) {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "

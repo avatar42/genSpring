@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
+import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -359,6 +360,17 @@ public class Sheet2AppTest {
 		} catch (Exception e) {
 			log.error("Failed generating app", e);
 			fail(e.getMessage());
+		}
+	}
+
+	public static void main(String... args) {
+		try {
+			if (args.length > 0) {
+				Sheet2AppTest s = new Sheet2AppTest();
+				s.doEndToEnd(args[0], true);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 

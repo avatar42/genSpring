@@ -6,6 +6,7 @@ import org.apache.commons.beanutils.BeanUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import ${basePkg}.utils.Utils;
+import ${basePkg}.utils.MessageHelper;
 import lombok.extern.slf4j.Slf4j;
 /**
  * Compares two fields to confirm that match mainly for password confirm hence
@@ -36,6 +37,13 @@ public class FieldMatchValidator extends BaseConstraintValidator<FieldMatch, Obj
 				} else {
 					if (firstObj != null && firstObj.equals(secondObj))
 						return true;
+				}
+				
+				if (StringUtils.isBlank((String) firstObj) && StringUtils.isBlank((String) secondObj)) {
+					messageTemplate = Utils.getProp(bundle, MessageHelper.notBlank_message, MessageHelper.notBlank_message);
+					storeErrors(context, messageTemplate);
+
+					return false;
 				}
 			} else {
 				if (StringUtils.isBlank((String) firstObj) && StringUtils.isBlank((String) secondObj))

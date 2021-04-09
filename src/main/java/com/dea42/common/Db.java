@@ -76,6 +76,13 @@ public class Db {
 	 * hold password of DB connected to
 	 */
 	private String dbPass = null;
+
+	/**
+	 * needed for MySQL to deal with DamnSillyTime See
+	 * https://garygregory.wordpress.com/2013/06/18/what-are-the-java-timezone-ids/
+	 * for valid options
+	 */
+	private String serverTimezone = null;
 	/**
 	 * hold pool name of DB connected to
 	 */
@@ -210,6 +217,7 @@ public class Db {
 				dbPass = Utils.getProp(bundle, "db.password", null);
 				dbName = Utils.getProp(bundle, "db.name", null);
 				schema = Utils.getProp(bundle, "db.schema", null);
+				serverTimezone = Utils.getProp(bundle, "db.serverTimezone", null);
 				dbUrl = getUrl(bundle);
 				loaded = true;
 
@@ -229,7 +237,7 @@ public class Db {
 	 * 
 	 * @param calledBy
 	 * @return Connection
-	 * @throws SQLException 
+	 * @throws SQLException
 	 */
 	public Connection getConnection(String calledBy) throws SQLException {
 		try {
@@ -309,6 +317,8 @@ public class Db {
 			log.info("Loaded driver =" + dbDriver2);
 		}
 
+		if (serverTimezone != null)
+			props.put("serverTimezone", serverTimezone);
 		if (dbUser != null)
 			props.put("user", dbUser);
 		if (dbPass != null)

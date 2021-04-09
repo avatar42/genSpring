@@ -73,11 +73,13 @@
 							th:text="#{lang.change}"></span> <b class="caret"></b></a>
 						<ul class="dropdown-menu bg-dark">
 							<li th:classappend="'active'"><a class="nav-link"
+								th:href="@{/international?lang=de}" th:text="#{lang.de}"></a></li>
+							<li th:classappend="'active'"><a class="nav-link"
 								th:href="@{/international?lang=en}" th:text="#{lang.en}"></a></li>
 							<li th:classappend="'active'"><a class="nav-link"
-								th:href="@{/international?lang=fr}" th:text="#{lang.fr}"></a></li>
+								th:href="@{/international?lang=es}" th:text="#{lang.es}"></a></li>
 							<li th:classappend="'active'"><a class="nav-link"
-								th:href="@{/international?lang=de}" th:text="#{lang.de}"></a></li>
+								th:href="@{/international?lang=fr}" th:text="#{lang.fr}"></a></li>
 						</ul></li>
 				</ul>
 				<ul class="nav navbar-nav navbar-right">

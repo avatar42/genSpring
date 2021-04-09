@@ -27,7 +27,7 @@
 						th:text="#{Account.email}"></label>
 					<div class="col-lg-10">
 						<input type="text" class="form-control" id="email"
-							placeholder="Email address" th:field="*{email}" />
+							th:placeholder="#{Account.email}" th:field="*{email}" />
 						<ul class="help-block" th:each="error: ${#fields.errors('email')}">
 							<li th:each="message : ${error.split(';')}">
 								<p class="error-message" th:text="${message}"></p>
@@ -42,7 +42,7 @@
 						th:text="#{Account.password}"></label>
 					<div class="col-lg-10">
 						<input type="password" class="form-control" id="password"
-							placeholder="Password" th:field="*{password}" />
+							th:placeholder="#{signin.password}" th:field="*{password}" />
 						<ul class="help-block"
 							th:each="error: ${#fields.errors('password')}">
 							<li th:each="message : ${error.split(';')}">

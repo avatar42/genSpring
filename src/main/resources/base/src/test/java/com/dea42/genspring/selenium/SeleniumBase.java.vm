@@ -108,10 +108,15 @@ public class SeleniumBase extends UnitBase {
 	 * @param url
 	 */
 	protected void open(String url) {
-		speedControl();
-		driver.get(url);
-		driver.manage().window().maximize();
-		waitForPageLoaded();
+		try {
+			speedControl();
+			driver.get(url);
+			driver.manage().window().maximize();
+			waitForPageLoaded();
+		} catch (Exception e) {
+			// Debug breakpoint
+			throw e;
+		}
 	}
 
 	protected String getSrc() {
@@ -126,22 +131,34 @@ public class SeleniumBase extends UnitBase {
 		return rtn;
 	}
 
+	protected String getHTML() {
+		speedControl();
+		String rtn = null;
+		try {
+			rtn = driver.findElement(By.tagName("html")).getAttribute("innerHTML");
+		} catch (Exception e) {
+			log.warn("failed getting page source", e);
+		}
+
+		return rtn;
+	}
+
 	/**
 	 * Checks the nav system
 	 */
-	public void checkHeader(ResultActions result, String user) throws Exception {
+	public void checkHeader() throws Exception {
 		speedControl();
 		List<String> names = getMenuLinks("guiMenu", "header.gui", false);
 		assertTrue("Check for more than 0 GUI menu items", names.size() > 0);
-		boolean login = true;
-		checkEditLinks(names.get(0), login);
-		if (login)
-			login = false;
+//		boolean login = true;
+		checkCommonLinks(names.get(0), true);
+//		if (login)
+//			login = false;
 		names = getMenuLinks("guiMenu", "header.gui", false);
 		for (String name : names) {
-			checkEditLinks(name, login);
-			if (login)
-				login = false;
+			checkCommonLinks(name, false);
+//			if (login)
+//				login = false;
 		}
 
 		List<String> refs = getMenuLinks("restMenu", "header.restApi", true);
@@ -149,24 +166,6 @@ public class SeleniumBase extends UnitBase {
 		for (String ref : refs) {
 			open(ref);
 			sourceContains("<id>1</id>", false);
-		}
-
-		// check lang changes
-		openTest("/");
-
-		refs = getMenuLinks("langMenu", "lang.change", true);
-		List<String> langs = new ArrayList<String>();
-		for (String ref : refs) {
-			langs.add(ref.substring(ref.length() - 2, ref.length()));
-		}
-		for (String ref : refs) {
-			lang = ref.substring(ref.length() - 2, ref.length());
-			open(ref);
-			screenshotRule.docShot("home." + lang);
-			sourceContains("<span>" + getMsg("lang.change") + "</span>", false);
-			for (String lang : langs) {
-				sourceContains(">" + getMsg("lang." + lang) + "</a>", false);
-			}
 		}
 
 	}
@@ -179,6 +178,35 @@ public class SeleniumBase extends UnitBase {
 	 */
 	protected void sourceContains(String expected, boolean doesNotContain) {
 		String src = getSrc();
+		assertNotNull("checking page source not null", src);
+		if (src.contains("??")) {
+			fail("'??' was found in page source:" + src + " of:" + driver.getCurrentUrl());
+		}
+		if (doesNotContain) {
+			if (src.contains(expected)) {
+				fail("'" + expected + "' was found in page source:" + src + " of:" + driver.getCurrentUrl());
+			}
+		} else {
+			if (!src.contains(expected)) {
+				fail("'" + expected + "' was not found in page " + lang + " source:" + src + " of:"
+						+ driver.getCurrentUrl());
+			}
+		}
+
+	}
+
+	/**
+	 * Check to see if expected is in page text after waitFor becomes available
+	 * 
+	 * @param expected
+	 * @param doesNotContain if true checks that expected is NOT in source
+	 * @param waitFor        See waitForElement(By)
+	 */
+	protected void htmlContains(String expected, boolean doesNotContain, By waitFor) {
+		if (waitFor != null)
+			waitForElement(waitFor);
+
+		String src = getHTML();
 		assertNotNull("checking page source not null", src);
 		if (src.contains("??")) {
 			fail("'??' was found in page source:" + src + " of:" + driver.getCurrentUrl());
@@ -360,7 +388,8 @@ public class SeleniumBase extends UnitBase {
 	public void loginAdmin() {
 		speedControl();
 		WebElement form = waitForElement(By.id("signinForm"));
-		screenshotRule.docShot("login");
+		if ("en".equals(lang))
+			screenshotRule.docShot("login");
 		ResourceBundle bundle = ResourceBundle.getBundle("app");
 		String user = Utils.getProp(bundle, "default.adminEmail", null);
 		String userpass = Utils.getProp(bundle, "default.adminpass", null);
@@ -379,7 +408,7 @@ public class SeleniumBase extends UnitBase {
 	 *                    class name).
 	 * @param expectLogin if true expect and handle the login challenge.
 	 */
-	protected void checkEditLinks(String item, boolean expectLogin) {
+	protected void checkCommonLinks(String item, boolean expectLogin) {
 		speedControl();
 		openTest("/");
 		WebElement menu = waitThenClick(By.id("guiMenu"), null);
@@ -389,18 +418,58 @@ public class SeleniumBase extends UnitBase {
 			menu = waitThenClick(By.id("guiMenu"), null);
 			waitThenClick(By.linkText(item), menu);
 		}
-		screenshotRule.docShot(item + ".list");
+		waitForElement(By.id("resultsTable_filter"));
+		// H1
+		sourceContains(item + " " + getMsg("edit.list"), false);
+		// search link
+		sourceContains(getMsg("search.advanced") + " " + item, false);
+		// new link
+		sourceContains(getMsg("edit.new") + " " + item, false);
+		// actions buttons
+		sourceContains(getMsg("edit.edit"), false);
+		sourceContains(getMsg("edit.delete"), false);
+		// search box
+		sourceContains(getMsg("search.like"), false);
+		sourceContains(getMsg("search.search"), false);
+		// Pagination
+		htmlContains(getMsg("search.previous"), false, By.linkText(getMsg("edit.edit")));
+		if ("en".equals(lang))
+			screenshotRule.docShot(item + ".list");
+
+		// check new page
 		waitThenClick(By.linkText(getMsg("edit.new") + " " + item), null);
 		sourceContains(getMsg("edit.new") + " " + item, false);
 		assertNotNull("Checking for cancel button", getBy(By.xpath("//button[@value='cancel']"), null));
-		screenshotRule.docShot(item + ".new");
+		if ("en".equals(lang))
+			screenshotRule.docShot(item + ".new");
 		waitThenClick(By.xpath("//button[@value='cancel']"), null);
 
-		waitThenClick(By.linkText("Edit"), null);
-		sourceContains("Edit " + item, false);
+		// should go back to list page
+		sourceContains(item + " " + getMsg("edit.list"), false);
+
+		// check edit page by clicking first edit button found
+		waitThenClick(By.linkText(getMsg("edit.edit")), null);
+		sourceContains(getMsg("edit.edit") + " " + item, false);
 		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']"), null));
-		screenshotRule.docShot(item + ".edit");
+		if ("en".equals(lang))
+			screenshotRule.docShot(item + ".edit");
 		waitThenClick(By.xpath("//button[@value='save']"), null);
+
+		// should go back to list page
+		sourceContains(item + " " + getMsg("edit.list"), false);
+
+		// check new page
+		waitThenClick(By.linkText(getMsg("search.advanced") + " " + item), null);
+		sourceContains(getMsg("search.advanced") + " " + item, false);
+		assertNotNull("Checking for reset button", getBy(By.xpath("//button[@value='reset']"), null));
+		if ("en".equals(lang))
+			screenshotRule.docShot(item + ".search");
+		waitThenClick(By.xpath("//button[@value='reset']"), null);
+		assertNotNull("Checking for search button", getBy(By.xpath("//button[@value='search']"), null));
+		waitThenClick(By.xpath("//button[@value='search']"), null);
+
+		// should go back to list page
+		sourceContains(item + " " + getMsg("edit.list"), false);
 
 	}
 
@@ -408,7 +477,7 @@ public class SeleniumBase extends UnitBase {
 	 * Get all the menu item links for a menu. TODO: add sub menu support
 	 * 
 	 * @param menuId
-	 * @param menuKey     TODO
+	 * @param menuKey
 	 * @param returnHrefs
 	 * @return
 	 */
@@ -434,7 +503,7 @@ public class SeleniumBase extends UnitBase {
 	}
 
 	protected void genfilesMd() throws IOException {
-		Path fileList = Utils.createFile(".","files.md",true);
+		Path fileList = Utils.createFile(".", "files.md", true);
 		try (BufferedWriter bw = Files.newBufferedWriter(fileList, StandardOpenOption.TRUNCATE_EXISTING)) {
 			String dbUrl = Utils.getProp(bundle, "db.url");
 			bw.append("DB:" + dbUrl + "<br>");
@@ -480,16 +549,17 @@ public class SeleniumBase extends UnitBase {
 
 	/**
 	 * Open static url and check it contains expected
+	 * 
 	 * @param url
 	 * @param expected
 	 */
-	protected void checkStatic(String url,String expected) {
+	protected void checkStatic(String url, String expected) {
 		openTest(url);
 		sourceContains(expected, false);
 	}
 
 	/**
-	 * Do basic test of web site
+	 * Do basic test of web site and get screen shots for docs.
 	 * 
 	 * @throws Exception
 	 */
@@ -497,37 +567,62 @@ public class SeleniumBase extends UnitBase {
 		String staticTop = "/public";
 		// check statics
 		// check css links work
-		checkStatic("/resources/css/site.css","background-color:");
-		
+		checkStatic("/resources/css/site.css", "background-color:");
+
 		// webjars css URLs we use
-		checkStatic("/webjars/bootstrap/4.0.0-2/css/bootstrap.min.css","Bootstrap v4.0.0");
-		checkStatic("/webjars/font-awesome/5.11.2/css/all.css","Font Awesome Free 5.11.2");
-		checkStatic("/webjars/tempusdominus-bootstrap-4/5.1.2/css/tempusdominus-bootstrap-4.min.css","Tempus Dominus Bootstrap4 v5.1.2");
-		checkStatic("/webjars/datatables/1.10.23/css/jquery.dataTables.min.css","table.dataTable{width:");
+		checkStatic("/webjars/bootstrap/4.0.0-2/css/bootstrap.min.css", "Bootstrap v4.0.0");
+		checkStatic("/webjars/font-awesome/5.11.2/css/all.css", "Font Awesome Free 5.11.2");
+		checkStatic("/webjars/tempusdominus-bootstrap-4/5.1.2/css/tempusdominus-bootstrap-4.min.css",
+				"Tempus Dominus Bootstrap4 v5.1.2");
+		checkStatic("/webjars/datatables/1.10.23/css/jquery.dataTables.min.css", "table.dataTable{width:");
 
 		// check webjars js links work
-		checkStatic("/webjars/jquery/3.5.1/jquery.min.js","jQuery v3.5.1");
-		checkStatic("/webjars/popper.js/1.12.9-1/umd/popper.min.js","Federico Zivolo 2017");
-		checkStatic("/webjars/bootstrap/4.0.0-2/js/bootstrap.min.js","Bootstrap v4.0.0");
-		checkStatic("/webjars/momentjs/2.24.0/min/moment.min.js","invalidMonth:null,invalidFormat");
-		checkStatic("/webjars/tempusdominus-bootstrap-4/5.1.2/js/tempusdominus-bootstrap-4.min.js","Tempus Dominus Bootstrap4 v5.1.2");
-		checkStatic("/webjars/datatables/1.10.23/js/jquery.dataTables.min.js","DataTables 1.10.23");
+		checkStatic("/webjars/jquery/3.5.1/jquery.min.js", "jQuery v3.5.1");
+		checkStatic("/webjars/popper.js/1.12.9-1/umd/popper.min.js", "Federico Zivolo 2017");
+		checkStatic("/webjars/bootstrap/4.0.0-2/js/bootstrap.min.js", "Bootstrap v4.0.0");
+		checkStatic("/webjars/momentjs/2.24.0/min/moment.min.js", "invalidMonth:null,invalidFormat");
+		checkStatic("/webjars/tempusdominus-bootstrap-4/5.1.2/js/tempusdominus-bootstrap-4.min.js",
+				"Tempus Dominus Bootstrap4 v5.1.2");
+		checkStatic("/webjars/datatables/1.10.23/js/jquery.dataTables.min.js", "DataTables 1.10.23");
 
 		// favicon.ico
 		openTest("/favicon.ico");
 
 		// Check tabs saves as static pages that do not require login
-		checkStatic(staticTop + "/optView.html","resources/sheet.css");
-		checkStatic(staticTop + "/Players.html","resources/sheet.css");
+		checkStatic(staticTop + "/optView.html", "resources/sheet.css");
+		checkStatic(staticTop + "/Players.html", "resources/sheet.css");
 		// Note is used as resources/sheet.css relative to
 		// src/main/webapp/public/Players.html
-		checkStatic(staticTop + "/resources/sheet.css","fonts.googleapis.com");
+		checkStatic(staticTop + "/resources/sheet.css", "fonts.googleapis.com");
 
-		// do basic web page checks
-		checkHeader(null, null);
+		// check lang changes
+		openTest("/");
 
+		List<String> refs = getMenuLinks("langMenu", "lang.change", true);
+		List<String> langs = new ArrayList<String>();
+		for (String ref : refs) {
+			langs.add(ref.substring(ref.length() - 2, ref.length()));
+		}
+		for (String ref : refs) {
+			lang = ref.substring(ref.length() - 2, ref.length());
+			open(ref);
+			screenshotRule.docShot("home");
+			sourceContains("<span>" + getMsg("lang.change") + "</span>", false);
+			for (String lang : langs) {
+				sourceContains(">" + getMsg("lang." + lang) + "</a>", false);
+			}
+			// do basic web page checks
+			checkHeader();
+			openTest("/logout");
+		}
 	}
 
+	/**
+	 * Class for getting shots of windows during tests.
+	 * 
+	 * @author deabigt
+	 *
+	 */
 	public class ScreenShotRule extends TestWatcher {
 		String docShots = "screenshots/";
 		String testName = "";
@@ -542,11 +637,25 @@ public class SeleniumBase extends UnitBase {
 			}
 		}
 
+		/**
+		 * Save pic of window for documentation. If lang !="en" then add .lang as mod to
+		 * filename.
+		 * 
+		 * @param shotName
+		 */
 		public void docShot(String shotName) {
-			Path picPath = Utils.getPath(docShots, shotName + ".png");
+			String mod = "";
+			if (!"en".equals(lang))
+				mod = "." + lang;
+			Path picPath = Utils.getPath(docShots, shotName + mod + ".png");
 			takeShot(picPath.toFile());
 		}
 
+		/**
+		 * Save shot of window to destFile
+		 * 
+		 * @param destFile
+		 */
 		public void takeShot(File destFile) {
 			try {
 				TakesScreenshot takesScreenshot = (TakesScreenshot) driver;
@@ -559,6 +668,9 @@ public class SeleniumBase extends UnitBase {
 
 		}
 
+		/**
+		 * Sort what to use for testName during the test. And set startTime for metrics
+		 */
 		@Override
 		protected void starting(Description description) {
 			startTime = System.currentTimeMillis();

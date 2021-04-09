@@ -100,6 +100,8 @@ public class Utils {
 			reservedWords.add("void");
 			reservedWords.add("volatile");
 			reservedWords.add("while");
+			// causes issues when form is posted with it, changing the current app lang.
+			reservedWords.add("lang");
 		}
 	}
 

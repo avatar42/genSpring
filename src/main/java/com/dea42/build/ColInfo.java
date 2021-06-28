@@ -43,7 +43,7 @@ public class ColInfo implements Serializable {
 	// This column is the primary key
 	private boolean pk = false;
 	// default value
-	private String defaultVal;
+	private Object defaultVal;
 	// constraint if there is one
 	private String constraint;
 	// is this a non nullable field
@@ -89,8 +89,36 @@ public class ColInfo implements Serializable {
 		return stype == Types.TIMESTAMP;
 	}
 
+	public boolean isBoolean() {
+		return stype == Types.BOOLEAN || stype == Types.BIT;
+	}
+
+	public boolean isByteArray() {
+		return stype == Types.VARBINARY || stype == Types.CLOB;
+	}
+
 	public boolean isDate() {
 		return stype == Types.DATE || isTimestamp();
+	}
+
+	public boolean isBigDecimal() {
+		return "BigDecimal".equals(type);
+	}
+
+	public boolean isDouble() {
+		return "Double".equals(type);
+	}
+
+	public boolean isFloat() {
+		return "Float".equals(type);
+	}
+
+	public boolean isDecimal() {
+		return isFloat() || isDouble() || isBigDecimal();
+	}
+
+	public boolean isLong() {
+		return "Long".equals(type);
 	}
 
 	/**
@@ -110,12 +138,14 @@ public class ColInfo implements Serializable {
 	 * 
 	 * @return String
 	 */
-	public String getDefaultVal() {
+	public Object getDefaultVal() {
 		if (defaultVal != null) {
 			return defaultVal;
 		} else {
 			if (created || lastMod) {
 				return "new " + type + "(System.currentTimeMillis())";
+			} else if (isString()) {
+				return "";
 			} else {
 				return null;
 			}

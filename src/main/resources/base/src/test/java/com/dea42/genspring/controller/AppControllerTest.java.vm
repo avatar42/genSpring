@@ -12,6 +12,7 @@ import ${basePkg}.MockBase;
 import ${basePkg}.entity.Account;
 import ${basePkg}.form.AccountForm;
 import ${basePkg}.form.LoginForm;
+import ${basePkg}.service.UserServices;
 import ${basePkg}.utils.MessageHelper;
 import com.google.common.collect.ImmutableMap;
 
@@ -97,6 +98,7 @@ public class AppControllerTest extends MockBase {
 	public void testSignupAccountFormErrorsRedirectAttributes() throws Exception {
 		Account account = getDefaultUserAccount();
 		account.setId(0${idMod});
+		account.setUserrole(UserServices.ROLE_PREFIX + account.getUserrole());
 
 		given(accountServices.save(account)).willReturn(account);
 		given(accountServices.login(account.getEmail(), account.getPassword())).willReturn(true);

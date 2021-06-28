@@ -30,7 +30,6 @@ import java.util.ResourceBundle;
 
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Assume;
-import org.junit.ComparisonFailure;
 import org.junit.Test;
 
 import com.dea42.common.Db;
@@ -45,9 +44,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Sheets2DBTest {
 	// set false to check all the expected values in one run
-	private static final boolean stopOnError = false;
+	private boolean stopOnError = false;
 	public static final String bundleName = "sheettest";
 	public static final String RESOURCE_FOLDER = "src/test/resources";
+
+
+	/**
+	 * @return the stopOnError
+	 */
+	public boolean isStopOnError() {
+		return stopOnError;
+	}
+
+	/**
+	 * @param stopOnError the stopOnError to set
+	 */
+	public void setStopOnError(boolean stopOnError) {
+		this.stopOnError = stopOnError;
+	}
 
 	/**
 	 * Test method for {@link com.dea42.build.Sheets2DB#columnNumberToLetter(int)}.
@@ -261,65 +275,70 @@ public class Sheets2DBTest {
 
 	/**
 	 * Check the columns and rows are what we expected.
-	 * 
 	 * @param db
 	 * @param bundle
 	 * @param tabName
-	 * @throws Exception
+	 * @return Error message as newline delimited String
+	 * @throws Exception if DB issues
 	 */
-	private String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws Exception {
+	public String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws Exception {
 		StringBuilder rtn = new StringBuilder();
 		Sheets2DB s = new Sheets2DB(bundleName, true, true);
 		String schema = db.getPrefix();
 		ResourceBundle renames = ResourceBundle.getBundle("rename");
 		String tableName = Utils.tabToStr(renames, tabName);
 		int expectedNumCols = Utils.getProp(bundle, tableName + ".testCols", -1);
-		int rows = Utils.getProp(bundle, tableName + ".testRows", -1);
+		int expectedNumRows = Utils.getProp(bundle, tableName + ".testRows", -1);
 		List<Integer> wantedColNums = s.strToCols(Utils.getProp(bundle, tableName + ".columns"));
 		List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
 
 		try {
-			Connection conn = db.getConnection("Sheet2AppTest");
-			String query = "SELECT * FROM " + schema + tableName;
-			Statement stmt = conn.createStatement();
-			stmt.setMaxRows(1);
-			log.debug("query=" + query);
-			ResultSet rs = stmt.executeQuery(query);
-			assertNotNull("Check ResultSet", rs);
-			ResultSetMetaData rm = rs.getMetaData();
-			int columnCount = rm.getColumnCount();
-			int calcCols = 0;
-			if (expectedNumCols > -1 && expectedNumCols != columnCount) {
-				rtn.append("Checking expected columns in " + schema + tableName);
-				if (wantedColNums.size() > 0) {
-					calcCols = wantedColNums.size() + 1;
-					if (userColNums.size() == 0)
-						calcCols++;
-					else
-						calcCols -= userColNums.size();
+			if (expectedNumCols > -1) {
+				Connection conn = db.getConnection("Sheet2DBTest");
+				String query = "SELECT * FROM " + schema + tableName;
+				Statement stmt = conn.createStatement();
+				stmt.setMaxRows(1);
+				log.debug("query=" + query);
+				ResultSet rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
+				ResultSetMetaData rm = rs.getMetaData();
+				int columnCount = rm.getColumnCount();
+				int calcCols = 0;
+				if (expectedNumCols != columnCount) {
+					rtn.append("Checking expected columns in " + schema + tableName + "\n");
+					if (wantedColNums.size() > 0) {
+						calcCols = wantedColNums.size() + 1;
+						if (userColNums.size() == 0)
+							calcCols++;
+						else
+							calcCols -= userColNums.size();
 
-					rtn.append(" wantedColNums:" + wantedColNums.size() + " userColNums:" + userColNums.size()
-							+ " so might be " + calcCols);
+						rtn.append(" wantedColNums:" + wantedColNums.size() + " userColNums:" + userColNums.size()
+								+ " so might be " + calcCols + "\n");
+					}
+					if (stopOnError)
+						assertEquals(rtn.toString(), expectedNumCols, columnCount);
+					else if (expectedNumCols != columnCount)
+						rtn.append(" expected:" + expectedNumCols + " found:" + columnCount + "\n");
 				}
-				if (stopOnError)
-					assertEquals(rtn.toString(), expectedNumCols, columnCount);
-				else if (expectedNumCols != columnCount)
-					rtn.append(" expected:" + expectedNumCols + " found:" + columnCount);
 			}
-
-			query = "SELECT COUNT(*) FROM " + schema + tableName;
-			stmt = conn.createStatement();
-			rs = stmt.executeQuery(query);
-			assertNotNull("Check ResultSet", rs);
-			if (!db.isSQLite())
-				rs.next();
-			int cnt = rs.getInt(1);
-			if (rows > -1 && rows != cnt) {
-				rtn.append("Checking expected rows in " + schema + tableName);
-				if (stopOnError)
-					assertEquals(rtn.toString(), rows, cnt);
-				else
-					rtn.append(" expected rows:" + rows + " got:" + cnt);
+			if (expectedNumRows > -1) {
+				Connection conn = db.getConnection("Sheet2AppTest");
+				String query = "SELECT COUNT(*) FROM " + schema + tableName;
+				Statement stmt = conn.createStatement();
+				log.debug("query=" + query);
+				ResultSet rs = stmt.executeQuery(query);
+				assertNotNull("Check ResultSet", rs);
+				if (!db.isSQLite())
+					rs.next();
+				int cnt = rs.getInt(1);
+				if (expectedNumRows != cnt) {
+					rtn.append("Checking expected rows in " + schema + tableName);
+					if (stopOnError)
+						assertEquals(rtn.toString(), expectedNumRows, cnt);
+					else
+						rtn.append(" expected rows:" + expectedNumRows + " got:" + cnt);
+				}
 			}
 		} catch (SQLException e) {
 			log.error("Exception creating DB", e);
@@ -387,8 +406,8 @@ public class Sheets2DBTest {
 					Path p = Utils.getPath(baseDir, Sheets2DB.SCRIPTS_FOLDER, file.getFileName().toString());
 					String actual = new String(Files.readAllBytes(p));
 					try {
-						assertEquals("Comparing generated and stored " + file.getFileName().toString(), dos2Unix(expected),
-								dos2Unix(actual));
+						assertEquals("Comparing generated and stored " + file.getFileName().toString(),
+								dos2Unix(expected), dos2Unix(actual));
 					} catch (Throwable e) {
 						// debug break point.
 						throw e;

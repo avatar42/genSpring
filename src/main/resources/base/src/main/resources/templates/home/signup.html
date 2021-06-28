@@ -8,6 +8,8 @@
 		<form class="form-narrow form-horizontal" method="post"
 			th:action="@{/signup}" th:object="${accountForm}"
 			th:fragment="accountForm">
+			<input type="hidden" class="form-control" id="userrole" th:field="*{userrole}" />
+			<input type="hidden" class="form-control" id="id" th:field="*{id}" />
 			<!--/* Show general error messages when form contains errors */-->
 			<th:block th:if="${#fields.hasErrors('${accountForm.*}')}">
 				<div
@@ -18,9 +20,28 @@
 							th:replace="fragments/alert :: alert (type='danger', message=${message})">Alert</div>
 					</div>
 				</div>
+				<ul class="help-block" th:each="error: ${#fields.errors('userrole')}">
+					<li th:each="message : ${error.split(';')}">
+						<p class="error-message" th:text="${message}"></p>
+					</li>
+				</ul>
 			</th:block>
 			<fieldset>
 				<legend th:text="#{signup.title}"></legend>
+				<div class="form-group"
+					th:classappend="${#fields.hasErrors('name')}? 'has-error'">
+					<label for="name" class="col-lg-2 control-label"
+						th:text="#{Account.name}"></label>
+					<div class="col-lg-10">
+						<input type="text" class="form-control" id="name"
+							th:placeholder="#{Account.name}" th:field="*{name}" />
+						<ul class="help-block" th:each="error: ${#fields.errors('name')}">
+							<li th:each="message : ${error.split(';')}">
+								<p class="error-message" th:text="${message}"></p>
+							</li>
+						</ul>
+					</div>
+				</div>
 				<div class="form-group"
 					th:classappend="${#fields.hasErrors('email')}? 'has-error'">
 					<label for="email" class="col-lg-2 control-label"

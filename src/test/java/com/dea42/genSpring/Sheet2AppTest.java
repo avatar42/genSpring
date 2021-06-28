@@ -14,23 +14,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ResourceBundle;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang.StringUtils;
 import org.junit.Assume;
 import org.junit.Test;
 
 import com.dea42.build.CommonMethods;
 import com.dea42.build.GenSpring;
 import com.dea42.build.Sheets2DB;
+import com.dea42.build.Sheets2DBTest;
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
 
@@ -43,8 +39,7 @@ public class Sheet2AppTest {
 	private static final boolean clearSrcFirst = true;
 	private static final boolean stopOnError = false;
 	// to speed up GenSpring testing set this to false
-	private static final boolean doDbCreate = true;
-	private ResourceBundle renames = ResourceBundle.getBundle("rename");
+	private static boolean doDbCreate = true;
 
 	/**
 	 * Generate the POC app and run the regression tests
@@ -245,15 +240,6 @@ public class Sheet2AppTest {
 		}
 	}
 
-	private void chkErr(String lable, int expected, int found) {
-		if (expected > -1) {
-			if (stopOnError)
-				assertEquals(lable, expected, found);
-			else if (expected != found)
-				log.error(lable + " expected:" + expected + " :" + found);
-		}
-	}
-
 	/**
 	 * Run both Sheets2DB and GenSpring on bundleName then run some basic tests.
 	 * 
@@ -274,59 +260,14 @@ public class Sheet2AppTest {
 			// Note set to fail if any errors encountered.
 			Sheets2DB s = new Sheets2DB(bundleName, true, true);
 			s.getSheet();
-
-			String schema = db.getPrefix();
-
-			Connection conn = db.getConnection("Sheet2AppTest");
+			Sheets2DBTest s2dt = new Sheets2DBTest();
+			s2dt.setStopOnError(stopOnError);
 			List<String> tabs = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
 			for (String tabName : tabs) {
-				String tableName = Utils.tabToStr(renames, tabName);
-				int columns = Utils.getProp(bundle, tableName + ".testCols", -1);
-				int rows = Utils.getProp(bundle, tableName + ".testRows", -1);
-				try {
-					String query = "SELECT * FROM " + schema + tableName;
-					Statement stmt = conn.createStatement();
-					stmt.setMaxRows(1);
-					log.debug("query=" + query);
-					ResultSet rs = stmt.executeQuery(query);
-					assertNotNull("Check ResultSet", rs);
-					ResultSetMetaData rm = rs.getMetaData();
-					int size = rm.getColumnCount();
-					chkErr("Checking expected columns in " + schema + tableName, columns, size);
-
-					query = "SELECT COUNT(*) FROM " + schema + tableName;
-					stmt = conn.createStatement();
-					rs = stmt.executeQuery(query);
-					assertNotNull("Check ResultSet", rs);
-					if (!db.isSQLite())
-						rs.next();
-					chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-					List<Integer> userColNums = s.strToCols(Utils.getProp(bundle, tableName + ".user"));
-					if (!userColNums.isEmpty()) {
-						tableName = tableName + "User";
-						columns = Utils.getProp(bundle, tableName + ".testCols", -1);
-						rows = Utils.getProp(bundle, tableName + ".testRows", -1);
-						query = "SELECT * FROM " + schema + tableName;
-						stmt = conn.createStatement();
-						log.debug("query=" + query);
-						rs = stmt.executeQuery(query);
-						assertNotNull("Check ResultSet", rs);
-						rm = rs.getMetaData();
-						size = rm.getColumnCount();
-						chkErr("Checking expected columns in " + schema + tableName, columns, size);
-
-						query = "SELECT COUNT(*) FROM " + schema + tableName;
-						stmt = conn.createStatement();
-						rs = stmt.executeQuery(query);
-						assertNotNull("Check ResultSet", rs);
-						if (db.isMySQL())
-							rs.next();
-						chkErr("Checking expected rows in " + schema + tableName, rows, rs.getInt(1));
-					}
-				} catch (SQLException e) {
-					log.error("Exception creating DB", e);
-					fail("Exception creating DB");
-				}
+				// no point in dup chk code so just call
+				String err = s2dt.quickChkTable(db, bundle, tabName);
+				if (StringUtils.isNotBlank(err))
+					log.error(err);
 			}
 		}
 
@@ -373,5 +314,4 @@ public class Sheet2AppTest {
 			e.printStackTrace();
 		}
 	}
-
 }

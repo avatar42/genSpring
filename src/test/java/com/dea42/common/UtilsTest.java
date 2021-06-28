@@ -85,7 +85,7 @@ public class UtilsTest {
 	public void testGetPropListResourceBundleString() {
 		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		List<String> list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
-		assertTrue(CommonMethods.PROPKEY + ".tabs", list.contains("Roamio_Todo"));
+		assertTrue(CommonMethods.PROPKEY + ".tabs", list.contains("Sheet 1"));
 
 		list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tab");
 		assertTrue(CommonMethods.PROPKEY + ".tab", list.isEmpty());

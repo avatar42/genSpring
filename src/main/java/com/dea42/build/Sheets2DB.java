@@ -648,7 +648,10 @@ public class Sheets2DB extends CommonMethods {
 						// init field lengths to 0
 						int colNum = 0;
 						for (Object h : row) {
-							String header = (String) h;
+							String header = "";
+							if (h != null) {
+								header = h.toString();
+							}
 							if (userColNums.contains(colNum)) {
 								if (StringUtils.isBlank(Utils.tabToStr(renames, header))) {
 									header = "Col" + columnNumberToLetter(colNum + 1);
@@ -862,6 +865,8 @@ public class Sheets2DB extends CommonMethods {
 		if (mainTable != null)
 			mainTableId = mainTable + "_Id";
 
+//		String colCreated = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.created", null));
+//		String colLastMod = Utils.tabToStr(renames, (String) Utils.getProp(bundle, "col.lastMod", null));
 		String className = Utils.tabToStr(renames, tableName);
 		List<String> uniqueCols = Utils.getPropList(bundle, className + ".unique");
 
@@ -1234,6 +1239,21 @@ public class Sheets2DB extends CommonMethods {
 		try {
 			if (!StringUtils.isBlank(saveFile)) {
 				Path p = Utils.getPath(baseDir, SCRIPTS_FOLDER, saveFile);
+				if (!p.toFile().exists()) {
+					try {
+						Files.createDirectories(p.getParent());
+					} catch (IOException e) {
+						log.warn(e.getMessage());
+					}
+				}
+				try (PrintStream ps = new PrintStream(new FileOutputStream(p.toFile(), true))) {
+					ps.println(sql);
+					log.warn("Wrote:" + p.toString());
+				} catch (Exception e) {
+					log.error("failed to create " + p, e);
+					p.toFile().delete();
+				}
+				p = Utils.getPath(baseDir, SCRIPTS_FOLDER, db.getDbName() + ".sql");
 				if (!p.toFile().exists()) {
 					try {
 						Files.createDirectories(p.getParent());

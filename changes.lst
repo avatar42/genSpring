@@ -1,0 +1,41 @@
+14355223813255796      4 -rwxr-x---   1  avata    avata         656 Jun  7 16:27 ..\\changes/.dbeaver/.project-metadata.json.bak
+71213169108808331      4 -rwxr-x---   1  avata    avata         656 Jun  7 16:27 ..\\changes/.dbeaver/project-metadata.json
+ 10133099162596327      8 -rwxr-x---   1  avata    avata        4755 Jun  4 14:43 ..\\changes/pom.xml
+ 12666373952992233      1 -rwxr-x---   1  avata    avata         263 Jun  7 16:27 ..\\changes/Scripts/dea42.org.app.properties
+ 10977524092728298      4 -rwxr-x---   1  avata    avata        1599 Jun  4 14:39 ..\\changes/Scripts/helpful.sql
+  9288674232464371    144 -rwxr-x---   1  avata    avata      145764 Jun  7 15:48 ..\\changes/src/main/java/com/dea42/build/GenSpring.java
+ 10977524092728308     44 -rwxr-x---   1  avata    avata       43716 Jun  6 17:38 ..\\changes/src/main/java/com/dea42/build/Sheets2DB.java
+  9288674232464374     16 -rwxr-x---   1  avata    avata       15748 Jun  4 16:40 ..\\changes/src/main/java/com/dea42/common/Utils.java
+ 43065671437743179     12 -rwxr-x---   1  avata    avata       10834 Jun  8 14:21 ..\\changes/src/main/resources/base/pom.xml.vm
+ 46161896181560747      8 -rwxr-x---   1  avata    avata        5115 Jun  7 15:40 ..\\changes/src/main/resources/base/src/main/java/com/dea42/genspring/controller/AppController.java.vm
+140174538402919888      4 -rwxr-x---   1  avata    avata         970 Jun  7 10:47 ..\\changes/src/main/resources/base/src/main/resources/log4j2.xml
+172825635701356039      4 -rwxr-x---   1  avata    avata        3373 Jun  7 15:38 ..\\changes/src/main/resources/base/src/main/resources/templates/home/signup.html
+197032483698472521      8 -rwxr-x---   1  avata    avata        5485 Jun  7 15:54 ..\\changes/src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm
+102456891523692814     16 -rwxr-x---   1  avata    avata       14126 Jun  8 18:41 ..\\changes/src/test/java/com/dea42/build/Sheets2DBTest.java
+ 69805794225256746     16 -rwxr-x---   1  avata    avata       12906 Jun  6 20:33 ..\\changes/src/test/java/com/dea42/genSpring/Sheet2AppTest.java
+ 85849867897764150      1 -rwxr-x---   1  avata    avata         262 Jun  8 12:30 ..\\changes/src/test/resources/genSpringMSSQLTest/Account.sql
+ 62205969854069047      1 -rwxr-x---   1  avata    avata         220 Jun  8 12:30 ..\\changes/src/test/resources/genSpringMSSQLTest/Sheet1.sql
+ 59672695063673148      1 -rwxr-x---   1  avata    avata         243 Jun  8 12:30 ..\\changes/src/test/resources/genSpringMSSQLTest/Sheet2.sql
+ 15762598696810814      1 -rwxr-x---   1  avata    avata         328 Jun  8 12:37 ..\\changes/src/test/resources/genSpringMySQLTest/Account.sql
+ 61080069947226452      1 -rwxr-x---   1  avata    avata         251 Jun  8 12:37 ..\\changes/src/test/resources/genSpringMySQLTest/Sheet1.sql
+ 61080069947226474      1 -rwxr-x---   1  avata    avata         275 Jun  8 12:37 ..\\changes/src/test/resources/genSpringMySQLTest/Sheet2.sql
+ 45035996274719099      1 -rwxr-x---   1  avata    avata         194 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest/Account.sql
+ 81627743247104413      1 -rwxr-x---   1  avata    avata         152 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest/Sheet1.sql
+ 85568392921053600      1 -rwxr-x---   1  avata    avata         295 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest/Sheet1User.sql
+ 61361544923937185      1 -rwxr-x---   1  avata    avata         175 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest/Sheet2.sql
+109212290964748753      1 -rwxr-x---   1  avata    avata         246 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest2/Account.sql
+ 61643019900647894      1 -rwxr-x---   1  avata    avata         214 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest2/TabA.sql
+ 95982967059348011      1 -rwxr-x---   1  avata    avata         385 Jun  8 12:37 ..\\changes/src/test/resources/genSpringTest2/TabB.sql
+ 59954170040384057      1 -rwxr-x---   1  avata    avata         469 Jun  8 16:35 ..\\changes/src/test/resources/sheettest.properties
+ 25614222881684076      1 -rwxr-x---   1  avata    avata         263 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/Account.sql
+213920982301113966      1 -rwxr-x---   1  avata    avata         477 Jun  8 12:36 ..\\changes/src/test/resources/Watchlist/Cablecard.sql
+128352589381074547      4 -rwxr-x---   1  avata    avata        1565 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/Networks.sql
+259519928528240247      1 -rwxr-x---   1  avata    avata         391 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/NetworksUser.sql
+110338190871592576      4 -rwxr-x---   1  avata    avata        1037 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/Ota.sql
+108367866034617994      1 -rwxr-x---   1  avata    avata         554 Jun  8 12:34 ..\\changes/src/test/resources/Watchlist/RoamioNpl.sql
+106116066220932781      1 -rwxr-x---   1  avata    avata         472 Jun  8 12:35 ..\\changes/src/test/resources/Watchlist/RoamioSp.sql
+201254608349134520      1 -rwxr-x---   1  avata    avata         467 Jun  8 12:35 ..\\changes/src/test/resources/Watchlist/RoamioTodo.sql
+ 82472168177237696      1 -rwxr-x---   1  avata    avata         598 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/Shows.sql
+ 88383142688161492      4 -rwxr-x---   1  avata    avata         945 Jun  8 12:33 ..\\changes/src/test/resources/Watchlist/ShowsUser.sql
+188306759420444398      4 -rwxr-x---   1  avata    avata        3692 Jun  8 17:11 ..\\changes/src/test/resources/Watchlist.properties
+ 92042317385400206      4 -rwxr-x---   1  avata    avata        1074 Jun  8 18:18 ..\\changes/tokens/StoredCredential

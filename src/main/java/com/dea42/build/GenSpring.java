@@ -2,6 +2,7 @@ package com.dea42.build;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -26,6 +27,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tika.parser.txt.CharsetDetector;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -57,7 +59,7 @@ public class GenSpring extends CommonMethods {
 	public static int COLUMN_NAME = 4;// 'id'
 	public static int DATA_TYPE = 5;// '4' // Types.*
 	public static int TYPE_NAME = 6;// 'INTEGER'
-	// SQLite ignores field sizes and precisioN. nEED TO USE TYPE_NAME TO GET
+	// SQLite ignores field sizes and precision. Need to use TYPE_NAME to get
 	// varchar LEN
 	public static int COLUMN_SIZE = 7;// '2000000000'
 	public static int BUFFER_LENGTH = 8;// '2000000000'
@@ -65,7 +67,7 @@ public class GenSpring extends CommonMethods {
 	public static int NUM_PREC_RADIX = 10;// '10'
 	public static int NULLABLE = 11;// '0'
 	public static int REMARKS = 12;// 'null'
-	public static int COLUMN_DEF = 13;// 'null'
+	public static int COLUMN_DEF = 13;// 'null' // default value
 	public static int SQL_DATA_TYPE = 14;// '0'
 	public static int SQL_DATETIME_SUB = 15;// '0'
 	public static int CHAR_OCTET_LENGTH = 16;// '2000000000'
@@ -367,7 +369,7 @@ public class GenSpring extends CommonMethods {
 				} else {
 					Path p = Utils.createFile(baseDir, relPath);
 					if (p != null) {
-						try {
+						try {			
 							Files.copy(file, p, StandardCopyOption.REPLACE_EXISTING);
 							log.warn("Wrote:" + p.toString());
 						} catch (Exception e) {
@@ -464,6 +466,7 @@ public class GenSpring extends CommonMethods {
 
 		Connection conn = db.getConnection(PROPKEY + ".genFiles()");
 
+		String catalog = db.getDbName();
 		log.debug("tableName:" + tableName);
 		// Map indexed by column name
 		List<String> jsonIgnoreCols = Utils.getPropList(bundle, className + ".JsonIgnore");
@@ -473,10 +476,9 @@ public class GenSpring extends CommonMethods {
 		List<String> listCols = Utils.getPropList(bundle, className + ".list");
 
 		DatabaseMetaData meta = conn.getMetaData();
-		ResultSet rs = meta.getColumns(null, null, tableName, null);
+		ResultSet rs = meta.getColumns(catalog, null, tableName, null);
 		ResultSetMetaData rm = rs.getMetaData();
 		Map<String, ColInfo> colNameToInfoMap = new TreeMap<String, ColInfo>();
-		String catalog = "";
 		while (rs.next()) {
 			if (log.isDebugEnabled()) {
 				for (int i = 1; i <= rm.getColumnCount(); i++) {
@@ -492,21 +494,20 @@ public class GenSpring extends CommonMethods {
 			if (firstColumnName == null) {
 				firstColumnName = columnName;
 			}
+			colInfo.setDefaultVal(rs.getObject(COLUMN_DEF));
 			String typeName = rs.getString(TYPE_NAME);
 			int stype = rs.getInt(DATA_TYPE);
 			int colSize = rs.getInt(COLUMN_SIZE);
-			if ("SortableDate".equals(columnName)) {
-				log.debug("SortableDate:" + colInfo + ":" + typeName + ":" + stype);
-			}
 			// process mod lists
 			colInfo.setPassword(caseIgnoreListContains(passwordCols, columnName, false));
 			colInfo.setEmail(caseIgnoreListContains(emailCols, columnName, false));
 			colInfo.setJsonIgnore(caseIgnoreListContains(jsonIgnoreCols, columnName, false));
 			colInfo.setUnique(caseIgnoreListContains(uniqueCols, columnName, false));
-			if (colInfo.isPk())
+			if (colInfo.isPk()) {
 				colInfo.setList(false);
-			else
+			} else {
 				colInfo.setList(caseIgnoreListContains(listCols, columnName, true));
+			}
 			if (db.isSqlserver()) {
 				try {
 					String autoinc = rs.getString(IS_AUTOINCREMENT);
@@ -603,6 +604,10 @@ public class GenSpring extends CommonMethods {
 				colInfo.setColScale(rs.getInt(DECIMAL_DIGITS));
 				break;
 
+			case Types.BIT:
+			case Types.BOOLEAN:
+				colInfo.setType("Boolean");
+				break;
 			case Types.INTEGER:
 			case Types.SMALLINT:
 			case Types.TINYINT:
@@ -1437,6 +1442,20 @@ public class GenSpring extends CommonMethods {
 					ps.println("					</div>");
 					ps.println(unless);
 					ps.println("				</div>");
+				} else if (info.isBoolean()) {
+					ps.println("				<div class=\"form-group\">");
+					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
+							+ "\" class=\"col-lg-2 control-label\"");
+					ps.println("						th:text=\"#{" + info.getMsgKey()
+							+ "} + ' ' + #{search.like}\"></label>");
+					ps.println("					<div class=\"col-lg-10\">");
+					ps.println("						<input type=\"checkbox\" class=\"form-control\" id=\"" + form
+							+ fieldName + "." + info.getVName() + "\"");
+					ps.println("							th:checked=\"*{" + form + fieldName + "." + info.getVName()
+							+ "}\" />");
+					ps.println("					</div>");
+					ps.println("				</div>");
+					ps.println("");
 				} else if (info.isDate()) {
 					ps.println("				<" + divs + " class=\"form-group\">");
 					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
@@ -1465,6 +1484,7 @@ public class GenSpring extends CommonMethods {
 					ps.println("				</div>");
 					ps.println("");
 				} else { // number assumed
+					ps.println("<!-- subtype=" + info.toString() + " -->");
 					ps.println("				<" + divs + " class=\"form-group\">");
 					ps.println("					<label for=\"" + form + fieldName + "." + info.getVName()
 							+ "Min\" class=\"col-lg-2 control-label\"");
@@ -1573,8 +1593,22 @@ public class GenSpring extends CommonMethods {
 						ps.println("					</div>");
 						ps.println("				</div>");
 						ps.println("");
+					} else if (info.isBoolean()) {
+						ps.println("				<div class=\"form-group\">");
+						ps.println("					<label for=\"" + info.getVName()
+								+ "\" class=\"col-lg-2 control-label\"");
+						ps.println("						th:text=\"#{" + info.getMsgKey()
+								+ "} + ' ' + #{search.like}\"></label>");
+						ps.println("					<div class=\"col-lg-10\">");
+						ps.println("						<input type=\"checkbox\" class=\"form-control\" id=\""
+								+ info.getVName() + "\"");
+						ps.println("							th:checked=\"*{" + info.getVName() + "}\" />");
+						ps.println("					</div>");
+						ps.println("				</div>");
+						ps.println("");
 					} else if (info.isDate()) {
 						// TODO: add date pickers
+						ps.println("<!-- type=" + info.getType() + " -->");
 						ps.println("				<div class=\"form-group\">");
 //						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
 //								+ "')}? 'has-error'\">");
@@ -1620,6 +1654,7 @@ public class GenSpring extends CommonMethods {
 						ps.println("				</div>");
 						ps.println("");
 					} else { // number assumed
+						ps.println("<!-- info=" + info.toString() + " -->");
 						ps.println("				<div class=\"form-group\">");
 //						ps.println("					th:classappend=\"${#fields.hasErrors('" + info.getVName()
 //								+ "')}? 'has-error'\">");
@@ -2217,7 +2252,7 @@ public class GenSpring extends CommonMethods {
 							}
 						}
 					} else {
-						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
+						ps.println("		/* TODO: confirm ignoring " + info.toString() + " */");
 					}
 				}
 				ps.println("		return o;");
@@ -2267,7 +2302,7 @@ public class GenSpring extends CommonMethods {
 						if (!info.getVName().endsWith("link"))
 							ps.println("//		contentContainsMarkup(ra,getMsg(\"" + info.getMsgKey() + "\"));");
 					} else {
-						ps.println("		// TODO: confirm ignoring " + info.getMsgKey());
+						ps.println("		/* TODO: confirm ignoring " + info.toString() + " */");
 					}
 
 				}
@@ -2663,7 +2698,7 @@ public class GenSpring extends CommonMethods {
 				if (PKEY_INFO.equals(key))
 					continue;
 				ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-				if ("BigDecimal".equals(info.getType()))
+				if (info.isBigDecimal())
 					imports.add("import java.math.BigDecimal;");
 
 				if (info.isDate()) {
@@ -2763,7 +2798,7 @@ public class GenSpring extends CommonMethods {
 						+ parent.getVName() + "\",\"" + c.getVName() + "\", new Date(form.get" + parent.getGsName()
 						+ "().get" + c.getGsName() + "Max().getTime() + 1), SearchOperation.LESS_THAN_EQUAL));");
 				ps.println("				}");
-			} else if ("BigDecimal".equals(c.getType())) {
+			} else if (c.isBigDecimal()) {
 				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
 						+ "Min() != null) {");
 				ps.println("					BigDecimal bd = form.get" + parent.getGsName() + "().get"
@@ -2790,13 +2825,21 @@ public class GenSpring extends CommonMethods {
 				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
 						+ parent.getVName() + "\",\"" + c.getVName() + "\",bd, SearchOperation.LESS_THAN_EQUAL));");
 				ps.println("				}");
-			} else if ("String".equals(c.getType())) {
+			} else if (c.isString()) {
 				ps.println("				if (!StringUtils.isBlank(form.get" + parent.getGsName() + "().get"
 						+ c.getGsName() + "())) {");
 				ps.println("					searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
 						+ parent.getVName() + "\",\"" + c.getVName() + "\", form.get" + parent.getGsName() + "().get"
 						+ c.getGsName() + "().toLowerCase(), SearchOperation.LIKE));");
 				ps.println("				}");
+			} else if (c.isBoolean()) {
+				ps.println(
+						"			if (form.get" + parent.getGsName() + "().get" + c.getGsName() + "() != null) {");
+				ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(\""
+						+ parent.getVName() + "\",\"" + c.getVName() + "\", form.get" + parent.getGsName() + "().get"
+						+ c.getGsName() + "(),");
+				ps.println("					SearchOperation.EQUAL));");
+				ps.println("			}");
 			} else { // must be a number
 				ps.println("				if (form.get" + parent.getGsName() + "().get" + c.getGsName()
 						+ "Min() != null) {");
@@ -2993,7 +3036,7 @@ public class GenSpring extends CommonMethods {
 						ps.println("					new Date(form.get" + c.getGsName() + "Max().getTime() + 1),");
 						ps.println("					SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
-					} else if ("BigDecimal".equals(c.getType())) {
+					} else if (c.isBigDecimal()) {
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
 						ps.println("				BigDecimal bd = form.get" + c.getGsName() + "Min();");
 						if (db.isSQLite()) {
@@ -3020,11 +3063,17 @@ public class GenSpring extends CommonMethods {
 								+ c.getVName() + "\",bd,");
 						ps.println("					SearchOperation.LESS_THAN_EQUAL));");
 						ps.println("			}");
-					} else if ("String".equals(c.getType())) {
+					} else if (c.isString()) {
 						ps.println("			if (!StringUtils.isBlank(form.get" + c.getGsName() + "())) {");
 						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
 								+ c.getVName() + "\", form.get" + c.getGsName() + "().toLowerCase(),");
 						ps.println("					SearchOperation.LIKE));");
+						ps.println("			}");
+					} else if (c.isBoolean()) {
+						ps.println("			if (form.get" + c.getGsName() + "() != null) {");
+						ps.println("				searchSpec.add(new SearchCriteria<" + c.getType() + ">(null,\""
+								+ c.getVName() + "\", form.get" + c.getGsName() + "(),");
+						ps.println("					SearchOperation.EQUAL));");
 						ps.println("			}");
 					} else { // must be a number
 						ps.println("			if (form.get" + c.getGsName() + "Min() != null) {");
@@ -3182,6 +3231,15 @@ public class GenSpring extends CommonMethods {
 					ps.println("## SQLite also needs");
 					ps.println("spring.jpa.database-platform=" + basePkg + ".db.SQLiteDialect");
 					ps.println("spring.datasource.driver-class-name = org.sqlite.JDBC");
+
+				}
+				if (dbDriver.contains("mysql")) {
+					ps.println("## Change as needed");
+					ps.println("#spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.MariaDB53Dialect");
+					ps.println("#spring.jpa.database-platform=org.hibernate.dialect.MariaDB53Dialect");
+					ps.println("#spring.jpa.properties.hibernate.dialect = org.hibernate.dialect.MySQL8Dialect");
+					ps.println("#spring.jpa.database-platform=org.hibernate.dialect.MySQL8Dialect");
+					ps.println("#spring.jpa.properties.hibernate.dialect.storage_engine=innodb");
 				}
 				if (StringUtils.isBlank(dbUrl) && dbDriver.contains("sqlite")) {
 					String folder = Utils.getProp(bundle, PROPKEY + ".outdir", ".");
@@ -3295,6 +3353,9 @@ public class GenSpring extends CommonMethods {
 					if (info.isLastMod()) {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
 								+ info.getDefaultVal() + ";");
+					} else if (info.isPk()) {
+						ps.println(
+								"	private " + info.getType() + ' ' + info.getVName() + " = 0" + info.getMod() + ";");
 					} else {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + ';');
 					}
@@ -3464,7 +3525,7 @@ public class GenSpring extends CommonMethods {
 									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
 							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
 							ps.println("");
-						} else if ("BigDecimal".equals(info.getType())) {
+						} else if (info.isBigDecimal()) {
 							ps.println(
 									"		form.set" + info.getGsName() + "Min(new BigDecimal(Integer.MIN_VALUE));");
 							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
@@ -3501,7 +3562,7 @@ public class GenSpring extends CommonMethods {
 							ps.println(
 									"		form.set" + info.getGsName() + "Max(rec.get" + info.getGsName() + "());");
 							ps.println("		confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
-						} else if ("String".equals(info.getType())) {
+						} else if (info.isString()) {
 							ps.println("		form.set" + info.getGsName() + "(\"%\");");
 							ps.println("		rec = getMidRecord(form, 0" + pkinfo.getMod() + ");");
 							ps.println("		log.info(\"Searching for records with " + info.getVName()
@@ -3529,9 +3590,15 @@ public class GenSpring extends CommonMethods {
 									+ "(\"%\" + text.substring(mid, text.length()));");
 							ps.println("			confirmGotResult(form, rec.get" + pkinfo.getGsName() + "());");
 							ps.println("		}");
+						} else if (info.isBoolean()) {
+							ps.println("		log.info(\"Searching for records with " + info.getVName() + "\");");
+							ps.println("		form.set" + info.getGsName() + "(Boolean.FALSE);");
+							ps.println("		confirmGotResult(form, 0" + pkinfo.getMod() + ");");
+							ps.println("		form.set" + info.getGsName() + "(Boolean.TRUE);");
+							ps.println("		confirmGotResult(form, 0" + pkinfo.getMod() + ");");
 						} else {
 							// Long.MIN_VALUE seems to trip up Hibernate on SQLite
-							if ("Long".equals(info.getType()))
+							if (info.isLong())
 								ps.println("		form.set" + info.getGsName() + "Min(0l);");
 							else
 								ps.println("		form.set" + info.getGsName() + "Min(" + info.getType()
@@ -3618,15 +3685,20 @@ public class GenSpring extends CommonMethods {
 					if (PKEY_INFO.equals(key))
 						continue;
 					ColInfo info = (ColInfo) colNameToInfoMap.get(key);
-					if (info.isDate()) {
-						ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
-					}
 					if (info.getForeignTable() != null) {
 						ps.println("	private " + info.getType() + "SearchForm " + info.getVName() + ";");
-					} else if ("String".equals(info.getType())) {
+					} else if (info.isString()) {
+						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = \""
+								+ info.getDefaultVal() + "\";");
+					} else if (info.isBoolean()) {
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + " = "
 								+ info.getDefaultVal() + ";");
 					} else {
+						if (info.isDate()) {
+							ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
+						} else {
+							ps.println("/* info=" + info.toString() + " */");
+						}
 						ps.println("	private " + info.getType() + ' ' + info.getVName() + "Min;");
 						if (info.isDate()) {
 							ps.println("	@DateTimeFormat(pattern = \"yyyy-MM-dd hh:mm:ss\")");
@@ -3657,7 +3729,9 @@ public class GenSpring extends CommonMethods {
 					if (info.getForeignTable() != null) {
 						ps.println("		form.set" + info.getGsName() + "(" + info.getGsName()
 								+ "SearchForm.getInstance(obj.get" + info.getGsName() + "()));");
-					} else if ("String".equals(info.getType())) {
+					} else if (info.isString()) {
+						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
+					} else if (info.isBoolean()) {
 						ps.println("		form.set" + info.getGsName() + "(obj.get" + info.getGsName() + "());");
 					} else {
 						ps.println("		form.set" + info.getGsName() + "Min(obj.get" + info.getGsName() + "());");
@@ -3791,7 +3865,7 @@ public class GenSpring extends CommonMethods {
 						sb.append(", unique = true");
 					if (info.isRequired())
 						sb.append(", nullable = false");
-					if ("String".equals(info.getType()) && info.getLength() > 0) {
+					if (info.isString() && info.getLength() > 0) {
 						sb.append(", length = " + info.getLength());
 					}
 					sb.append(")");

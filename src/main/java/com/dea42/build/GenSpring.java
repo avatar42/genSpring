@@ -2,7 +2,6 @@ package com.dea42.build;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -27,7 +26,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.tika.parser.txt.CharsetDetector;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -369,7 +367,7 @@ public class GenSpring extends CommonMethods {
 				} else {
 					Path p = Utils.createFile(baseDir, relPath);
 					if (p != null) {
-						try {			
+						try {
 							Files.copy(file, p, StandardCopyOption.REPLACE_EXISTING);
 							log.warn("Wrote:" + p.toString());
 						} catch (Exception e) {
@@ -3182,7 +3180,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("			form = new " + className + "SearchForm();");
 				ps.println("");
 				ps.println("		}");
-				ps.println("		form.setPage(pagingRequest.getStart() + 1);");
+				ps.println("		form.setPage((pagingRequest.getStart() / pagingRequest.getLength()) + 1);");
 				ps.println("		form.setPageSize(pagingRequest.getLength());");
 				ps.println("		Order order = pagingRequest.getOrder().get(0);");
 				ps.println("		int columnIndex = order.getColumn();");

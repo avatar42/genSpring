@@ -3,10 +3,11 @@
  */
 package com.dea42.build;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,8 +20,7 @@ import java.nio.file.Paths;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.dea42.common.Utils;
 
@@ -60,16 +60,16 @@ public class Java2VMTest {
 	 * @throws IOException
 	 */
 	public void doJava2vm(Java2VM java2vm, String file, String... expectedText) throws IOException {
-		assertFalse("Found absolute path:" + file, file.charAt(0) == '/');
+		assertFalse(file.charAt(0) == '/', "Found absolute path:" + file);
 		Path srcFile = Utils.getPath(java2vm.getBaseDir(), file.replace("com/dea42/genspring", java2vm.getBasePath()));
-		Assume.assumeTrue("Checking " + srcFile + " does not exists", srcFile.toFile().exists());
+		assumeTrue(srcFile.toFile().exists(), "Checking " + srcFile + " does not exists");
 		Path outPath = Utils.getPath(java2vm.getBaseDir(), "target/base", file + ".vm");
 		Utils.deletePath(outPath);
 		java2vm.java2vm(srcFile.toString(), outPath.toString());
 
 		String actual = new String(Files.readAllBytes(outPath));
 		for (String expected : expectedText) {
-			assertTrue("Looking for " + expected + " in " + outPath.toAbsolutePath(), actual.contains(expected));
+			assertTrue(actual.contains(expected), "Looking for " + expected + " in " + outPath.toAbsolutePath());
 		}
 		log.debug("Created:" + outPath);
 	}
@@ -87,7 +87,7 @@ public class Java2VMTest {
 	public void dovm2java(Java2VM java2vm, String templatefilePathStr, String... expectedText) throws IOException {
 
 		Path srcPath = Utils.getPath(templatefilePathStr);
-		assertTrue("Check exists:" + templatefilePathStr, srcPath.toFile().exists());
+		assertTrue(srcPath.toFile().exists(), "Check exists:" + templatefilePathStr);
 
 		String rfile = java2vm.getResourcePathString(srcPath.toString());
 		InputStream stream = getClass().getResourceAsStream("/" + rfile);
@@ -102,7 +102,7 @@ public class Java2VMTest {
 			}
 		}
 
-		assertNotNull("Checking classpath for:" + rfile, stream);
+		assertNotNull(stream, "Checking classpath for:" + rfile);
 
 		Path outPath = Utils.getPath(java2vm.getBaseDir(), "target/v2j/", rfile.substring(5, rfile.length() - 3));
 		Utils.deletePath(outPath);
@@ -111,18 +111,18 @@ public class Java2VMTest {
 
 		String actual = new String(Files.readAllBytes(outPath));
 		for (String expected : expectedText) {
-			assertTrue("Looking for " + expected + " in " + outPath.toAbsolutePath(), actual.contains(expected));
+			assertTrue(actual.contains(expected), "Looking for " + expected + " in " + outPath.toAbsolutePath());
 		}
 	}
 
 	@Test
-	public void testgetResourcePathString() throws Exception {
+	void testgetResourcePathString() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		String expected = "base/src/test/java/com/dea42/genspring/UnitBase.java.vm";
 		String actual = j.getResourcePathString(
 				rel + "src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm");
-		assertEquals("Checking relative:", expected, actual);
+		assertEquals(expected, actual, "Checking relative:");
 
 		String fullPath = "D:\\SpringTools4.6.1\\workspace\\genSpring\\src\\main\\resources\\base\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java.vm";
 		// Linux
@@ -130,11 +130,11 @@ public class Java2VMTest {
 			fullPath = "/home/deabigt/SpringTools4.6.1/workspace/genSpring/src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm";
 		}
 		actual = j.getResourcePathString(fullPath);
-		assertEquals("Checking relative:", expected, actual);
+		assertEquals(expected, actual, "Checking relative:");
 
 		actual = j.getResourcePathString(
 				rel + "../genSpring/src/main/resources/base/src/test/java/com/dea42/genspring/UnitBase.java.vm");
-		assertEquals("Checking relative:", expected, actual);
+		assertEquals(expected, actual, "Checking relative:");
 	}
 
 	/**
@@ -144,7 +144,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase() throws Exception {
+	void testVm2JavaUnitBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package com.dea42.genspring;", "protected static int ADMIN_USER_ID",
@@ -159,7 +159,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase2() throws Exception {
+	void testVm2JavaUnitBase2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package dea.example.regression;", "protected static int ADMIN_USER_ID",
@@ -174,7 +174,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaUnitBase4() throws Exception {
+	void testVm2JavaUnitBase4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/src/test/java/com/dea42/genspring/UnitBase.java.vm",
 				"package com.dea42.genspring;", "protected static long ADMIN_USER_ID",
@@ -189,7 +189,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaPom() throws Exception {
+	void testVm2JavaPom() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
@@ -205,7 +205,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaPom2() throws Exception {
+	void testVm2JavaPom2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/pom.xml.vm", "<groupId>" + j.getBaseGroupId() + "</groupId>",
@@ -221,7 +221,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testVm2JavaREADME() throws Exception {
+	void testVm2JavaREADME() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 		dovm2java(j, Java2VM.TEMPLATE_FOLDER + "/README.md.vm", "## Screen shots",
 				"![French home screen](screenshots/home.fr.png)", "# " + j.getAppName(), j.getAppDescription());
@@ -236,7 +236,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase() throws Exception {
+	void testJava2vmUnitBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
@@ -251,7 +251,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmNewStuff() throws Exception {
+	void testJava2vmNewStuff() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 //		doJava2vm(j, "src/main/java/com/dea42/genspring/search/SearchCriteria.java", "package ${basePkg}.search;");
@@ -268,7 +268,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmAppControllerTest() throws Exception {
+	void testJava2vmAppControllerTest() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
@@ -283,7 +283,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmAppControllerTest4() throws Exception {
+	void testJava2vmAppControllerTest4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/controller/AppControllerTest.java",
@@ -297,7 +297,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmSeleniumBase() throws Exception {
+	void testJava2vmSeleniumBase() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/selenium/SeleniumBase.java", "package ${basePkg}.selenium;",
@@ -312,7 +312,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmPom2() throws Exception {
+	void testJava2vmPom2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
 		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
@@ -328,7 +328,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmPom() throws Exception {
+	void testJava2vmPom() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_INT_IDS);
 
 		doJava2vm(j, "pom.xml", "<groupId>${baseGroupId}</groupId>", "<artifactId>${baseArtifactId}</artifactId>",
@@ -344,7 +344,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase2() throws Exception {
+	void testJava2vmUnitBase2() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_ALT_OPTIONS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
@@ -361,7 +361,7 @@ public class Java2VMTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testJava2vmUnitBase4() throws Exception {
+	void testJava2vmUnitBase4() throws Exception {
 		Java2VM j = new Java2VM(TEST_WITH_LONG_IDS);
 
 		doJava2vm(j, "src/test/java/com/dea42/genspring/UnitBase.java", "package ${basePkg};",
@@ -376,7 +376,7 @@ public class Java2VMTest {
 	 * @throws IOException
 	 */
 	@Test
-	public void testp() throws IOException {
+	void testp() throws IOException {
 		String idPrim = "int";
 		String data = "	protected static int TEST_USER_ID;\r\n" + "	protected static String TEST_USER;\r\n"
 				+ "	protected static String TEST_PASS;\r\n" + "	protected static String TEST_ROLE;\r\n" + "\r\n"
@@ -390,7 +390,7 @@ public class Java2VMTest {
 //		assertTrue("find:", m.find());
 		data = m.replaceAll("\\${idPrim} $2_ID;");
 		log.debug(data);
-		assertTrue("data", data.contains("${idPrim}"));
+		assertTrue(data.contains("${idPrim}"), "data");
 	}
 
 	/**

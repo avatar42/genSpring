@@ -1010,13 +1010,13 @@ public class GenSpring extends CommonMethods {
 				ps.println("import java.util.List;");
 //				ps.println("import java.util.function.Function;");
 				ps.println("");
-				ps.println("import org.junit.Test;");
-				ps.println("import org.junit.runner.RunWith;");
+				ps.println("import org.junit.jupiter.api.Test;");
+				ps.println("import org.junit.jupiter.api.extension.ExtendWith;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
 				ps.println("import org.springframework.data.domain.Page;");
 //				ps.println("import org.springframework.data.domain.Pageable;");
 //				ps.println("import org.springframework.data.domain.Sort;");
-				ps.println("import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;");
+				ps.println("import org.springframework.test.context.junit.jupiter.SpringExtension;");
 				ps.println("");
 				ps.println("import " + basePkg + ".MockBase;");
 				for (String className : set) {
@@ -1024,7 +1024,7 @@ public class GenSpring extends CommonMethods {
 				}
 				ps.println("");
 				ps.println(getClassHeader("ApiControllerTest", "REST Api Controller Test.", null));
-				ps.println("@RunWith(SpringJUnit4ClassRunner.class)");
+				ps.println("@ExtendWith(SpringExtension.class)");
 				ps.println("@WebMvcTest(ApiController.class)");
 				ps.println("public class ApiControllerTest extends MockBase {");
 				ps.println("");
@@ -2209,7 +2209,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("import static org.mockito.BDDMockito.given;");
 				ps.println("import java.util.ArrayList;");
 				ps.println("import java.util.List;");
-				ps.println("import org.junit.Test;");
+				ps.println("import org.junit.jupiter.api.Test;");
 				ps.println("import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;");
 				ps.println("import org.springframework.data.domain.Page;");
 				ps.println("import org.springframework.test.web.servlet.ResultActions;");
@@ -2909,6 +2909,13 @@ public class GenSpring extends CommonMethods {
 				Set<String> imports = new TreeSet<String>();
 				imports.add("import java.math.BigDecimal;");
 				imports.add("import java.util.List;");
+				
+				imports.add("import java.util.Optional;");
+				imports.add("import java.util.ResourceBundle;");
+				imports.add("import javax.annotation.PostConstruct;");
+				imports.add("import javax.servlet.http.HttpServletRequest;");
+				imports.add("import lombok.extern.slf4j.Slf4j;");
+				
 				imports.add("import org.apache.commons.lang3.StringUtils;");
 				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
 				imports.add("import org.springframework.data.domain.Page;");
@@ -3246,8 +3253,7 @@ public class GenSpring extends CommonMethods {
 					if (!outPath.toFile().isDirectory())
 						outPath.toFile().mkdirs();
 
-					dbUrl = "jdbc:sqlite:" + outPath.toAbsolutePath().toString().replace('\\', '/') + "/"
-							+ getBundelName() + "DB.sqlite";
+					dbUrl = "jdbc:sqlite:" + getBundelName() + "DB.sqlite";
 
 				}
 				ps.println("spring.datasource.url=" + dbUrl);
@@ -3412,12 +3418,15 @@ public class GenSpring extends CommonMethods {
 				ps.println("package " + pkgNam + ';');
 				ps.println("");
 				Set<String> imports = new TreeSet<String>();
-				imports.add("import org.junit.Test;");
-				imports.add("import org.junit.runner.RunWith;");
+				imports.add("import static org.junit.jupiter.api.Assertions.assertNotNull;");
+				imports.add("import static org.junit.jupiter.api.Assertions.assertTrue;");
+				imports.add("");
+				imports.add("import org.junit.jupiter.api.Test;");
+				imports.add("import org.junit.jupiter.api.extension.ExtendWith;");
 				imports.add("import org.springframework.beans.factory.annotation.Autowired;");
 				imports.add("import org.springframework.boot.test.context.SpringBootTest;");
 				imports.add("import org.springframework.data.domain.Page;");
-				imports.add("import org.springframework.test.context.junit4.SpringRunner;");
+				imports.add("import org.springframework.test.context.junit.jupiter.SpringExtension;");
 				imports.add("");
 				imports.add("import " + basePkg + ".UnitBase;");
 				imports.add("import " + basePkg + ".entity." + className + ";");
@@ -3431,9 +3440,9 @@ public class GenSpring extends CommonMethods {
 						"Does regression tests of " + tableName + " search from service to DB", ""));
 
 				ps.println("@Slf4j");
-				ps.println("@RunWith(SpringRunner.class)");
+				ps.println("@ExtendWith(SpringExtension.class)");
 				ps.println("@SpringBootTest");
-				ps.println("public class " + className + "SearchTest extends UnitBase {");
+				ps.println("class " + className + "SearchTest extends UnitBase {");
 				ps.println("");
 				ps.println("	@Autowired");
 				ps.println("	private " + className + "Services " + fieldName + "Services;");
@@ -3443,8 +3452,8 @@ public class GenSpring extends CommonMethods {
 						+ pkinfo.getType() + " expectedID) {");
 				ps.println("		log.info(\"form:\"+form);");
 				ps.println("		Page<" + className + "> list = " + fieldName + "Services.listAll(form);");
-				ps.println("		assertNotNull(\"Checking return not null\", list);");
-				ps.println("		assertTrue(\"Checking at least 1 return\", list.toList().size() > 0);");
+				ps.println("		assertNotNull( list, \"Checking return not null\");");
+				ps.println("		assertTrue( list.toList().size() > 0, \"Checking at least 1 return\");");
 				ps.println("		if (expectedID > 0) {");
 				ps.println("			boolean found = false;");
 				ps.println("			for (" + className + " s2 : list) {");
@@ -3453,7 +3462,7 @@ public class GenSpring extends CommonMethods {
 				ps.println("				log.info(s2.toString());");
 				ps.println("			}");
 				ps.println("");
-				ps.println("			assertTrue(\"Looking for record ID \" + expectedID + \" in results\", found);");
+				ps.println("			assertTrue( found, \"Looking for record ID \" + expectedID + \" in results\");");
 				ps.println("		}");
 				ps.println("		return list;");
 				ps.println("	}");
@@ -3461,9 +3470,9 @@ public class GenSpring extends CommonMethods {
 				ps.println("	private " + className + " getMidRecord(" + className + "SearchForm form, "
 						+ pkinfo.getType() + " expectedID) {");
 				ps.println("		Page<" + className + "> list = confirmGotResult(form, expectedID);");
-				ps.println("		assertNotNull(\"Checking return not null\", list);");
+				ps.println("		assertNotNull( list, \"Checking return not null\");");
 				ps.println("		int size = list.toList().size();");
-				ps.println("		assertTrue(\"Checking at least 1 return\", size > 0);");
+				ps.println("		assertTrue( size > 0, \"Checking at least 1 return\");");
 				ps.println("		int record = 0;");
 				ps.println("		if (size > 2)");
 				ps.println("			record = size / 2;");
@@ -3478,7 +3487,7 @@ public class GenSpring extends CommonMethods {
 					if (!info.isPk()) {
 						ps.println("");
 						ps.println("	@Test");
-						ps.println("	public void test" + info.getGsName() + "() {");
+						ps.println("	void test" + info.getGsName() + "() {");
 						ps.println("		// " + info.getVName() + " " + info.getType() + " " + info.getStype());
 						ps.println("		" + className + " rec = null;");
 						ps.println("		" + className + "SearchForm form = new " + className + "SearchForm();");

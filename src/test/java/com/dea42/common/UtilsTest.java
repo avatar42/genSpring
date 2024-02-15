@@ -3,18 +3,18 @@
  */
 package com.dea42.common;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.util.List;
 import java.util.ResourceBundle;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.BlockJUnit4ClassRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import com.dea42.build.CommonMethods;
 import com.dea42.build.Sheets2DBTest;
@@ -25,19 +25,19 @@ import lombok.extern.slf4j.Slf4j;
  * @author avata
  *
  */
-@RunWith(BlockJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @Slf4j
-public class UtilsTest {
+class UtilsTest {
 
 	/**
 	 * Test method for
 	 * {@link com.dea42.common.Utils#getProp(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testGetPropResourceBundleString() {
+	void testGetPropResourceBundleString() {
 		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		String val = Utils.getProp(bundle, "db.driver");
-		assertEquals("db.driver", "org.sqlite.JDBC", val);
+		assertEquals("org.sqlite.JDBC", val, "db.driver");
 		val = Utils.getProp(bundle, "db.drive");
 		assertNull("db.drive", val);
 	}
@@ -48,19 +48,19 @@ public class UtilsTest {
 	 * 
 	 */
 	@Test
-	public void testGetPropClsGetPropResourceBundleStringClass() {
+	void testGetPropClsGetPropResourceBundleStringClass() {
 		ResourceBundle bundle = ResourceBundle.getBundle("Watchlist");
 		Class<?> val = Utils.getPropCls(bundle, "RoamioNpl.L.type", null);
-		assertNotNull("Checking RoamioNpl.L.type is not null", val);
-		assertTrue("Checking RoamioNpl.L.type is String", val.isAssignableFrom(String.class));
+		assertNotNull(val, "Checking RoamioNpl.L.type is not null");
+		assertTrue(val.isAssignableFrom(String.class), "Checking RoamioNpl.L.type is String");
 
 		// shows.24.type=java.util.Date
 		val = Utils.getPropCls(bundle, "Shows.BG.type", null);
-		assertNotNull("Checking Shows.BG.type is not null", val);
-		assertTrue("Checking Shows.BG.type is Date", val.isAssignableFrom(java.util.Date.class));
+		assertNotNull(val, "Checking Shows.BG.type is not null");
+		assertTrue(val.isAssignableFrom(java.util.Date.class), "Checking Shows.BG.type is Date");
 
 		val = Utils.getPropCls(bundle, "shows.B.type", null);
-		assertNull("Checking shows.B.type is null", val);
+		assertNull(val, "Checking shows.B.type is null");
 
 	}
 
@@ -69,12 +69,12 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#getProp(java.util.ResourceBundle, java.lang.String, java.lang.String)}.
 	 */
 	@Test
-	public void testGetPropResourceBundleStringString() {
+	void testGetPropResourceBundleStringString() {
 		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		String val = Utils.getProp(bundle, "db.driver", "bob");
-		assertEquals("db.driver", "org.sqlite.JDBC", val);
+		assertEquals("org.sqlite.JDBC", val, "db.driver");
 		val = Utils.getProp(bundle, "db.drive", "bob");
-		assertEquals("db.driver", "bob", val);
+		assertEquals("bob", val, "db.driver");
 	}
 
 	/**
@@ -82,13 +82,13 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#getPropList(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testGetPropListResourceBundleString() {
+	void testGetPropListResourceBundleString() {
 		ResourceBundle bundle = ResourceBundle.getBundle(Sheets2DBTest.bundleName);
 		List<String> list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tabs");
-		assertTrue(CommonMethods.PROPKEY + ".tabs", list.contains("Sheet 1"));
+		assertTrue(list.contains("Sheet 1"), CommonMethods.PROPKEY + ".tabs");
 
 		list = Utils.getPropList(bundle, CommonMethods.PROPKEY + ".tab");
-		assertTrue(CommonMethods.PROPKEY + ".tab", list.isEmpty());
+		assertTrue(list.isEmpty(), CommonMethods.PROPKEY + ".tab");
 	}
 
 	/**
@@ -96,9 +96,9 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#tabToStr(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testTabToStr() {
+	void testTabToStr() {
 		String tableName = Utils.tabToStr(null, "ab_cd ef/gh.ij(kl)mn?op!qr");
-		assertEquals("ab_cd ef/gh.ij(kl)mn?op!qr", "AbCdEfGhIjKlMnOpQr", tableName);
+		assertEquals("AbCdEfGhIjKlMnOpQr", tableName, "ab_cd ef/gh.ij(kl)mn?op!qr");
 	}
 
 	/**
@@ -106,9 +106,9 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#tabToStr(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testTabToStr2() {
+	void testTabToStr2() {
 		String tableName = Utils.tabToStr(null, "_cd ef/gh.ij(kl)mn?op!");
-		assertEquals("_cd ef/gh.ij(kl)mn?op!", "CdEfGhIjKlMnOp", tableName);
+		assertEquals("CdEfGhIjKlMnOp", tableName, "_cd ef/gh.ij(kl)mn?op!");
 	}
 
 	/**
@@ -116,10 +116,10 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#tabToStr(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testTabToStr3() {
+	void testTabToStr3() {
 		ResourceBundle renames = ResourceBundle.getBundle("renametest");
 		String tableName = Utils.tabToStr(renames, "In Last Show / showRSS link");
-		assertEquals("In Last Show / showRSS link", "InShowRssAs", tableName);
+		assertEquals("InShowRssAs", tableName, "In Last Show / showRSS link");
 	}
 
 	/**
@@ -127,9 +127,9 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#tabToStr(java.util.ResourceBundle, java.lang.String)}.
 	 */
 	@Test
-	public void testTabToStr4() {
+	void testTabToStr4() {
 		String tableName = Utils.tabToStr(null, "_short");
-		assertEquals("ShortField", tableName);
+		assertEquals(tableName, "ShortField");
 	}
 
 	/**
@@ -140,17 +140,17 @@ public class UtilsTest {
 	 * since getPathAsString just converts getPath return to standardized String
 	 */
 	@Test
-	public void testGetPathAsString() {
+	void testGetPathAsString() {
 		String prjRoot = System.getProperty("user.dir").toString().replace('\\', '/');
 		if (prjRoot.endsWith("target"))
 			prjRoot = prjRoot.substring(0, prjRoot.length() - 7);
 
 		String p = Utils.getPathAsString("src/main/resources/base");
-		assertEquals(prjRoot + "/src/main/resources/base", p);
+		assertEquals(p, prjRoot + "/src/main/resources/base");
 		p = Utils.getPathAsString("../genSpring/src/main/resources/base");
-		assertEquals(prjRoot + "/src/main/resources/base", p);
+		assertEquals(p, prjRoot + "/src/main/resources/base");
 		p = Utils.getPathAsString("../genSpring", "src/main/resources/base");
-		assertEquals(prjRoot + "/src/main/resources/base", p);
+		assertEquals(p, prjRoot + "/src/main/resources/base");
 
 		// no way to cd in Java. Must run manually in other folder to test in target
 		// folder logic
@@ -181,7 +181,7 @@ public class UtilsTest {
 	 * {@link com.dea42.common.Utils#getRelPath(java.lang.String, java.lang.String)}.
 	 */
 	@Test
-	public void testGetRelPath() {
+	void testGetRelPath() {
 		// Windows
 		String rootPath = "D:\\SpringTools4.6.1\\workspace\\genSpring";
 		String fullPath = "D:\\SpringTools4.6.1\\workspace\\genSpringTest\\target\\v2j\\src\\test\\java\\com\\dea42\\genspring\\UnitBase.java";

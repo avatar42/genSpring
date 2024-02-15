@@ -3,14 +3,16 @@
  */
 package ${basePkg}.selenium;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.io.IOException;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebElement;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 /**
  * Basic smoke test to check app works.
@@ -18,9 +20,9 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
  * @author GenSpring
  *
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class SmokeTest extends SeleniumBase {
+class SmokeTest extends SeleniumBase {
 
 	/**
 	 * Test test framework is working
@@ -28,10 +30,10 @@ public class SmokeTest extends SeleniumBase {
 	 * @throws IOException
 	 */
 	@Test
-	public void getSearchPage() throws IOException {
+	void getSearchPage() throws IOException {
 		open("https://www.google.com");
 		WebElement element = driver.findElement(By.name("q"));
-		assertNotNull("Testing driver works", element);
+		assertNotNull( element,"Testing driver works");
 		genfilesMd();
 	}
 
@@ -41,7 +43,7 @@ public class SmokeTest extends SeleniumBase {
 	 * @throws Exception
 	 */
 	@Test
-	public void smokeTest() throws Exception {
+	void smokeTest() throws Exception {
 		checkSite();
 	}
 }

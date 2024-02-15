@@ -3,9 +3,9 @@
  */
 package ${basePkg}.selenium;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.BlockJUnit4ClassRunner;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 /**
  * Basic smoke test to check app works.
@@ -13,8 +13,8 @@ import org.junit.runners.BlockJUnit4ClassRunner;
  * @author GenSpring
  *
  */
-@RunWith(BlockJUnit4ClassRunner.class)
-public class SmokeIT extends SeleniumBase {
+@ExtendWith(SpringExtension.class)
+class SmokeIT extends SeleniumBase {
 
 	/**
 	 * Do basic login and check pages are reachable in deployed app mode
@@ -22,7 +22,7 @@ public class SmokeIT extends SeleniumBase {
 	 * @throws Exception
 	 */
 	@Test
-	public void smokeTest() throws Exception {
+	void smokeTest() throws Exception {
 		checkSite();
 	}
 }

@@ -3,11 +3,12 @@
  */
 package com.dea42.build;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -29,8 +30,7 @@ import java.util.List;
 import java.util.ResourceBundle;
 
 import org.apache.commons.lang3.StringUtils;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.dea42.common.Db;
 import com.dea42.common.Utils;
@@ -47,7 +47,6 @@ public class Sheets2DBTest {
 	private boolean stopOnError = false;
 	public static final String bundleName = "sheettest";
 	public static final String RESOURCE_FOLDER = "src/test/resources";
-
 
 	/**
 	 * @return the stopOnError
@@ -69,10 +68,10 @@ public class Sheets2DBTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testColumnNumberToLetter() throws Exception {
+	void testColumnNumberToLetter() throws Exception {
 		Sheets2DB s = new Sheets2DB();
 		String col = s.columnNumberToLetter(104);
-		assertEquals("columnNumberToLetter", "CZ", col);
+		assertEquals("CZ", col, "columnNumberToLetter");
 	}
 
 	/**
@@ -82,10 +81,10 @@ public class Sheets2DBTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testColumnLetterToNumber() throws Exception {
+	void testColumnLetterToNumber() throws Exception {
 		Sheets2DB s = new Sheets2DB();
 		Integer col = s.columnLetterToNumber("CZ");
-		assertEquals("testColumnLetterToNumber", (Integer) 104, col);
+		assertEquals((Integer) 104, col, "testColumnLetterToNumber");
 	}
 
 	/**
@@ -95,35 +94,35 @@ public class Sheets2DBTest {
 	 * @throws Exception
 	 */
 	@Test
-	public void testStrToCols() throws Exception {
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+	void testStrToCols() throws Exception {
+		Sheets2DB s = new Sheets2DB(bundleName, true);
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
 		String cols = Utils.getProp(bundle, "shows.columns", "A-I,Q-T,BC-BF");
 		List<Integer> list = s.strToCols(cols);
 		Integer[] expecteds = new Integer[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 16, 17, 18, 19, 54, 55, 56, 57 };
 		for (Integer expected : expecteds) {
-			assertTrue("Looking for " + expected + " in results", list.contains(expected));
+			assertTrue(list.contains(expected), "Looking for " + expected + " in results");
 		}
 
 		list = s.strToCols("A-C,E,CW-CZ");
 		expecteds = new Integer[] { 0, 1, 2, 4, 100, 101, 102, 103, 103 };
 		for (Integer expected : expecteds) {
-			assertTrue("Looking for " + expected + " in results", list.contains(expected));
+			assertTrue(list.contains(expected), "Looking for " + expected + " in results");
 		}
 
 		list = s.strToCols("");
-		assertNotNull("passing empty string", list);
-		assertTrue("passing empty string", list.isEmpty());
+		assertNotNull(list, "passing empty string");
+		assertTrue(list.isEmpty(), "passing empty string");
 	}
 
 	private void parseDateStr(String str, long expected) {
 		try {
-			Sheets2DB s = new Sheets2DB(bundleName, true, true);
+			Sheets2DB s = new Sheets2DB(bundleName, true);
 
 			long ms = s.parseDateStr(str);
 			Date d = new Date(ms);
 			log.debug(str + " -> " + d.toString());
-			assertEquals(str, expected, ms);
+			assertEquals(expected, ms, str);
 		} catch (Exception e) {
 			log.error("parseDateStr test failed", e);
 			fail("parseDateStr test failed");
@@ -133,19 +132,19 @@ public class Sheets2DBTest {
 
 	private Object chkgetTypedVal(Sheets2DB s, Object val, Class<?> fieldCls, Class<?> expectedCls) throws IOException {
 		Object rtn = s.getTypedVal(val, fieldCls);
-		assertNotNull("checking getTypedVal(" + val + ", " + fieldCls + ") not null", rtn);
-		assertTrue("checking getTypedVal(" + val + ", " + fieldCls + ") instanceof " + expectedCls + " was:"
-				+ val.getClass(), rtn.getClass().isAssignableFrom(expectedCls));
+		assertNotNull(rtn, "checking getTypedVal(" + val + ", " + fieldCls + ") not null");
+		assertTrue(rtn.getClass().isAssignableFrom(expectedCls), "checking getTypedVal(" + val + ", " + fieldCls
+				+ ") instanceof " + expectedCls + " was:" + val.getClass());
 		return rtn;
 	}
 
 	@Test
-	public void testgetTypedVal() throws Exception {
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+	void testgetTypedVal() throws Exception {
+		Sheets2DB s = new Sheets2DB(bundleName, true);
 
 		// no type assumed
 		Object rtn = s.getTypedVal(null, null);
-		assertNull("checking getTypedVal(null, null) returns null", rtn);
+		assertNull(rtn, "checking getTypedVal(null, null) returns null");
 
 		rtn = chkgetTypedVal(s, "Sat 05/03/20 01:03 PM", null, Date.class);
 		rtn = chkgetTypedVal(s, "Sat 05/03/20 13:03", null, Date.class);
@@ -194,7 +193,7 @@ public class Sheets2DBTest {
 	 * {@link com.dea42.build.Sheets2DB#parseDateStr(java.lang.String)}.
 	 */
 	@Test
-	public void testParseDateStr() {
+	void testParseDateStr() {
 		/*
 		 * Sat 5/23/20 10:00 PM 1:30:00 05-23-2020 202005232200
 		 */
@@ -225,7 +224,7 @@ public class Sheets2DBTest {
 	 * Run Sheets2DB with genSpringTest.properties file and validate the results
 	 */
 	@Test
-	public void testWithgenSpringTest() throws Exception {
+	void testWithgenSpringTest() throws Exception {
 		genDB("genSpringTest");
 
 	}
@@ -235,8 +234,8 @@ public class Sheets2DBTest {
 	 * results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testWithgenSpringMySQLTest() throws Exception {
-		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
+	void testWithgenSpringMySQLTest() throws Exception {
+		assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
 		genDB("genSpringMySQLTest");
 
 	}
@@ -246,8 +245,8 @@ public class Sheets2DBTest {
 	 * results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testWithgenSpringMSSQLTest() throws Exception {
-		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
+	void testWithgenSpringMSSQLTest() throws Exception {
+		assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
 		// Drivers check
 //		com.microsoft.sqlserver.jdbc.SQLServerDriver sQLServerDriver;
 
@@ -259,7 +258,7 @@ public class Sheets2DBTest {
 	 * Run Sheets2DB with genSpringTest2.properties file and validate the results
 	 */
 	@Test
-	public void testWithgenSpringTest2() throws Exception {
+	void testWithgenSpringTest2() throws Exception {
 
 		genDB("genSpringTest2");
 	}
@@ -268,13 +267,14 @@ public class Sheets2DBTest {
 	 * Run Sheets2DB with Watchlist.properties file and validate the results
 	 */
 	@Test
-	public void testWithWatchlist() throws Exception {
+	void testWithWatchlist() throws Exception {
 // Note dynamic DB so row count checks may fail
 		genDB("Watchlist");
 	}
 
 	/**
 	 * Check the columns and rows are what we expected.
+	 * 
 	 * @param db
 	 * @param bundle
 	 * @param tabName
@@ -283,7 +283,7 @@ public class Sheets2DBTest {
 	 */
 	public String quickChkTable(Db db, ResourceBundle bundle, String tabName) throws Exception {
 		StringBuilder rtn = new StringBuilder();
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+		Sheets2DB s = new Sheets2DB(bundleName, true);
 		String schema = db.getPrefix();
 		ResourceBundle renames = ResourceBundle.getBundle("rename");
 		String tableName = Utils.tabToStr(renames, tabName);
@@ -300,7 +300,7 @@ public class Sheets2DBTest {
 				stmt.setMaxRows(1);
 				log.debug("query=" + query);
 				ResultSet rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
+				assertNotNull(rs, "Check ResultSet");
 				ResultSetMetaData rm = rs.getMetaData();
 				int columnCount = rm.getColumnCount();
 				int calcCols = 0;
@@ -317,7 +317,7 @@ public class Sheets2DBTest {
 								+ " so might be " + calcCols + "\n");
 					}
 					if (stopOnError)
-						assertEquals(rtn.toString(), expectedNumCols, columnCount);
+						assertEquals(expectedNumCols, columnCount, rtn.toString());
 					else if (expectedNumCols != columnCount)
 						rtn.append(" expected:" + expectedNumCols + " found:" + columnCount + "\n");
 				}
@@ -328,14 +328,14 @@ public class Sheets2DBTest {
 				Statement stmt = conn.createStatement();
 				log.debug("query=" + query);
 				ResultSet rs = stmt.executeQuery(query);
-				assertNotNull("Check ResultSet", rs);
+				assertNotNull(rs, "Check ResultSet");
 				if (!db.isSQLite())
 					rs.next();
 				int cnt = rs.getInt(1);
 				if (expectedNumRows != cnt) {
 					rtn.append("Checking expected rows in " + schema + tableName);
 					if (stopOnError)
-						assertEquals(rtn.toString(), expectedNumRows, cnt);
+						assertEquals(expectedNumRows, cnt, rtn.toString());
 					else
 						rtn.append(" expected rows:" + expectedNumRows + " got:" + cnt);
 				}
@@ -351,9 +351,9 @@ public class Sheets2DBTest {
 	}
 
 	private void genDB(String bundleName) throws Exception {
-		Sheets2DB s = new Sheets2DB(bundleName, true, true);
+		Sheets2DB s = new Sheets2DB(bundleName, true);
 		ResourceBundle bundle = ResourceBundle.getBundle(bundleName);
-		assertNotNull("Check DB:" + Utils.getProp(bundle, "db.url", null), s);
+		assertNotNull(s, "Check DB:" + Utils.getProp(bundle, "db.url", null));
 		s.getSheet();
 
 		// Validate DB
@@ -370,7 +370,7 @@ public class Sheets2DBTest {
 			}
 		}
 		String errors = sb.toString().trim();
-		assertTrue(errors, StringUtils.isBlank(errors));
+		assertTrue(StringUtils.isBlank(errors), errors);
 	}
 
 	/**

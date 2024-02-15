@@ -1,10 +1,11 @@
 package com.dea42.genSpring;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -20,8 +21,7 @@ import java.util.Map;
 import java.util.ResourceBundle;
 
 import org.apache.commons.lang.StringUtils;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.dea42.build.CommonMethods;
 import com.dea42.build.GenSpring;
@@ -47,8 +47,8 @@ public class Sheet2AppTest {
 	 * @throws IOException
 	 */
 	@Test
-	public void testEndToEndWatchlist() throws Exception {
-		Assume.assumeTrue(Utils.getProp("Watchlist", "enabled", false));
+	void testEndToEndWatchlist() throws Exception {
+		assumeTrue(Utils.getProp("Watchlist", "enabled", false));
 		backupProject("Watchlist");
 		doEndToEnd("Watchlist", true);
 
@@ -59,8 +59,8 @@ public class Sheet2AppTest {
 	 * and validate the results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testEndToEndMySQLTest() throws Exception {
-		Assume.assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
+	void testEndToEndMySQLTest() throws Exception {
+		assumeTrue(Utils.getProp("genSpringMySQLTest", "enabled", false));
 		doEndToEnd("genSpringMySQLTest", true);
 
 	}
@@ -70,8 +70,8 @@ public class Sheet2AppTest {
 	 * and validate the results. Note will skip if enable=false in properties file.
 	 */
 	@Test
-	public void testEndToEndMSSQLTest() throws Exception {
-		Assume.assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
+	void testEndToEndMSSQLTest() throws Exception {
+		assumeTrue(Utils.getProp("genSpringMSSQLTest", "enabled", false));
 		doEndToEnd("genSpringMSSQLTest", true);
 
 	}
@@ -81,7 +81,7 @@ public class Sheet2AppTest {
 	 * static folder. This project and then be used to prototype changes as well.
 	 */
 	@Test
-	public void testEndToEnd() throws Exception {
+	void testEndToEnd() throws Exception {
 		doEndToEnd("genSpringTest", true);
 	}
 
@@ -92,7 +92,7 @@ public class Sheet2AppTest {
 	 * generation options.
 	 */
 	@Test
-	public void testEndToEnd2() throws Exception {
+	void testEndToEnd2() throws Exception {
 		doEndToEnd("genSpringTest2", true);
 	}
 
@@ -101,7 +101,7 @@ public class Sheet2AppTest {
 	 * files were changed.
 	 */
 	@Test
-	public void testEndToEnd3() throws Exception {
+	void testEndToEnd3() throws Exception {
 		String bundleName = "genSpringTest2";
 
 		Map<String, Long> modTimes = new HashMap<String, Long>();
@@ -141,10 +141,10 @@ public class Sheet2AppTest {
 			fail("failed getting mod times");
 		}
 
-		assertFalse("check if modTimes empty", modTimes.isEmpty());
+		assertFalse(modTimes.isEmpty(), "check if modTimes empty");
 		doEndToEnd("genSpringTest2", false);
 
-		assertEquals(pom.toString(), modTimes.get(pom.toString()).longValue(), pom.toFile().lastModified());
+		assertEquals(modTimes.get(pom.toString()).longValue(), pom.toFile().lastModified(), pom.toString());
 		try {
 			Files.walkFileTree(outdir, new FileVisitor<Path>() {
 				@Override
@@ -157,9 +157,9 @@ public class Sheet2AppTest {
 				 */
 				@Override
 				public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-					assertNotNull("File added:" + file.toString(), modTimes.get(file.toString()) != null);
-					assertEquals(file.toString(), modTimes.get(file.toString()).longValue(),
-							file.toFile().lastModified());
+					assertNotNull(modTimes.get(file.toString()), "File added:" + file.toString());
+					assertEquals(modTimes.get(file.toString()).longValue(), file.toFile().lastModified(),
+							file.toString());
 					return FileVisitResult.CONTINUE;
 				}
 
@@ -258,7 +258,7 @@ public class Sheet2AppTest {
 		Db db = new Db("Sheet2AppTest", bundleName);
 		if (doDbCreate) {
 			// Note set to fail if any errors encountered.
-			Sheets2DB s = new Sheets2DB(bundleName, true, true);
+			Sheets2DB s = new Sheets2DB(bundleName, true);
 			s.getSheet();
 			Sheets2DBTest s2dt = new Sheets2DBTest();
 			s2dt.setStopOnError(stopOnError);
@@ -283,12 +283,13 @@ public class Sheet2AppTest {
 			int expected = 0;
 			if (osName.startsWith("Windows"))
 				cmd = "mvn.cmd";
-			cmd = cmd + " clean integration-test -Pintegration";
+//			cmd = cmd + " clean integration-test -Pintegration";
+			cmd = cmd + " clean install";
 
 			// if we did not purge nothing should have changed so no need to rerun tests.
 			if (purgeFirst) {
 				int rtn = Utils.runCmd(cmd, outdir);
-				assertEquals("Return from:" + cmd, expected, rtn);
+				assertEquals(expected, rtn, "Return from:" + cmd);
 
 				String baseModule = Utils.getProp(bundle, GenSpring.PROPKEY + ".module");
 				String baseArtifactId = Utils.getProp(bundle, GenSpring.PROPKEY + ".artifactId", baseModule);
@@ -296,7 +297,7 @@ public class Sheet2AppTest {
 
 				Path p = Utils.getPath(outdir, "target", baseArtifactId + "-" + appVersion + "-SNAPSHOT.war")
 						.normalize();
-				assertTrue("check war file was created and properly named:" + p.toString(), p.toFile().exists());
+				assertTrue(p.toFile().exists(), "check war file was created and properly named:" + p.toString());
 			}
 		} catch (Exception e) {
 			log.error("Failed generating app", e);

@@ -3,6 +3,11 @@
  */
 package ${basePkg}.selenium;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -14,14 +19,15 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.ResourceBundle;
 
 import org.apache.commons.io.FileUtils;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.rules.TestWatcher;
-import org.junit.runner.Description;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestWatcher;
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
@@ -65,9 +71,11 @@ public class SeleniumBase extends UnitBase {
 	protected long speedDelay = 1;
 	protected ResourceBundle bundle;
 
-	@Rule
+	@RegisterExtension
 	public ScreenShotRule screenshotRule = new ScreenShotRule();
-
+	
+	private TestInfo testInfo;
+	
 	public SeleniumBase() {
 		bundle = ResourceBundle.getBundle("test");
 		String baseModule = Utils.getProp(bundle, "genSpring.module");
@@ -150,7 +158,7 @@ public class SeleniumBase extends UnitBase {
 	public void checkHeader() throws Exception {
 		speedControl();
 		List<String> names = getMenuLinks("guiMenu", "header.gui", false);
-		assertTrue("Check for more than 0 GUI menu items", names.size() > 0);
+		assertTrue(names.size() > 0,"Check for more than 0 GUI menu items");
 //		boolean login = true;
 		checkCommonLinks(names.get(0), true);
 //		if (login)
@@ -163,7 +171,7 @@ public class SeleniumBase extends UnitBase {
 		}
 
 		List<String> refs = getMenuLinks("restMenu", "header.restApi", true);
-		assertTrue("Check for more than 0 REST API menu items", names.size() > 0);
+		assertTrue(names.size() > 0,"Check for more than 0 REST API menu items");
 		for (String ref : refs) {
 			open(ref);
 			sourceContains("<id>1</id>", false);
@@ -179,7 +187,7 @@ public class SeleniumBase extends UnitBase {
 	 */
 	protected void sourceContains(String expected, boolean doesNotContain) {
 		String src = getSrc();
-		assertNotNull("checking page source not null", src);
+		assertNotNull(src,"checking page source not null");
 		if (src.contains("??")) {
 			fail("'??' was found in page source:" + src + " of:" + driver.getCurrentUrl());
 		}
@@ -208,7 +216,7 @@ public class SeleniumBase extends UnitBase {
 			waitForElement(waitFor);
 
 		String src = getHTML();
-		assertNotNull("checking page source not null", src);
+		assertNotNull( src,"checking page source not null");
 		if (src.contains("??")) {
 			fail("'??' was found in page source:" + src + " of:" + driver.getCurrentUrl());
 		}
@@ -278,7 +286,7 @@ public class SeleniumBase extends UnitBase {
 	protected WebElement clickBy(By selector, WebElement parent) {
 		speedControl();
 		WebElement element = getBy(selector, parent);
-		assertNotNull("Getting element" + selector, element);
+		assertNotNull( element,"Getting element" + selector);
 		element.click();
 		log.debug("Clicked:" + selector);
 		return element;
@@ -299,7 +307,7 @@ public class SeleniumBase extends UnitBase {
 	protected WebElement type(By selector, String text, boolean clearFirst, WebElement parent) {
 		speedControl();
 		WebElement element = getBy(selector, parent);
-		assertNotNull("Getting element by:" + selector, element);
+		assertNotNull( element,"Getting element by:" + selector);
 
 		String b4text = "";
 
@@ -313,7 +321,7 @@ public class SeleniumBase extends UnitBase {
 		log.debug("Clicked link:" + text);
 
 		String actual = getAttribute(element, "value");
-		assertEquals("Checking element contains what we typed", b4text + text, actual);
+		assertEquals(b4text + text, actual,"Checking element contains what we typed");
 
 		return element;
 	}
@@ -331,7 +339,7 @@ public class SeleniumBase extends UnitBase {
 			WebDriverWait wait = new WebDriverWait(driver, timeOutInSeconds);
 			wait.until(expectation);
 		} catch (Throwable error) {
-			Assert.fail("Timeout waiting for Page Load Request to complete.");
+			fail("Timeout waiting for Page Load Request to complete.");
 		}
 	}
 
@@ -354,7 +362,7 @@ public class SeleniumBase extends UnitBase {
 			wait.until(expectation);
 			element = driver.findElement(selector);
 		} catch (Throwable error) {
-			Assert.fail("Timeout waiting for Page Load after click of " + selector + " to complete.");
+			fail("Timeout waiting for Page Load after click of " + selector + " to complete.");
 		}
 
 		return element;
@@ -363,8 +371,9 @@ public class SeleniumBase extends UnitBase {
 	/**
 	 * load web driver and set base part of URL to local app
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp(TestInfo testInfo) throws Exception {
+		this.testInfo = testInfo;
 // If downloading and running an exe makes you nervous (and it probably should) set useLocal to true and update path below.
 		if (useLocal) {
 			System.setProperty("webdriver.gecko.driver", "C:\\webdriver\\geckodriver-v0.11.1-win64\\geckodriver.exe");
@@ -442,7 +451,7 @@ public class SeleniumBase extends UnitBase {
 		// check new page
 		waitThenClick(By.linkText(getMsg("edit.new") + " " + item), null);
 		sourceContains(getMsg("edit.new") + " " + item, false);
-		assertNotNull("Checking for cancel button", getBy(By.xpath("//button[@value='cancel']"), null));
+		assertNotNull( getBy(By.xpath("//button[@value='cancel']"), null),"Checking for cancel button");
 		if ("en".equals(lang))
 			screenshotRule.docShot(item + ".new");
 		waitThenClick(By.xpath("//button[@value='cancel']"), null);
@@ -453,7 +462,7 @@ public class SeleniumBase extends UnitBase {
 		// check edit page by clicking first edit button found
 		waitThenClick(By.linkText(getMsg("edit.edit")), null);
 		sourceContains(getMsg("edit.edit") + " " + item, false);
-		assertNotNull("Checking for save button", getBy(By.xpath("//button[@value='save']"), null));
+		assertNotNull( getBy(By.xpath("//button[@value='save']"), null),"Checking for save button");
 		if ("en".equals(lang))
 			screenshotRule.docShot(item + ".edit");
 		waitThenClick(By.xpath("//button[@value='save']"), null);
@@ -464,11 +473,11 @@ public class SeleniumBase extends UnitBase {
 		// check new page
 		waitThenClick(By.linkText(getMsg("search.advanced") + " " + item), null);
 		sourceContains(getMsg("search.advanced") + " " + item, false);
-		assertNotNull("Checking for reset button", getBy(By.xpath("//button[@value='reset']"), null));
+		assertNotNull(getBy(By.xpath("//button[@value='reset']"), null),"Checking for reset button");
 		if ("en".equals(lang))
 			screenshotRule.docShot(item + ".search");
 		waitThenClick(By.xpath("//button[@value='reset']"), null);
-		assertNotNull("Checking for search button", getBy(By.xpath("//button[@value='search']"), null));
+		assertNotNull( getBy(By.xpath("//button[@value='search']"), null),"Checking for search button");
 		waitThenClick(By.xpath("//button[@value='search']"), null);
 
 		// should go back to list page
@@ -626,7 +635,7 @@ public class SeleniumBase extends UnitBase {
 	 * @author deabigt
 	 *
 	 */
-	public class ScreenShotRule extends TestWatcher {
+	public class ScreenShotRule implements TestWatcher {
 		String docShots = "screenshots/";
 		String testName = "";
 		private long startTime = 0;
@@ -674,21 +683,20 @@ public class SeleniumBase extends UnitBase {
 		/**
 		 * Sort what to use for testName during the test. And set startTime for metrics
 		 */
-		@Override
-		protected void starting(Description description) {
+		public void starting() {
 			startTime = System.currentTimeMillis();
-			if (description.getDisplayName() != null)
-				testName = description.getDisplayName();
-			else if (description.getMethodName() != null)
-				testName = description.getMethodName();
-			else if (description.getClassName() != null)
-				testName = description.getClassName();
+			if (testInfo.getDisplayName() != null)
+				testName = testInfo.getDisplayName();
+			else if (testInfo.getTestMethod() != null)
+				testName = testInfo.getTestMethod().get().getName();
+			else if (testInfo.getTestClass() != null)
+				testName = testInfo.getTestClass().get().getName();
 			else
 				testName = "unknown";
 		}
 
 		@Override
-		protected void failed(Throwable e, Description description) {
+		public void testFailed(ExtensionContext context, Throwable e) {
 			endTime = System.currentTimeMillis();
 			File destFile = new File("target/" + testName + ".screenShot.png");
 			takeShot(destFile);
@@ -696,16 +704,27 @@ public class SeleniumBase extends UnitBase {
 		}
 
 		@Override
-		protected void succeeded(Description description) {
+		public void testSuccessful(ExtensionContext context) {
 			endTime = System.currentTimeMillis();
+			// make lint happy
+			assertTrue(endTime > startTime);
 		}
 
-		@Override
-		protected void finished(Description description) {
+		public void finished() {
 			log.info("Runtime:" + (endTime - startTime) + " milliseconds");
 			if (driver != null)
 				driver.quit();
 		}
 
+		@Override
+		public void testAborted(ExtensionContext context, Throwable cause) {
+			/* no-op */
+		}
+
+		@Override
+		public void testDisabled(ExtensionContext context, Optional<String> reason) {
+			/* no-op */
+		}
 	}
+
 }

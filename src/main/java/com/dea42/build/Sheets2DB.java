@@ -1,7 +1,9 @@
 package com.dea42.build;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,6 +30,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.dea42.common.Utils;
 import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.auth.oauth2.TokenResponseException;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
@@ -75,23 +78,23 @@ public class Sheets2DB extends CommonMethods {
 	/*
 	 * Datetime Date and Time formats supported
 	 */
-	public static final SimpleDateFormat WK_DATE_TIME = new SimpleDateFormat("EEE MM/dd/yy hh:mm a");
-	public static final SimpleDateFormat WK_DATE_TIME24 = new SimpleDateFormat("EEE MM/dd/yy HH:mm");
-	public static final SimpleDateFormat DATE_TIME = new SimpleDateFormat("MM/dd/yy hh:mm a");
-	public static final SimpleDateFormat DATE_TIME24 = new SimpleDateFormat("MM/dd/yy HH:mm");
-	public static final SimpleDateFormat WK_DATE_TIMED = new SimpleDateFormat("EEE MM-dd-yy hh:mm a");
-	public static final SimpleDateFormat WK_DATE_TIME24D = new SimpleDateFormat("EEE MM-dd-yy HH:mm");
-	public static final SimpleDateFormat DATE_TIMED = new SimpleDateFormat("MM-dd-yy hh:mm a");
-	public static final SimpleDateFormat DATE_TIME24D = new SimpleDateFormat("MM-dd-yy HH:mm");
-	public static final SimpleDateFormat DATE_ONLY = new SimpleDateFormat("MM/dd/yy");
-	public static final SimpleDateFormat DATE_ONLYD = new SimpleDateFormat("MM-dd-yy");
-	public static final SimpleDateFormat TIVO_SORTABLE = new SimpleDateFormat("yyyyMMddHHmm");
-	public static final SimpleDateFormat TIME_ONLY = new SimpleDateFormat("hh:mm a");
-	public static final SimpleDateFormat TIME_ONLY24 = new SimpleDateFormat("HH:mm");
-	public static final SimpleDateFormat TIME_ONLYS = new SimpleDateFormat("hh:mm:ss a");
-	public static final SimpleDateFormat TIME_ONLY24S = new SimpleDateFormat("HH:mm:ss");
+	public  final SimpleDateFormat sdfWK_DATE_TIME = new SimpleDateFormat("EEE MM/dd/yy hh:mm a");
+	public  final SimpleDateFormat sdfWK_DATE_TIME24 = new SimpleDateFormat("EEE MM/dd/yy HH:mm");
+	public  final SimpleDateFormat sdfDATE_TIME = new SimpleDateFormat("MM/dd/yy hh:mm a");
+	public  final SimpleDateFormat sdfDATE_TIME24 = new SimpleDateFormat("MM/dd/yy HH:mm");
+	public  final SimpleDateFormat sdfWK_DATE_TIMED = new SimpleDateFormat("EEE MM-dd-yy hh:mm a");
+	public  final SimpleDateFormat sdfWK_DATE_TIME24D = new SimpleDateFormat("EEE MM-dd-yy HH:mm");
+	public  final SimpleDateFormat sdfDATE_TIMED = new SimpleDateFormat("MM-dd-yy hh:mm a");
+	public  final SimpleDateFormat sdfDATE_TIME24D = new SimpleDateFormat("MM-dd-yy HH:mm");
+	public  final SimpleDateFormat sdfDATE_ONLY = new SimpleDateFormat("MM/dd/yy");
+	public  final SimpleDateFormat sdfDATE_ONLYD = new SimpleDateFormat("MM-dd-yy");
+	public  final SimpleDateFormat sdfTIVO_SORTABLE = new SimpleDateFormat("yyyyMMddHHmm");
+	public  final SimpleDateFormat sdfTIME_ONLY = new SimpleDateFormat("hh:mm a");
+	public  final SimpleDateFormat sdfTIME_ONLY24 = new SimpleDateFormat("HH:mm");
+	public  final SimpleDateFormat sdfTIME_ONLYS = new SimpleDateFormat("hh:mm:ss a");
+	public  final SimpleDateFormat sdfTIME_ONLY24S = new SimpleDateFormat("HH:mm:ss");
 
-	public static final SimpleDateFormat DB_DATETIME = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+	public  final SimpleDateFormat sdfDB_DATETIME = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 	/**
 	 * Global instance of the scopes required. If modifying these scopes, delete
 	 * your previously saved tokens/ folder. See
@@ -112,7 +115,7 @@ public class Sheets2DB extends CommonMethods {
 	 * @throws IOException
 	 */
 	public Sheets2DB() throws Exception {
-		this(PROPKEY, false, false);
+		this(PROPKEY, false);
 	}
 
 	/**
@@ -123,7 +126,7 @@ public class Sheets2DB extends CommonMethods {
 	 * @param failOnAnyError
 	 * @throws IOException
 	 */
-	public Sheets2DB(String bundelName, boolean cleanFirst, boolean failOnAnyError) throws Exception {
+	public Sheets2DB(String bundelName, boolean failOnAnyError) throws Exception {
 		this.failOnAnyError = failOnAnyError;
 		super.initVars(bundelName);
 	}
@@ -160,19 +163,19 @@ public class Sheets2DB extends CommonMethods {
 		if (!firstDigit && hasSlashs && hasColon && !hasDashs) {
 			if (!lastDigit) {
 				try {
-					d = WK_DATE_TIME.parse(source);
+					d = sdfWK_DATE_TIME.parse(source);
 					return d.getTime();
 				} catch (ParseException e2) {
-					log.info(WK_DATE_TIME.toPattern(), e2);
-					log.info(WK_DATE_TIME.format(new Date()));
+					log.info(sdfWK_DATE_TIME.toPattern(), e2);
+					log.info(sdfWK_DATE_TIME.format(new Date()));
 				}
 			} else {
 				try {
-					d = WK_DATE_TIME24.parse(source);
+					d = sdfWK_DATE_TIME24.parse(source);
 					return d.getTime();
 				} catch (ParseException e3) {
-					log.info(WK_DATE_TIME24.toPattern(), e3);
-					log.info(WK_DATE_TIME24.format(new Date()));
+					log.info(sdfWK_DATE_TIME24.toPattern(), e3);
+					log.info(sdfWK_DATE_TIME24.format(new Date()));
 				}
 			}
 		}
@@ -180,19 +183,19 @@ public class Sheets2DB extends CommonMethods {
 		if (firstDigit && hasSlashs && hasColon && !hasDashs) {
 			if (!lastDigit) {
 				try {
-					d = DATE_TIME.parse(source);
+					d = sdfDATE_TIME.parse(source);
 					return d.getTime();
 				} catch (ParseException e2) {
-					log.info(DATE_TIME.toPattern(), e2);
-					log.info(DATE_TIME.format(new Date()));
+					log.info(sdfDATE_TIME.toPattern(), e2);
+					log.info(sdfDATE_TIME.format(new Date()));
 				}
 			} else {
 				try {
-					d = DATE_TIME24.parse(source);
+					d = sdfDATE_TIME24.parse(source);
 					return d.getTime();
 				} catch (ParseException e3) {
-					log.info(DATE_TIME24.toPattern(), e3);
-					log.info(DATE_TIME24.format(new Date()));
+					log.info(sdfDATE_TIME24.toPattern(), e3);
+					log.info(sdfDATE_TIME24.format(new Date()));
 				}
 			}
 		}
@@ -200,28 +203,28 @@ public class Sheets2DB extends CommonMethods {
 		if (!firstDigit && !hasSlashs && hasColon && hasDashs) {
 			if (!lastDigit) {
 				try {
-					d = WK_DATE_TIMED.parse(source);
+					d = sdfWK_DATE_TIMED.parse(source);
 					return d.getTime();
 				} catch (ParseException e2) {
-					log.info(WK_DATE_TIMED.toPattern(), e2);
-					log.info(WK_DATE_TIMED.format(new Date()));
+					log.info(sdfWK_DATE_TIMED.toPattern(), e2);
+					log.info(sdfWK_DATE_TIMED.format(new Date()));
 				}
 			} else {
 				if (source.indexOf('.') < 0) {
 					try {
-						d = WK_DATE_TIME24D.parse(source);
+						d = sdfWK_DATE_TIME24D.parse(source);
 						return d.getTime();
 					} catch (ParseException e3) {
-						log.info(WK_DATE_TIME24D.toPattern(), e3);
-						log.info(WK_DATE_TIME24D.format(new Date()));
+						log.info(sdfWK_DATE_TIME24D.toPattern(), e3);
+						log.info(sdfWK_DATE_TIME24D.format(new Date()));
 					}
 				} else {
 					try {
-						d = DB_DATETIME.parse(source);
+						d = sdfDB_DATETIME.parse(source);
 						return d.getTime();
 					} catch (ParseException e4) {
-						log.info(DB_DATETIME.toPattern(), e4);
-						log.info(DB_DATETIME.format(new Date()));
+						log.info(sdfDB_DATETIME.toPattern(), e4);
+						log.info(sdfDB_DATETIME.format(new Date()));
 					}
 				}
 			}
@@ -230,59 +233,59 @@ public class Sheets2DB extends CommonMethods {
 		if (firstDigit && !hasSlashs && hasColon && hasDashs) {
 			if (!lastDigit) {
 				try {
-					d = DATE_TIMED.parse(source);
+					d = sdfDATE_TIMED.parse(source);
 					return d.getTime();
 				} catch (ParseException e2) {
-					log.info(DATE_TIMED.toPattern(), e2);
-					log.info(DATE_TIMED.format(new Date()));
+					log.info(sdfDATE_TIMED.toPattern(), e2);
+					log.info(sdfDATE_TIMED.format(new Date()));
 				}
 			} else {
 				try {
-					d = DATE_TIME24D.parse(source);
+					d = sdfDATE_TIME24D.parse(source);
 					return d.getTime();
 				} catch (ParseException e3) {
-					log.info(DATE_TIME24D.toPattern(), e3);
-					log.info(DATE_TIME24D.format(new Date()));
+					log.info(sdfDATE_TIME24D.toPattern(), e3);
+					log.info(sdfDATE_TIME24D.format(new Date()));
 				}
 			}
 		}
 
 		if (isNum && hasSlashs && !hasColon && !hasDashs) {
 			try {
-				d = DATE_ONLY.parse(source);
+				d = sdfDATE_ONLY.parse(source);
 				return d.getTime();
 			} catch (ParseException e2) {
-				log.info(DATE_ONLY.toPattern(), e2);
-				log.info(DATE_ONLY.format(new Date()));
+				log.info(sdfDATE_ONLY.toPattern(), e2);
+				log.info(sdfDATE_ONLY.format(new Date()));
 			}
 		}
 
 		if (isNum && !hasSlashs && !hasColon && hasDashs) {
 			try {
-				d = DATE_ONLYD.parse(source);
+				d = sdfDATE_ONLYD.parse(source);
 				return d.getTime();
 			} catch (ParseException e2) {
-				log.info(DATE_ONLYD.toPattern(), e2);
-				log.info(DATE_ONLYD.format(new Date()));
+				log.info(sdfDATE_ONLYD.toPattern(), e2);
+				log.info(sdfDATE_ONLYD.format(new Date()));
 			}
 		}
 
 		if (firstDigit && hasSlashs && hasColon && !hasDashs) {
 			if (!lastDigit) {
 				try {
-					d = DATE_TIME.parse(source);
+					d = sdfDATE_TIME.parse(source);
 					return d.getTime();
 				} catch (ParseException e2) {
-					log.info(DATE_TIME.toPattern(), e2);
-					log.info(DATE_TIME.format(new Date()));
+					log.info(sdfDATE_TIME.toPattern(), e2);
+					log.info(sdfDATE_TIME.format(new Date()));
 				}
 			} else {
 				try {
-					d = DATE_TIME24.parse(source);
+					d = sdfDATE_TIME24.parse(source);
 					return d.getTime();
 				} catch (ParseException e3) {
-					log.info(DATE_TIME24.toPattern(), e3);
-					log.info(DATE_TIME24.format(new Date()));
+					log.info(sdfDATE_TIME24.toPattern(), e3);
+					log.info(sdfDATE_TIME24.format(new Date()));
 				}
 			}
 		}
@@ -291,37 +294,37 @@ public class Sheets2DB extends CommonMethods {
 			if (!lastDigit) {
 				if (hasSeconds) {
 					try {
-						d = TIME_ONLYS.parse(source);
+						d = sdfTIME_ONLYS.parse(source);
 						return d.getTime();
 					} catch (ParseException e2) {
-						log.info(TIME_ONLYS.toPattern(), e2);
-						log.info(TIME_ONLYS.format(new Date()));
+						log.info(sdfTIME_ONLYS.toPattern(), e2);
+						log.info(sdfTIME_ONLYS.format(new Date()));
 					}
 				} else {
 					try {
-						d = TIME_ONLY.parse(source);
+						d = sdfTIME_ONLY.parse(source);
 						return d.getTime();
 					} catch (ParseException e2) {
-						log.info(TIME_ONLY.toPattern(), e2);
-						log.info(TIME_ONLY.format(new Date()));
+						log.info(sdfTIME_ONLY.toPattern(), e2);
+						log.info(sdfTIME_ONLY.format(new Date()));
 					}
 				}
 			} else {
 				if (hasSeconds) {
 					try {
-						d = TIME_ONLY24.parse(source);
+						d = sdfTIME_ONLY24S.parse(source);
 						return d.getTime();
 					} catch (ParseException e3) {
-						log.info(TIME_ONLY24.toPattern(), e3);
-						log.info(TIME_ONLY24.format(new Date()));
+						log.info(sdfTIME_ONLY24S.toPattern(), e3);
+						log.info(sdfTIME_ONLY24S.format(new Date()));
 					}
 				} else {
 					try {
-						d = TIME_ONLY24.parse(source);
+						d = sdfTIME_ONLY24.parse(source);
 						return d.getTime();
 					} catch (ParseException e3) {
-						log.info(TIME_ONLY24.toPattern(), e3);
-						log.info(TIME_ONLY24.format(new Date()));
+						log.info(sdfTIME_ONLY24.toPattern(), e3);
+						log.info(sdfTIME_ONLY24.format(new Date()));
 					}
 				}
 			}
@@ -330,19 +333,11 @@ public class Sheets2DB extends CommonMethods {
 		// sortable date type returned by TiVo
 		if (source.length() == 12 && isNum && !hasSlashs && !hasColon && !hasDashs) {
 			try {
-//				int year = Integer.parseInt(source.substring(0, 4));
-//				int month = Integer.parseInt(source.substring(4, 6)) - 1;
-//				int dayOfMonth = Integer.parseInt(source.substring(6, 8));
-//				int hourOfDay = Integer.parseInt(source.substring(8, 10));
-//				int minute = Integer.parseInt(source.substring(10, 12));
-//				int second = 0;
-//				GregorianCalendar gc = new GregorianCalendar(year, month, dayOfMonth, hourOfDay, minute, second);
-//				return gc.getTimeInMillis();
-				d = TIVO_SORTABLE.parse(source);
+				d = sdfTIVO_SORTABLE.parse(source);
 				return d.getTime();
 			} catch (Exception e) {
-				log.info(TIVO_SORTABLE.toPattern(), e);
-				log.info(TIVO_SORTABLE.format(new Date()));
+				log.info(sdfTIVO_SORTABLE.toPattern(), e);
+				log.info(sdfTIVO_SORTABLE.format(new Date()));
 			}
 		}
 
@@ -352,11 +347,11 @@ public class Sheets2DB extends CommonMethods {
 	/**
 	 * Creates an authorized Credential object.
 	 * 
-	 * @param HTTP_TRANSPORT The network HTTP Transport.
+	 * @param httpTransport The network HTTP Transport.
 	 * @return An authorized Credential object.
 	 * @throws IOException If the credentials.json file cannot be found.
 	 */
-	private static Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
+	private static Credential getCredentials(final NetHttpTransport httpTransport) throws IOException {
 		// Load client secrets.
 		InputStream in = Sheets2DB.class.getResourceAsStream(CREDENTIALS_FILE_PATH);
 		if (in == null) {
@@ -365,10 +360,10 @@ public class Sheets2DB extends CommonMethods {
 		GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
 
 		// Build flow and trigger user authorization request.
-		GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY,
+		GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(httpTransport, JSON_FACTORY,
 				clientSecrets, SCOPES)
-						.setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
-						.setAccessType("offline").build();
+				.setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+				.setAccessType("offline").build();
 		LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
 		return new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
 	}
@@ -381,14 +376,14 @@ public class Sheets2DB extends CommonMethods {
 	 */
 	public String columnNumberToLetter(int inputColumnNumber) {
 		String outputColumnName = "";
-		int Base = 26;
+		int base = 26;
 		String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-		int TempNumber = inputColumnNumber;
-		while (TempNumber > 0) {
-			int position = TempNumber % Base;
+		int tempNumber = inputColumnNumber;
+		while (tempNumber > 0) {
+			int position = tempNumber % base;
 			outputColumnName = (position == 0 ? 'Z' : chars.charAt(position > 0 ? position - 1 : 0)) + outputColumnName;
-			TempNumber = (TempNumber - 1) / Base;
+			tempNumber = (tempNumber - 1) / base;
 		}
 		log.debug("ColumnNumberToLetter :" + inputColumnNumber + " = " + outputColumnName);
 
@@ -429,7 +424,7 @@ public class Sheets2DB extends CommonMethods {
 	 * @return
 	 */
 	public List<Integer> strToCols(String colStr) {
-		List<Integer> wantedCols = new ArrayList<Integer>();
+		List<Integer> wantedCols = new ArrayList<>();
 		if (!StringUtils.isBlank(colStr)) {
 			StringTokenizer st = new StringTokenizer(colStr, ",");
 			while (st.hasMoreTokens()) {
@@ -578,20 +573,20 @@ public class Sheets2DB extends CommonMethods {
 
 		// Get headers and basic cell data
 		// fine max length to String fields
-		Map<String, Integer> maxFieldLenghts = new HashMap<String, Integer>();
-		Map<String, Integer> maxUserFieldLenghts = new HashMap<String, Integer>();
+		Map<String, Integer> maxFieldLenghts = new HashMap<>();
+		Map<String, Integer> maxUserFieldLenghts = new HashMap<>();
 		// discovered field types
-		Map<String, Class<?>> fieldTypes = new HashMap<String, Class<?>>();
-		Map<String, Class<?>> userFieldTypes = new HashMap<String, Class<?>>();
+		Map<String, Class<?>> fieldTypes = new HashMap<>();
+		Map<String, Class<?>> userFieldTypes = new HashMap<>();
 		// holds column order info
-		Map<Integer, String> colOrder = new HashMap<Integer, String>();
-		Map<Integer, String> userColOrder = new HashMap<Integer, String>();
+		Map<Integer, String> colOrder = new HashMap<>();
+		Map<Integer, String> userColOrder = new HashMap<>();
 		// required field names
-		List<String> requiredFields = new ArrayList<String>();
-		List<String> requiredUserFields = new ArrayList<String>();
+		List<String> requiredFields = new ArrayList<>();
+		List<String> requiredUserFields = new ArrayList<>();
 		// holds the actual data
-		Map<Integer, Map<String, Object>> rowsData = new HashMap<Integer, Map<String, Object>>();
-		Map<Integer, Map<String, Object>> rowsUserData = new HashMap<Integer, Map<String, Object>>();
+		Map<Integer, Map<String, Object>> rowsData = new HashMap<>();
+		Map<Integer, Map<String, Object>> rowsUserData = new HashMap<>();
 		// preserve order of fields
 		String[] ha = new String[columnCount];
 		int colOffset = 0;
@@ -600,11 +595,11 @@ public class Sheets2DB extends CommonMethods {
 
 		List<String> userTabs = Utils.getPropList(bundle, PROPKEY + ".userTabs");
 		// normalize userTabs list
-		List<String> userTables = new ArrayList<String>();
+		List<String> userTables = new ArrayList<>();
 		for (String tab : userTabs) {
 			userTables.add(Utils.tabToStr(renames, tab));
 		}
-		Map<String, String> foreignKeys = new HashMap<String, String>();
+		Map<String, String> foreignKeys = new HashMap<>();
 		if (userTables.contains(tableName) || userTabs.contains(tableName)) {
 			foreignKeys.put(USERID_COLUMN, ACCOUNT_TABLE + "." + ID_COLUMN);
 			fieldTypes.put(USERID_COLUMN, db.getIdTypeCls());
@@ -666,7 +661,7 @@ public class Sheets2DB extends CommonMethods {
 									requiredUserFields.add(header);
 								}
 							} else if (wantedColNums.isEmpty() || wantedColNums.contains(colNum)) {
-								if (StringUtils.isBlank(Utils.tabToStr(renames, (String) header))) {
+								if (StringUtils.isBlank(Utils.tabToStr(renames, header))) {
 									header = "Col" + columnNumberToLetter(colNum + 1);
 								}
 								maxFieldLenghts.put(header, 0);
@@ -683,7 +678,7 @@ public class Sheets2DB extends CommonMethods {
 						}
 						log.debug("row:" + row.toString());
 					} else if (rowId > frozenRowCount && rowId <= rowCount) {
-						Map<String, Object> rowMap = new HashMap<String, Object>();
+						Map<String, Object> rowMap = new HashMap<>();
 						rowsData.put(rowId, rowMap);
 						Object[] cells = row.toArray();
 						for (int i = 0; i < cells.length; i++) {
@@ -706,17 +701,10 @@ public class Sheets2DB extends CommonMethods {
 								if (cells[i] != null) {
 									if (cells[i] instanceof String) {
 										String s = (String) cells[i];
-										if (StringUtils.isBlank(s))
-											cells[i] = null;
-										else if (s.startsWith("#VALUE!"))
-											cells[i] = null;
-										else if (s.startsWith("#NUM!"))
-											cells[i] = null;
-										else if (s.startsWith("#REF!"))
-											cells[i] = null;
-										else if (s.startsWith("#N/A"))
-											cells[i] = null;
-										else if (s.equals("#N/A"))
+										if (StringUtils.isBlank(s)|| s.startsWith("#VALUE!") 
+												|| s.startsWith("#NUM!") 
+												|| s.startsWith("#REF!")|| s.startsWith("#N/A") 
+												|| s.equals("#N/A"))
 											cells[i] = null;
 									}
 								}
@@ -725,13 +713,10 @@ public class Sheets2DB extends CommonMethods {
 								if (val != null) {
 									ft.put(ha[i], val.getClass());
 									if (val instanceof String) {
-//										if ("Premiere date".equals(ha[i])) {
-//											log.debug("break point:" + cells[i] + ":" + val);
-//										}
 										int len = mfl.get(ha[i]);
 										int vlen = ((String) val).length();
 										if (len < vlen)
-											mfl.put((String) ha[i], vlen);
+											mfl.put(ha[i], vlen);
 									}
 								}
 								rowMap.put(ha[i], val);
@@ -775,29 +760,28 @@ public class Sheets2DB extends CommonMethods {
 								rd = rowsUserData;
 							}
 							Map<String, Object> rowMap = rd.get(rowId);
-							if (wantedColNums.isEmpty() || wantedColNums.contains(i) || userColNums.contains(i)) {
-								if (cells[i] instanceof String) {
-									String s = (String) cells[i];
-									if (!StringUtils.isBlank(s)) {
-										int beginIndex = s.indexOf("HYPERLINK(");
-										if (beginIndex > -1) {
-											beginIndex += 11;
-											String header = ha[i] + " link";
-											int endIndex = s.indexOf('"', beginIndex);
-											s = s.substring(beginIndex, endIndex);
-											Integer len = mfl.get(header);
-											if (len == null)
-												len = 0;
-											int vlen = s.length();
-											if (len < vlen)
-												mfl.put(header, vlen);
+							if ((wantedColNums.isEmpty() || wantedColNums.contains(i) || userColNums.contains(i)) 
+									&& (cells[i] instanceof String)) {
+								String s = (String) cells[i];
+								if (!StringUtils.isBlank(s)) {
+									int beginIndex = s.indexOf("HYPERLINK(");
+									if (beginIndex > -1) {
+										beginIndex += 11;
+										String header = ha[i] + " link";
+										int endIndex = s.indexOf('"', beginIndex);
+										s = s.substring(beginIndex, endIndex);
+										Integer len = mfl.get(header);
+										if (len == null)
+											len = 0;
+										int vlen = s.length();
+										if (len < vlen)
+											mfl.put(header, vlen);
 
-											ft.put(header, String.class);
-											rowMap.put(header, s);
-										}
+										ft.put(header, String.class);
+										rowMap.put(header, s);
 									}
 								}
-							}
+							}							
 						}
 					}
 					rowId++;
@@ -965,32 +949,52 @@ public class Sheets2DB extends CommonMethods {
 			if (requiredFields.contains(name)) {
 				sb.append(" NOT NULL");
 			}
-		}
-
-		if (foreignKeys != null) {
-			for (String field : foreignKeys.keySet()) {
-				sb.append(",\n");
-				String fieldName = Utils.tabToStr(renames, field);
-				sb.append("CONSTRAINT FK_" + tableName + "_" + fieldName + " FOREIGN KEY (" + fieldName + ")");
-				String fkey = foreignKeys.get(field);
+			if(isSQLite() && uniqueCols.contains(name)) {
+					sb.append(" UNIQUE");
+			}
+			if(!isSQLite() && foreignKeys != null && foreignKeys.keySet().contains(name)) {
+				String fkey = foreignKeys.get(name);
 				String[] split = fkey.split("\\s*\\.\\s*");
 				if (split.length == 2)
-					sb.append("    REFERENCES " + schema + split[0] + "(" + Utils.tabToStr(renames, split[1]) + ")");
+					sb.append(",\n FOREIGN KEY(" + fieldName+") REFERENCES "+ split[0] + "("+split[1]+")");
 				else
 					throw new PatternSyntaxException(fkey + " is invalid syntax", "\\s*\\.\\s*", 0);
 			}
-		}
-		for (String fieldName : uniqueCols) {
-			sb.append(",\nCONSTRAINT UC_" + fieldName + " UNIQUE (" + fieldName + ")");
-		}
+			
+		} //--start
 		sb.append(");");
-
 		runSQL(sb.toString(), tableName + ".sql");
-
+		
+		if(!isSQLite()) {
+			StringBuilder constraints = new StringBuilder();
+			if (foreignKeys != null) {
+				for (String field : foreignKeys.keySet()) {
+					constraints.append("ALTER TABLE " + tableName);
+					String fieldName = Utils.tabToStr(renames, field);
+					constraints.append(
+	//						" ADD CONSTRAINT FK_" + tableName + "_" + fieldName + " FOREIGN KEY (" + fieldName + ")");
+							" ADD FOREIGN KEY (" + fieldName + ")");
+					String fkey = foreignKeys.get(field);
+					String[] split = fkey.split("\\s*\\.\\s*");
+					if (split.length == 2)
+						constraints.append(" REFERENCES " + split[0] + " (id);" + System.lineSeparator());
+	//				" REFERENCES " + schema + split[0] + "(" + Utils.tabToStr(renames, split[1]) + ");\n");
+					else
+						throw new PatternSyntaxException(fkey + " is invalid syntax", "\\s*\\.\\s*", 0);
+				}
+			}
+			for (String fieldName : uniqueCols) {
+				constraints.append("ALTER TABLE " + tableName);
+				constraints.append(
+						" ADD CONSTRAINT UC_" + fieldName + " UNIQUE (" + fieldName + ");" + System.lineSeparator());
+			}
+			if (constraints.length() > 0)
+				saveFile(constraints.toString(), tableName + ".constraints.sql");
+		}
+		//--end
 		try {
 			Utils.deletePath(Utils.getPath(baseDir, SCRIPTS_FOLDER, tableName + ".data.sql"));
 		} catch (IOException e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
 
@@ -1125,13 +1129,13 @@ public class Sheets2DB extends CommonMethods {
 					if (isSQLite()) {
 						sb.append(((Date) val).getTime());
 					} else {
-						sb.append("'").append(DB_DATETIME.format(((Date) val).getTime())).append("'");
+						sb.append("'").append(sdfDB_DATETIME.format(((Date) val).getTime())).append("'");
 					}
 				} else if (val instanceof Time) {
 					if (isSQLite()) {
 						sb.append(((Time) val).getTime());
 					} else {
-						sb.append("'").append(TIME_ONLY24S.format(((Time) val).getTime())).append("'");
+						sb.append("'").append(sdfTIME_ONLY24S.format(((Time) val).getTime())).append("'");
 					}
 				} else {
 					sb.append(val);
@@ -1223,52 +1227,50 @@ public class Sheets2DB extends CommonMethods {
 		genTable(ACCOUNT_TABLE, "", maxFieldLenghts, fieldTypes, requiredFields, rowsData, null, colOrder);
 
 	}
+//-- added start
+	/**
+	 * Save content to saveFile in SCRIPTS_FOLDER
+	 * 
+	 * @param content
+	 * @param saveFile
+	 */
+	private void saveFile(String content, String saveFile) {
+		Path p = Utils.getPath(baseDir, SCRIPTS_FOLDER, saveFile);
+		if (!p.toFile().exists()) {
+			try {
+				Files.createDirectories(p.getParent());
+			} catch (IOException e) {
+				log.warn(e.getMessage());
+			}
+		}
+		try (PrintStream ps = new PrintStream(new FileOutputStream(p.toFile(), true))) {
+			ps.println(content);
+			log.warn("Wrote:" + p.toString());
+		} catch (Exception e) {
+			log.error("failed to create " + p, e);
+			p.toFile().delete();
+		}
 
+	}
+//-- added end
 	/**
 	 * Since we are recreating the table each time, do each call without
 	 * transactions so we can see any trouble rows that might exist in one go.
 	 * 
 	 * @param sql
-	 * @param saveFile TODO
+	 * @param saveFile file to save sql to
 	 * @return pass / fail
 	 */
 	private boolean runSQL(String sql, String saveFile) throws SQLException {
+		if (StringUtils.isBlank(sql)) {
+			return true;
+		}
 		log.debug("Running:" + sql);
 		boolean rtn = false;
-
 		try {
 			if (!StringUtils.isBlank(saveFile)) {
-				Path p = Utils.getPath(baseDir, SCRIPTS_FOLDER, saveFile);
-				if (!p.toFile().exists()) {
-					try {
-						Files.createDirectories(p.getParent());
-					} catch (IOException e) {
-						log.warn(e.getMessage());
-					}
-				}
-				try (PrintStream ps = new PrintStream(new FileOutputStream(p.toFile(), true))) {
-					ps.println(sql);
-					log.warn("Wrote:" + p.toString());
-				} catch (Exception e) {
-					log.error("failed to create " + p, e);
-					p.toFile().delete();
-				}
-				p = Utils.getPath(baseDir, SCRIPTS_FOLDER, db.getDbName() + ".sql");
-				if (!p.toFile().exists()) {
-					try {
-						Files.createDirectories(p.getParent());
-					} catch (IOException e) {
-						log.warn(e.getMessage());
-					}
-				}
-				try (PrintStream ps = new PrintStream(new FileOutputStream(p.toFile(), true))) {
-					ps.println(sql);
-					log.warn("Wrote:" + p.toString());
-				} catch (Exception e) {
-					log.error("failed to create " + p, e);
-					p.toFile().delete();
-				}
-
+				saveFile(sql, saveFile);
+				saveFile(sql, getBundelName() + "DB.sql");
 			}
 			Connection conn = db.getConnection(getClass().getSimpleName() + ".runSQL()");
 			Statement stmt = conn.createStatement();
@@ -1306,7 +1308,10 @@ public class Sheets2DB extends CommonMethods {
 					.setApplicationName(APPLICATION_NAME).build();
 			Spreadsheet spreadsheet = service.spreadsheets().get(spreadsheetId).execute();
 			List<Sheet> sheets = spreadsheet.getSheets();
-
+			if(!isSQLite()) {
+				runSQL("SET GLOBAL FOREIGN_KEY_CHECKS=0;", null); //--added
+			}
+			
 			// clear DB in reverse order to deal with constraints
 			for (Sheet sheet : sheets) {
 				SheetProperties p = sheet.getProperties();
@@ -1329,6 +1334,30 @@ public class Sheets2DB extends CommonMethods {
 					exportTab(service, spreadsheetId, sheet);
 				}
 			}
+//--added start 
+			// check to see if we have constraints to add
+			Path p = Utils.getPath(baseDir, SCRIPTS_FOLDER);
+			File dir = p.toFile();
+			File[] files = dir.listFiles(new FilenameFilter() {
+				@Override
+				public boolean accept(File dir, String name) {
+					return name.endsWith(".constraints.sql");
+				}
+			});
+
+			for (File sqlfile : files) {
+				List<String> lines = Files.readAllLines(sqlfile.toPath());
+				for (String line : lines)
+					runSQL(line, null);
+
+				// runSQL(new String(Files.readAllBytes(sqlfile.toPath())), null);
+			}
+		} catch (TokenResponseException e) {
+			log.error("Failed to get to export sheet ", e.getDetails());
+			if (failOnAnyError) {
+				throw e;
+			}
+//-- added end			
 		} catch (Exception e) {
 			log.error("Failed to get to export sheet ", e);
 			if (failOnAnyError) {

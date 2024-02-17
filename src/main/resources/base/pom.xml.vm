@@ -12,11 +12,14 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.3.4.RELEASE</version>
+		<version>2.2.5.RELEASE</version>
 	</parent>
 
 	<properties>
+		<java.version>8</java.version>
 		<lombok.version>1.18.30</lombok.version>
+	    <!-- overrides Properties -->
+	    <sqlite.version>3.41.2.2</sqlite.version>	    
 	    <!-- JaCoCo Properties -->
 	    <jacoco.version>0.8.6</jacoco.version>
 	    <sonar.java.coveragePlugin>jacoco</sonar.java.coveragePlugin>
@@ -24,6 +27,23 @@
 	    <sonar.jacoco.reportPath>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPath>
 	    <sonar.language>java</sonar.language>
 	</properties>
+
+<dependencyManagement>
+    <dependencies>
+    <!-- overrides -->
+		<dependency>
+			<groupId>org.xerial</groupId>
+			<artifactId>sqlite-jdbc</artifactId>
+			<version>${sqlite.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<version>${lombok.version}</version>
+		</dependency>
+		
+    </dependencies>
+</dependencyManagement>
 
 	<dependencies>
 		<dependency>
@@ -96,7 +116,6 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<version>${lombok.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.webjars</groupId>
@@ -148,9 +167,10 @@
 			<artifactId>sqlite-jdbc</artifactId>
 			<scope>runtime</scope>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
 		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
+		    <groupId>mysql</groupId>
+		    <artifactId>mysql-connector-java</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>
@@ -227,8 +247,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
 					<encoding>${project.build.sourceEncoding}</encoding>
-					<source>1.8</source>
-					<target>1.8</target>
+					<source>${java.version}</source>
+					<target>${java.version}</target>
 				</configuration>
 			</plugin>
 			<plugin>

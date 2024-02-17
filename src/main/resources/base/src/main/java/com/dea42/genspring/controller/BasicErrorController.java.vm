@@ -35,7 +35,6 @@ public class BasicErrorController implements ErrorController {
 		return "error/general";
 	}
 
-	@Override
 	public String getErrorPath() {
 		return null;
 	}

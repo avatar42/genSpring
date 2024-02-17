@@ -40,7 +40,6 @@ import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.test.web.servlet.ResultActions;
 
 import ${basePkg}.UnitBase;
 import ${basePkg}.utils.Utils;
@@ -65,7 +64,7 @@ public class SeleniumBase extends UnitBase {
 	protected String base;
 	protected String context = "${baseModule}";
 	protected WebDriver driver;
-	protected int timeOutInSeconds = 30;
+	protected long timeOutInSeconds = 30;
 	protected boolean useLocal = false;
 	// time to pause at the start of each command.
 	protected long speedDelay = 1;
@@ -377,8 +376,16 @@ public class SeleniumBase extends UnitBase {
 // If downloading and running an exe makes you nervous (and it probably should) set useLocal to true and update path below.
 		if (useLocal) {
 			System.setProperty("webdriver.gecko.driver", "C:\\webdriver\\geckodriver-v0.11.1-win64\\geckodriver.exe");
-			DesiredCapabilities dc = DesiredCapabilities.firefox();
-			dc.setCapability("marionette", true);
+			// browser options
+			// keys.add("chromeOptions");
+			// keys.add("edgeOptions");
+			// keys.add("goog:chromeOptions");
+			// keys.add("moz:firefoxOptions");
+			// keys.add("operaOptions");
+			// keys.add("se:ieOptions");
+			// keys.add("safari.options");
+			DesiredCapabilities dc = new DesiredCapabilities();
+			dc.setBrowserName("moz:firefoxOptions");
 		} else {
 			WebDriverManager.firefoxdriver().setup();
 		}
